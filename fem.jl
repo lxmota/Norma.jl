@@ -67,7 +67,7 @@ function [top_level_params, domain_data] = ...
         prev_displacements = displacements;
 
         Na = this.Na;
-        DNaDX = this.DNaDX;
+        dNaDX = this.dNaDX;
         GradOp = this.GradOp;
         detDXDxi = this.detDXDxi;
         w = this.w;
@@ -109,7 +109,7 @@ function [top_level_params, domain_data] = ...
           for i = 1 : num_elements
 
             % local gradient operator
-            Be(:, :, :) = DNaDX(i, :, :, :);
+            Be(:, :, :) = dNaDX(i, :, :, :);
 
             nodes = connectivity(i, :);
             X = coordinates(:, nodes)';

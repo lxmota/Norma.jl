@@ -108,15 +108,15 @@ function [top_level_params, domain_data] = Setup()
 
     % initialize and compute integration rule weights, shape functions,
     % and local shape function derivatives
-    [Na, DNaDxi, w] = isoparametric(element_type, num_int);
+    [Na, dNaDxi, w] = isoparametric(element_type, num_int);
 
     this.Na = Na;
-    this.DNaDxi = DNaDxi;
+    this.dNaDxi = dNaDxi;
     this.w = w;
 
     % calculate gradient operator and jacobian determinant
     detDXDxi = zeros(num_elements, num_int);
-    DNaDX = zeros(num_elements, dimension, nodes_per_element, num_int);
+    dNaDX = zeros(num_elements, dimension, nodes_per_element, num_int);
     a = dimension * dimension;
     b = nodes_per_element * dimension;
     GradOp = zeros(num_elements, num_int, a, b);
@@ -125,17 +125,17 @@ function [top_level_params, domain_data] = Setup()
       nodes = connectivity(i, :)';
       X = coordinates(:, nodes);
       for j = 1 : num_int
-        DXDxiT = DNaDxi(:, :, j) * X';
-        DNaDXij = DXDxiT \ DNaDxi(:, :, j);
-        DNaDX(i, :, :, j) = DNaDXij;
+        DXDxiT = dNaDxi(:, :, j) * X';
+        dNaDXij = DXDxiT \ dNaDxi(:, :, j);
+        dNaDX(i, :, :, j) = dNaDXij;
         detDXDxi(i, j) = det(DXDxiT);
-        GradOp(i, j, :, :) = gradient_operator(DNaDXij);
+        GradOp(i, j, :, :) = gradient_operator(dNaDXij);
       end
 
     end
 
     this.GradOp = GradOp;
-    this.DNaDX = DNaDX;
+    this.dNaDX = dNaDX;
     this.detDXDxi = detDXDxi;
 
     domain_data{domain} = this;

@@ -17,23 +17,24 @@ struct ProblemParams
     dof
 end
 
-struct Domain
+struct Mesh
     name
     dimension
     num_nodes
     num_elements
+    element_type
     nodes_per_element
     num_int
-    element_type
-    mesh
+    coordinates
+    connectivity
+    nodesets
     dbc
     nbc
     sbc
 end
 
-struct Mesh
-    coordinates
-    connectivity
-    element_type
-    nodesets
+struct Domain
+    Na
+    dNadξ
+    w
 end
