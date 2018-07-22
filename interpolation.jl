@@ -181,7 +181,7 @@ end
 function isoparametric(element_type, num_int)
     msg = "Invalid number of integration points for element: "
     str_int = string(num_int)
-    if element_type == "BAR"
+    if element_type == "BAR2"
         if num_int == 1
             Na, dNa, w = lagrangianD1N2G1()
         elseif num_int == 2
