@@ -1,9 +1,4 @@
-#
-#
-module LCM
-export Neohookean, SaintVenant_Kirchhoff
-export constitutive, isoparametric
-include("operators.jl")
-include("constitutive.jl")
-include("interpolation.jl")
+include("run.jl")
+for input in ARGS
+    setup(input)
 end
