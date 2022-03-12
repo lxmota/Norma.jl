@@ -1,0 +1,8 @@
+domains: ["cube-1.yaml", "cube-2.yaml"]
+initial time: 0.0
+final time: 1.0e-03
+number of steps: 1000
+minimum iterations: 1
+maximum iterations: 1024
+relative tolerance: 1.0e-12
+absolute tolerance: 1.0e-08

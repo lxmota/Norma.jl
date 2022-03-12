@@ -14,6 +14,7 @@ volume 1 size {h_fine}
 mesh volume 1
 block 1 volume 1
 #block 1 element type tetra4
+block 1 name "fine"
 nodeset 1 surface 4
 nodeset 1 name "-X"
 nodeset 2 surface 6
@@ -26,7 +27,6 @@ nodeset 5 surface 2
 nodeset 5 name "-Z"
 nodeset 6 surface 1
 nodeset 6 name "+Z"
-block 1 name "fine"
 set large exodus file off
 export mesh "cube-1.g" overwrite
 delete mesh
