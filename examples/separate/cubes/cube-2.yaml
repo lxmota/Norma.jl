@@ -1,1 +1,3 @@
-mesh: "cube-2.g"
+type: single
+mesh: cube-2.g
+material: cube-material-2.yaml 

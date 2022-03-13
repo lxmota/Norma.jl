@@ -1,3 +1,4 @@
+type: multi
 domains: ["cube-1.yaml", "cube-2.yaml"]
 initial time: 0.0
 final time: 1.0e-03
