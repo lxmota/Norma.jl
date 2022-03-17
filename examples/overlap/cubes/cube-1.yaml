@@ -3,9 +3,10 @@ mesh: cube-1.g
 material: cube-material-1.yaml
 boundary conditions:
   Dirichlet:
-    - nodeset: nsz-
-      dof: z
-      value: "0.0"
-    - nodeset: nsz+
-      dof: z
-      value: "1.0 * t"
+    - node set: nsz-
+      component: 3
+      function: "0.0"
+  Schwarz Dirichlet:
+    - node set: nsz+
+      component: 3
+      source: "cube-2.yaml"
