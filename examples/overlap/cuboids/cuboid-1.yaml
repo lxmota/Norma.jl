@@ -1,6 +1,6 @@
 type: single
-mesh: cube-1.g
-material: cube-material-1.yaml
+mesh: cuboid-1.g
+material: cuboid-material-1.yaml
 boundary conditions:
   Dirichlet:
     - node set: nsz-
@@ -9,4 +9,4 @@ boundary conditions:
   Schwarz Dirichlet:
     - node set: nsz+
       component: 3
-      source: "cube-2.yaml"
+      source: "cuboid-2.yaml"

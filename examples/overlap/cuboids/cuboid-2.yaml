@@ -1,6 +1,6 @@
 type: single
-mesh: cube-2.g
-material: cube-material-2.yaml 
+mesh: cuboid-2.g
+material: cuboid-material-2.yaml 
 boundary conditions:
   Neumann:
     - side set: ssz+
@@ -9,4 +9,4 @@ boundary conditions:
   Schwarz Neumann:
     - side set: ssz+
       component: 3
-      source: "cube-1.yaml"
+      source: "cuboid-1.yaml"

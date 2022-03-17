@@ -1,5 +1,3 @@
-#
-#
 function barycentricD2N3(ξ)
     Na  = [1 - ξ[1] - ξ[2],
            ξ[1],
@@ -9,8 +7,6 @@ function barycentricD2N3(ξ)
     return Na, dNa
 end
 
-#
-#
 function barycentricD2N3G1()
     w = 0.5 * ones(1, 1)
     Na = zeros(3, 1)
@@ -20,8 +16,6 @@ function barycentricD2N3G1()
     return Na, dNa, w
 end
 
-#
-#
 function barycentricD2N3G3()
     w = ones(1, 3) / 6.0
     Na = zeros(3, 3)
@@ -35,8 +29,6 @@ function barycentricD2N3G3()
     return Na, dNa, w
 end
 
-#
-#
 function barycentricD3N4(ξ)
     Na  = [1 - ξ[1] - ξ[2] - ξ[3],
            ξ[1],
@@ -48,8 +40,6 @@ function barycentricD3N4(ξ)
     return Na, dNa
 end
 
-#
-#
 function barycentricD3N4G1()
     w = ones(1, 1) / 6.0
     Na = zeros(4, 1)
@@ -59,8 +49,6 @@ function barycentricD3N4G1()
     return Na, dNa, w
 end
 
-#
-#
 function barycentricD3N4G4()
     w = ones(1, 4) / 24.0
     Na = zeros(4, 4)
