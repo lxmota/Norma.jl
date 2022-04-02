@@ -216,7 +216,8 @@ function isoparametric(element_type, num_int)
 end
 
 function gradient_operator(DNDX)
-    [dim, nen] = size(DNDX);
+    dim = size(DNDX, 1)
+    nen = size(DNDX, 2)
     I = eye(dim);
     B = zeros(dim * dim, nen * dim);
     for i ∈ 1 : dim
