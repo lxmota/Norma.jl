@@ -4,15 +4,15 @@ using .MiniTensor
 
 struct ScalarField
     name::String
-    value::Array{MiniTensor.Scalar}
+    value::Vector{MTScalar}
 end
 
 struct VectorField
     name::String
-    value::Array{MiniTensor.Vector}
+    value::Vector{MTVector}
 end
 
 struct TensorField
     name::String
-    value::Array{MiniTensor.Tensor}
+    value::Vector{MTTensor}
 end

@@ -1,11 +1,10 @@
 module MiniTensor
+export MTScalar, MTVector, MTTensor
 
 using StaticArrays
 
-const Scalar = Float64
-const Vector = SVector{3, Scalar}
-const Tensor = SMatrix{3, 3, Scalar}
-
-export Scalar, Vector, Tensor
+const MTScalar = Float64
+const MTVector = SVector{3, MTScalar}
+const MTTensor = SMatrix{3, 3, MTScalar}
 
 end

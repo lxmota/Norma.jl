@@ -1,4 +1,5 @@
 type: single
+model: static solid
 mesh: cube.g
 initial time: 0.0
 final time: 1.0e-03
