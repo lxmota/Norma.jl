@@ -1,3 +1,4 @@
 type: single
+model: dynamic solid
 mesh: cube-1.g
 material: cube-material-1.yaml

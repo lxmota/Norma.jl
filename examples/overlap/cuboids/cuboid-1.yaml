@@ -1,4 +1,5 @@
 type: single
+model: dynamic solid
 mesh: cuboid-1.g
 material: cuboid-material-1.yaml
 boundary conditions:

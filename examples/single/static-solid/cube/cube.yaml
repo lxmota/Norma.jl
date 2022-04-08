@@ -15,6 +15,6 @@ boundary conditions:
       component: 3
       function: "0.0"
   Neumann:
-    - node set: ssz+
+    - side set: ssz+
       component: 3
       function: "0.0"

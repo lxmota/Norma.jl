@@ -1,5 +1,5 @@
 type: single
-model: static solid
+model: dynamic solid
 mesh: cube.g
 initial time: 0.0
 final time: 1.0e-03
@@ -15,6 +15,6 @@ boundary conditions:
       component: 3
       function: "0.0"
   Neumann:
-    - node set: ssz+
+    - side set: ssz+
       component: 3
       function: "0.0"
