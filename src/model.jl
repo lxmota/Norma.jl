@@ -55,68 +55,140 @@ mutable struct DynamicSolid <: SolidMechanics
     acceleration::VectorField
 end
 
+function DynamicSolid(params::Dict{Any, Any})
+    mesh_struct = params["mesh_struct"]
+    x, y, z = mesh_struct.get_coords()
+    num_nodes = length(x)
+    reference_vector = Vector{MTVector}(undef, num_nodes)
+    current_vector = Vector{MTVector}(undef, num_nodes)
+    for node ∈ 1 : num_nodes
+        reference_vector[node] = MTVector(x[node], y[node], z[node])
+        current_vector[node] = MTVector(x[node], y[node], z[node])
+        velocity_vector[node] = MTVector(0.0, 0.0, 0.0)
+        acceleration_vector[node] = MTVector(0.0, 0.0, 0.0)
+    end
+    reference = VectorField("reference configuration", reference_vector)
+    current = VectorField("current configuration", current_vector)
+    velocity = VectorField("velocity", velocity_vector)
+    acceleration = VectorField("acceleration", acceleration_vector)
+    materials_file = params["material"]
+    material_params = YAML.load_file(materials_file)
+    material_blocks = material_params["blocks"]
+    num_blks_params = length(material_blocks)
+    elem_blk_ids = mesh_struct.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    if (num_blks_params ≠ num_blks)
+        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
+        ") must be equal to number of blocks in materials file ", params["material"],
+        " (", num_blks_params, ")")
+    end
+    elem_blk_names = mesh_struct.get_elem_blk_names()
+    materials = Vector{Material}(undef, 0)
+    for elem_blk_name ∈ elem_blk_names
+        material_name = material_blocks[elem_blk_name]
+        material_props = material_params[material_name]
+        material_model = create_material(material_props)
+        push!(materials, material_model)
+    end
+    DynamicSolid(params, materials, reference, current, velocity, acceleration)
+end
+
 mutable struct StaticHeat <: HeatConduction
     params::Dict{Any, Any}
+    materials::Vector{Material}
     reference::VectorField
     temperature::ScalarField
 end
 
+function StaticHeat(params::Dict{Any, Any})
+    mesh_struct = params["mesh_struct"]
+    x, y, z = mesh_struct.get_coords()
+    num_nodes = length(x)
+    reference_vector = Vector{MTVector}(undef, num_nodes)
+    temperature_vector = Vector{MTScalar}(undef, num_nodes)
+    for node ∈ 1 : num_nodes
+        reference_vector[node] = MTVector(x[node], y[node], z[node])
+        temperature_vector[node] = MTScalar(0.0)
+    end
+    reference = VectorField("reference configuration", reference_vector)
+    temperature = ScalarField("temperature", temperature_vector)
+    materials_file = params["material"]
+    material_params = YAML.load_file(materials_file)
+    material_blocks = material_params["blocks"]
+    num_blks_params = length(material_blocks)
+    elem_blk_ids = mesh_struct.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    if (num_blks_params ≠ num_blks)
+        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
+        ") must be equal to number of blocks in materials file ", params["material"],
+        " (", num_blks_params, ")")
+    end
+    elem_blk_names = mesh_struct.get_elem_blk_names()
+    materials = Vector{Material}(undef, 0)
+    for elem_blk_name ∈ elem_blk_names
+        material_name = material_blocks[elem_blk_name]
+        material_props = material_params[material_name]
+        material_model = create_material(material_props)
+        push!(materials, material_model)
+    end
+    StaticHeat(params, materials, reference, temperature)
+end
+
 mutable struct DynamicHeat <: HeatConduction
     params::Dict{Any, Any}
+    materials::Vector{Material}
     reference::VectorField
     temperature::ScalarField
     rate::ScalarField
 end
 
-function create_model(params::Dict{Any, Any})
-    model_name = params["model"]
+function DynamicHeat(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference = Vector{MTVector}(undef, num_nodes)
+    reference_vector = Vector{MTVector}(undef, num_nodes)
+    temperature_vector = Vector{MTScalar}(undef, num_nodes)
+    rate_vector = Vector{MTScalar}(undef, num_nodes)
     for node ∈ 1 : num_nodes
-        reference[node] = MTVector(x[node], y[node], z[node])
+        reference_vector[node] = MTVector(x[node], y[node], z[node])
+        temperature_vector[node] = MTScalar(0.0)
+        rate_vector[node] = MTScalar(0.0)
     end
-    reference_field = VectorField("reference configuration", reference)
+    reference = VectorField("reference configuration", reference_vector)
+    temperature = ScalarField("temperature", temperature_vector)
+    rate = ScalarField("temperature rate", rate_vector)
+    materials_file = params["material"]
+    material_params = YAML.load_file(materials_file)
+    material_blocks = material_params["blocks"]
+    num_blks_params = length(material_blocks)
+    elem_blk_ids = mesh_struct.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    if (num_blks_params ≠ num_blks)
+        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
+        ") must be equal to number of blocks in materials file ", params["material"],
+        " (", num_blks_params, ")")
+    end
+    elem_blk_names = mesh_struct.get_elem_blk_names()
+    materials = Vector{Material}(undef, 0)
+    for elem_blk_name ∈ elem_blk_names
+        material_name = material_blocks[elem_blk_name]
+        material_props = material_params[material_name]
+        material_model = create_material(material_props)
+        push!(materials, material_model)
+    end
+    DynamicHeat(params, materials, reference, temperature, rate)
+end
 
-    if model_name == "static solid" || model_name == "dynamic solid"
-        current = Vector{MTVector}(undef, num_nodes)
-        for node ∈ 1 : num_nodes
-            current[node] = MTVector(x[node], y[node], z[node])
-        end
-        current_field = VectorField("current configuration", current)
-        materials_file = params["material"]
-        material_params = YAML.load_file(materials_file)
-    end
-    if model_name == "static heat" || model_name == "dynamic heat"
-        temperature = Vector{MTScalar}(undef, num_nodes)
-        for node ∈ 1 : num_nodes
-            temperature[node] = 0.0
-        end
-        temperature_field = ScalarField("temperature", temperature)
-    end
-  
+function create_model(params::Dict{Any, Any})
+    model_name = params["model"]
     if model_name == "static solid"
         return StaticSolid(params)
     elseif model_name == "dynamic solid"
-        velocity = Vector{MTVector}(undef, num_nodes)
-        acceleration = Vector{MTVector}(undef, num_nodes)
-        for node ∈ 1 : num_nodes
-            velocity[node] = acceleration[node] = MTVector(0.0, 0.0, 0.0)
-        end
-        velocity_field = VectorField("velocity", velocity)
-        acceleration_field = VectorField("acceleration", acceleration)
-        return DynamicSolid(params, material_params, reference_field, current_field,
-            velocity_field, acceleration_field)
+        return DynamicSolid(params)
     elseif model_name == "static heat"
-        return StaticHeat(params, reference_field, temperature_field)
+        return StaticHeat(params)
     elseif model_name == "dynamic heat"
-        rate = Vector{MTScalar}(undef, num_nodes)
-        for node ∈ 1 : num_nodes
-            rate[node] = 0.0
-        end
-        rate_field = ScalarField("temperature rate", rate)
-        return DynamicHeat(params, reference_field, temperature_field, rate_field)
+        return DynamicHeat(params)
     else
         error("Unknown type of model : ", model_name)
     end
