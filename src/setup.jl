@@ -24,11 +24,11 @@ function setup_single(params::Dict{Any, Any})
     params["mesh_struct"] = mesh_struct
     elem_blk_ids = mesh_struct.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    for i ∈ 1 : num_blks
-        blk_id = elem_blk_ids[i]
+    for blk_index ∈ 1 : num_blks
+        blk_id = elem_blk_ids[blk_index]
         elem_type = mesh_struct.elem_type(blk_id)
-        num_int = default_num_int_pts(elem_type)
-        N, dNdξ, w = isoparametric(elem_type, num_int)
+        num_points = default_num_int_pts(elem_type)
+        N, dNdξ, w = isoparametric(elem_type, num_points)
     end
 end
 

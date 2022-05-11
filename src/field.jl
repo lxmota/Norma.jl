@@ -1,7 +1,3 @@
-include("minitensor.jl")
-
-using .MiniTensor
-
 struct ScalarField
     name::String
     value::Vector{MTScalar}

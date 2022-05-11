@@ -1,5 +1,6 @@
 blocks:
-  fine: elastic
+  first: elastic
+  second: elastic
 elastic:
   model: neohookean
   elastic modulus: 1.0e+09
