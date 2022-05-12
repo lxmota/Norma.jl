@@ -3,7 +3,7 @@ model: static solid
 mesh: cube.g
 initial time: 0.0
 final time: 1.0e-03
-number of steps: 1000
+number of steps: 1
 minimum iterations: 1
 maximum iterations: 1024
 relative tolerance: 1.0e-12

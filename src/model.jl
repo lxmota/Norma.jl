@@ -1,5 +1,4 @@
 include("constitutive.jl")
-include("field.jl")
 
 abstract type Model end
 abstract type SolidMechanics <: Model end
@@ -7,23 +6,21 @@ abstract type HeatConduction <: Model end
 
 mutable struct StaticSolid <: SolidMechanics
     params::Dict{Any, Any}
-    materials::Vector{Material}
-    reference::VectorField
-    current::VectorField
+    materials::Vector{Solid}
+    reference::Matrix{MTScalar}
+    current::Matrix{MTScalar}
 end
 
 function StaticSolid(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference_vector = Vector{MTVector}(undef, num_nodes)
-    current_vector = Vector{MTVector}(undef, num_nodes)
+    reference = Matrix{MTScalar}(undef, 3, num_nodes)
+    current = Matrix{MTScalar}(undef, 3, num_nodes)
     for node ∈ 1 : num_nodes
-        reference_vector[node] = MTVector(x[node], y[node], z[node])
-        current_vector[node] = MTVector(x[node], y[node], z[node])
+        reference[:, node] = [x[node], y[node], z[node]]
+        current[:, node] = [x[node], y[node], z[node]]
     end
-    reference = VectorField("reference configuration", reference_vector)
-    current = VectorField("current configuration", current_vector)
     materials_file = params["material"]
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
@@ -36,7 +33,7 @@ function StaticSolid(params::Dict{Any, Any})
         " (", num_blks_params, ")")
     end
     elem_blk_names = mesh_struct.get_elem_blk_names()
-    materials = Vector{Material}(undef, 0)
+    materials = Vector{Solid}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
         material_props = material_params[material_name]
@@ -48,29 +45,25 @@ end
 
 mutable struct DynamicSolid <: SolidMechanics
     params::Dict{Any, Any}
-    materials::Vector{Material}
-    reference::VectorField
-    current::VectorField
-    velocity::VectorField
-    acceleration::VectorField
+    materials::Vector{Solid}
+    reference::Matrix{MTScalar}
+    current::Matrix{MTScalar}
+    velocity::Matrix{MTScalar}
+    acceleration::Matrix{MTScalar}
 end
 
 function DynamicSolid(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference_vector = Vector{MTVector}(undef, num_nodes)
-    current_vector = Vector{MTVector}(undef, num_nodes)
+    reference = Matrix{MTScalar}(undef, 3, num_nodes)
+    current = Matrix{MTScalar}(undef, 3, num_nodes)
     for node ∈ 1 : num_nodes
-        reference_vector[node] = MTVector(x[node], y[node], z[node])
-        current_vector[node] = MTVector(x[node], y[node], z[node])
-        velocity_vector[node] = MTVector(0.0, 0.0, 0.0)
-        acceleration_vector[node] = MTVector(0.0, 0.0, 0.0)
+        reference[:, node] = [x[node], y[node], z[node]]
+        current[:, node] = [x[node], y[node], z[node]]
+        velocity[:, node] = [0.0, 0.0, 0.0]
+        acceleration[:, node] = [0.0, 0.0, 0.0]
     end
-    reference = VectorField("reference configuration", reference_vector)
-    current = VectorField("current configuration", current_vector)
-    velocity = VectorField("velocity", velocity_vector)
-    acceleration = VectorField("acceleration", acceleration_vector)
     materials_file = params["material"]
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
@@ -83,7 +76,7 @@ function DynamicSolid(params::Dict{Any, Any})
         " (", num_blks_params, ")")
     end
     elem_blk_names = mesh_struct.get_elem_blk_names()
-    materials = Vector{Material}(undef, 0)
+    materials = Vector{Solid}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
         material_props = material_params[material_name]
@@ -95,23 +88,21 @@ end
 
 mutable struct StaticHeat <: HeatConduction
     params::Dict{Any, Any}
-    materials::Vector{Material}
-    reference::VectorField
-    temperature::ScalarField
+    materials::Vector{Thermal}
+    reference::Matrix{MTScalar}
+    temperature::Vector{MTScalar}
 end
 
 function StaticHeat(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference_vector = Vector{MTVector}(undef, num_nodes)
-    temperature_vector = Vector{MTScalar}(undef, num_nodes)
+    reference = Matrix{MTScalar}(undef, 3, num_nodes)
+    temperature = Vector{MTScalar}(undef, num_nodes)
     for node ∈ 1 : num_nodes
-        reference_vector[node] = MTVector(x[node], y[node], z[node])
-        temperature_vector[node] = MTScalar(0.0)
+        reference[:, node] = [x[node], y[node], z[node]]
+        temperature[node] = 0.0
     end
-    reference = VectorField("reference configuration", reference_vector)
-    temperature = ScalarField("temperature", temperature_vector)
     materials_file = params["material"]
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
@@ -124,7 +115,7 @@ function StaticHeat(params::Dict{Any, Any})
         " (", num_blks_params, ")")
     end
     elem_blk_names = mesh_struct.get_elem_blk_names()
-    materials = Vector{Material}(undef, 0)
+    materials = Vector{Thermal}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
         material_props = material_params[material_name]
@@ -136,27 +127,24 @@ end
 
 mutable struct DynamicHeat <: HeatConduction
     params::Dict{Any, Any}
-    materials::Vector{Material}
-    reference::VectorField
-    temperature::ScalarField
-    rate::ScalarField
+    materials::Vector{Vector}
+    reference::Matrix{MTScalar}
+    temperature::Vector{MTScalar}
+    rate::Vector{MTScalar}
 end
 
 function DynamicHeat(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference_vector = Vector{MTVector}(undef, num_nodes)
-    temperature_vector = Vector{MTScalar}(undef, num_nodes)
-    rate_vector = Vector{MTScalar}(undef, num_nodes)
+    reference = Matrix{MTScalar}(undef, 3, num_nodes)
+    temperature = Vector{MTScalar}(undef, num_nodes)
+    rate = Vector{MTScalar}(undef, num_nodes)
     for node ∈ 1 : num_nodes
-        reference_vector[node] = MTVector(x[node], y[node], z[node])
-        temperature_vector[node] = MTScalar(0.0)
-        rate_vector[node] = MTScalar(0.0)
+        reference[:, node] = [x[node], y[node], z[node]]
+        temperature[node] = 0.0
+        rate[node] = 0.0
     end
-    reference = VectorField("reference configuration", reference_vector)
-    temperature = ScalarField("temperature", temperature_vector)
-    rate = ScalarField("temperature rate", rate_vector)
     materials_file = params["material"]
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
@@ -169,7 +157,7 @@ function DynamicHeat(params::Dict{Any, Any})
         " (", num_blks_params, ")")
     end
     elem_blk_names = mesh_struct.get_elem_blk_names()
-    materials = Vector{Material}(undef, 0)
+    materials = Vector{Thermal}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
         material_props = material_params[material_name]
@@ -196,12 +184,13 @@ end
 
 function potential_energy(model::SolidMechanics)
     params = model.params
-    material_params = model.material_params
+    materials = model.materials
     mesh_struct = params["mesh_struct"]
     total = 0.0
     elem_blk_ids = mesh_struct.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
+        material = materials[blk_index]
         blk_id = elem_blk_ids[blk_index]
         elem_type = mesh_struct.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -211,11 +200,17 @@ function potential_energy(model::SolidMechanics)
         num_blk_elems = blk_conn[2]
         num_elem_nodes = blk_conn[3]
         for blk_elem_index ∈ 1 : num_blk_elems
-            elem_nodes = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes 
-            connectvity = elem_conn[elem_nodes]
-            elem_ref_pos = model.reference.value[elem_nodes]
-            elem_cur_pos = model.current.value[elem_nodes]
+            node_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes 
+            elem_nodes = elem_conn[node_indices]
+            elem_ref_pos = model.reference[:, elem_nodes]
+            elem_cur_pos = model.current[:, elem_nodes]
             for point ∈ 1 : num_points
+                dXdξ = dNdξ[:, :, point] * transpose(elem_ref_pos)
+                dNdX = dXdξ \ dNdξ[:, :, point]
+                dxdX = dNdX * transpose(elem_cur_pos)
+                F = MTTensor(dxdX)
+                W, _, _ = constitutive(material, F)
+                println(W)
             end
         end
     end
