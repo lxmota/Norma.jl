@@ -6,6 +6,7 @@ function loop(params::Dict{Any, Any})
     time_diff = final_time - initial_time
     for stop ∈ 0 : num_steps
         time = initial_time + stop * time_diff
-        potential_energy(model)
+        energy = potential_energy(model)
+        println("Time: ", time, ", Energy: ", energy)
     end
 end

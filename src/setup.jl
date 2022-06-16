@@ -22,14 +22,6 @@ function setup_single(params::Dict{Any, Any})
     mesh_file = params["mesh"]
     mesh_struct = Exodus.exodus(mesh_file)
     params["mesh_struct"] = mesh_struct
-    elem_blk_ids = mesh_struct.get_elem_blk_ids()
-    num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
-        blk_id = elem_blk_ids[blk_index]
-        elem_type = mesh_struct.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
-        N, dNdξ, w = isoparametric(elem_type, num_points)
-    end
 end
 
 function setup_multi(params::Dict{Any, Any})

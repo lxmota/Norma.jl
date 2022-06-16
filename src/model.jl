@@ -186,7 +186,7 @@ function potential_energy(model::SolidMechanics)
     params = model.params
     materials = model.materials
     mesh_struct = params["mesh_struct"]
-    total = 0.0
+    body_energy = 0.0
     elem_blk_ids = mesh_struct.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
@@ -194,7 +194,7 @@ function potential_energy(model::SolidMechanics)
         blk_id = elem_blk_ids[blk_index]
         elem_type = mesh_struct.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
-        N, dNdξ, w = isoparametric(elem_type, num_points)
+        _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
         blk_conn = mesh_struct.get_elem_connectivity(blk_id)
         elem_conn = blk_conn[1]
         num_blk_elems = blk_conn[2]
@@ -204,14 +204,30 @@ function potential_energy(model::SolidMechanics)
             elem_nodes = elem_conn[node_indices]
             elem_ref_pos = model.reference[:, elem_nodes]
             elem_cur_pos = model.current[:, elem_nodes]
+            element_energy = 0.0
             for point ∈ 1 : num_points
                 dXdξ = dNdξ[:, :, point] * transpose(elem_ref_pos)
-                dNdX = dXdξ \ dNdξ[:, :, point]
-                dxdX = dNdX * transpose(elem_cur_pos)
+                dxdξ = dNdξ[:, :, point] * transpose(elem_cur_pos)
+                dxdX = dXdξ \ dxdξ
+                j = det(dXdξ)
                 F = MTTensor(dxdX)
                 W, _, _ = constitutive(material, F)
-                println(W)
+                w = elem_weights[point]
+                element_energy += W * j * w
             end
+            body_energy += element_energy
         end
     end
+    return body_energy
+end
+
+function potential_energy(position, model::SolidMechanics)
+    mesh_struct = model.params["mesh_struct"]
+    num_nodes = mesh_struct.num_nodes()
+    for node ∈ 1 : num_nodes
+        model.current[1, node] = position[3 * node - 2]
+        model.current[2, node] = position[3 * node - 1]
+        model.current[3, node] = position[3 * node]
+    end
+    return potential_energy(model)
 end
