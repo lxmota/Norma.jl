@@ -12,9 +12,9 @@ material: cube-material.yaml
 boundary conditions:
   Dirichlet:
     - node set: nsz-
-      component: 3
+      component: z
       function: "0.0"
   Neumann:
     - side set: ssz+
-      component: 3
+      component: z
       function: "0.0"

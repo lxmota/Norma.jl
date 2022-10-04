@@ -5,9 +5,9 @@ material: cuboid-material-2.yaml
 boundary conditions:
   Neumann:
     - side set: ssz+
-      component: 3
+      component: z
       function: "1.0 * t"
   Schwarz Neumann:
     - side set: ssz+
-      component: 3
+      component: z
       source: "cuboid-1.yaml"

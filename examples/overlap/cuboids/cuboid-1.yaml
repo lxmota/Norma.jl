@@ -5,9 +5,9 @@ material: cuboid-material-1.yaml
 boundary conditions:
   Dirichlet:
     - node set: nsz-
-      component: 3
+      component: z
       function: "0.0"
   Schwarz Dirichlet:
     - node set: nsz+
-      component: 3
+      component: z
       source: "cuboid-2.yaml"
