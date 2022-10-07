@@ -11,9 +11,18 @@ absolute tolerance: 1.0e-08
 material: cube-material.yaml
 boundary conditions:
   Dirichlet:
+    - node set: nsx-
+      component: x
+      function: "0.0"
+    - node set: nsy-
+      component: y
+      function: "0.0"
     - node set: nsz-
       component: z
       function: "0.0"
+    - node set: nsz+
+      component: z
+      function: "0.001 * t"
   Neumann:
     - side set: ssz+
       component: z

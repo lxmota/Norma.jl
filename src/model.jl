@@ -9,6 +9,7 @@ mutable struct StaticSolid <: SolidMechanics
     materials::Vector{Solid}
     reference::Matrix{MTScalar}
     current::Matrix{MTScalar}
+    time::MTScalar
 end
 
 function StaticSolid(params::Dict{Any, Any})
@@ -40,7 +41,8 @@ function StaticSolid(params::Dict{Any, Any})
         material_model = create_material(material_props)
         push!(materials, material_model)
     end
-    StaticSolid(params, materials, reference, current)
+    time = 0.0
+    StaticSolid(params, materials, reference, current, time)
 end
 
 mutable struct DynamicSolid <: SolidMechanics
@@ -50,6 +52,7 @@ mutable struct DynamicSolid <: SolidMechanics
     current::Matrix{MTScalar}
     velocity::Matrix{MTScalar}
     acceleration::Matrix{MTScalar}
+    time::MTScalar
 end
 
 function DynamicSolid(params::Dict{Any, Any})
@@ -83,7 +86,8 @@ function DynamicSolid(params::Dict{Any, Any})
         material_model = create_material(material_props)
         push!(materials, material_model)
     end
-    DynamicSolid(params, materials, reference, current, velocity, acceleration)
+    time = 0.0
+    DynamicSolid(params, materials, reference, current, velocity, acceleration, time)
 end
 
 mutable struct StaticHeat <: HeatConduction
@@ -91,6 +95,7 @@ mutable struct StaticHeat <: HeatConduction
     materials::Vector{Thermal}
     reference::Matrix{MTScalar}
     temperature::Vector{MTScalar}
+    time::MTScalar
 end
 
 function StaticHeat(params::Dict{Any, Any})
@@ -122,7 +127,8 @@ function StaticHeat(params::Dict{Any, Any})
         material_model = create_material(material_props)
         push!(materials, material_model)
     end
-    StaticHeat(params, materials, reference, temperature)
+    time = 0.0
+    StaticHeat(params, materials, reference, temperature, time)
 end
 
 mutable struct DynamicHeat <: HeatConduction
@@ -131,6 +137,7 @@ mutable struct DynamicHeat <: HeatConduction
     reference::Matrix{MTScalar}
     temperature::Vector{MTScalar}
     rate::Vector{MTScalar}
+    time::MTScalar
 end
 
 function DynamicHeat(params::Dict{Any, Any})
@@ -164,7 +171,8 @@ function DynamicHeat(params::Dict{Any, Any})
         material_model = create_material(material_props)
         push!(materials, material_model)
     end
-    DynamicHeat(params, materials, reference, temperature, rate)
+    time = 0.0
+    DynamicHeat(params, materials, reference, temperature, rate, time)
 end
 
 function create_model(params::Dict{Any, Any})
