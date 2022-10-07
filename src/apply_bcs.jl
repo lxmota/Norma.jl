@@ -32,16 +32,12 @@ function component_offset_from_string(name::String)
     return offset
 end
 
-t = 0.0
-x = 0.0
-y = 0.0
-z = 0.0
-
 function apply_bcs(model::SolidMechanics)
     params = model.params
     reference = model.reference
     current = model.current
     mesh_struct = params["mesh_struct"]
+    global t = model.time
     xc, yc, zc = mesh_struct.get_coords()
     num_nodes = length(xc)
     nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
@@ -56,11 +52,10 @@ function apply_bcs(model::SolidMechanics)
                 node_set_id = node_set_id_from_name(node_set_name, mesh_struct)
                 node_set_node_indices = mesh_struct.get_node_set_nodes(node_set_id)
                 for node_index ∈ node_set_node_indices
+                    global x = xc[node_index]
+                    global y = yc[node_index]
+                    global z = zc[node_index]
                     # function_str is an arbitrary function of t, x, y, z in the input file
-                    t = model.time
-                    x = xc[node_index]
-                    y = yc[node_index]
-                    z = zc[node_index]
                     bc_expr = Meta.parse(function_str)
                     bc_val = eval(bc_expr)
                     dof_index = 3 * (node_index - 1) + offset
@@ -76,10 +71,9 @@ end
 
 function apply_bcs(model::HeatConduction)
     params = model.params
-    reference = model.reference
     temperature = model.temperature
     mesh_struct = params["mesh_struct"]
-    t = model.time
+    global t = model.time
     xc, yc, zc = mesh_struct.get_coords()
     num_nodes = length(xc)
     nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
@@ -92,11 +86,12 @@ function apply_bcs(model::HeatConduction)
                 node_set_id = node_set_id_from_name(node_set_name, mesh_struct)
                 node_set_node_indices = mesh_struct.get_node_set_nodes(node_set_id)
                 for node_index ∈ node_set_node_indices
-                    x = xc[node_index]
-                    y = yc[node_index]
-                    z = zc[node_index]
+                    global x = xc[node_index]
+                    global y = yc[node_index]
+                    global z = zc[node_index]
                     # function_str is an arbitrary function of t, x, y, z in the input file
-                    bc_val = eval(Meta.parse(function_str))
+                    bc_expr = Meta.parse(function_str)
+                    bc_val = eval(bc_expr)
                     temperature[node_index] = bc_val
                     nodal_dofs[node_index] = Dirichlet::DOF
                 end

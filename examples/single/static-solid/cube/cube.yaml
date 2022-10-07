@@ -22,7 +22,7 @@ boundary conditions:
       function: "0.0"
     - node set: nsz+
       component: z
-      function: "0.001 * t"
+      function: "1.0 * t"
   Neumann:
     - side set: ssz+
       component: z
