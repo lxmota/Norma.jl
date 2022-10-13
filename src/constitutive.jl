@@ -75,10 +75,10 @@ end
 function odot(A, B)
     m = size(A, 1)
     C = zeros(m, m, m, m)
-    for a = 1 : m
-        for b = 1 : m
-            for c = 1 : m
-                for d = 1 : m
+    for a ∈ 1 : m
+        for b ∈ 1 : m
+            for c ∈ 1 : m
+                for d ∈ 1 : m
                     C[a, b, c, d] = A[a, c] * B[b, d] + A[a, d] * B[b, c]
                 end
             end
@@ -91,10 +91,10 @@ end
 function ox(A, B)
     m = size(A, 1)
     C = zeros(m, m, m, m)
-    for a = 1 : m
-        for b = 1 : m
-            for c = 1 : m
-                for d = 1 : m
+    for a ∈ 1 : m
+        for b ∈ 1 : m
+            for c ∈ 1 : m
+                for d ∈ 1 : m
                     C[a, b, c, d] = A[a, b] * B[c, d]
                 end
             end
@@ -106,10 +106,10 @@ end
 function oxI(A)
     m = size(A, 1)
     C = zeros(m, m, m, m)
-    for a = 1 : m
-        for b = 1 : m
-            for c = 1 : m
-                for d = 1 : m
+    for a ∈ 1 : m
+        for b ∈ 1 : m
+            for c ∈ 1 : m
+                for d ∈ 1 : m
                     C[a, b, c, d] = A[a, b] * I[c, d]
                 end
             end
@@ -121,10 +121,10 @@ end
 function Iox(B)
     m = size(B, 1)
     C = zeros(m, m, m, m)
-    for a = 1 : m
-        for b = 1 : m
-            for c = 1 : m
-                for d = 1 : m
+    for a ∈ 1 : m
+        for b ∈ 1 : m
+            for c ∈ 1 : m
+                for d ∈ 1 : m
                     C[a, b, c, d] = I[a, b] * B[c, d]
                 end
             end
@@ -136,13 +136,13 @@ end
 function convect_tangent(CC, S, F)
     n = size(F, 1)
     AA = zeros(n, n, n, n)
-    for i = 1 : n
-        for j = 1 : n
-            for k = 1 : n
-                for l = 1 : n
+    for i ∈ 1 : n
+        for j ∈ 1 : n
+            for k ∈ 1 : n
+                for l ∈ 1 : n
                     s = 0.0
-                    for p = 1 : n
-                        for q = 1 : n
+                    for p ∈ 1 : n
+                        for q ∈ 1 : n
                             s = s + F[i, p] * CC[p, j, l, q] * F[k, q]
                         end
                     end
@@ -156,12 +156,12 @@ end
 
 function second_from_fourth(AA)
     dim = size(AA, 1)
-    A = zeros(dim * dim)  
-    for i = 1 : dim
-        for j = 1 : dim
+    A = zeros(dim * dim, dim * dim)  
+    for i ∈ 1 : dim
+        for j ∈ 1 : dim
             p = dim * (i - 1) + j
-            for k = 1 : dim
-                for l = 1 : dim
+            for k ∈ 1 : dim
+                for l ∈ 1 : dim
                     q = dim * (k - 1) + l
                     A[p, q] = AA[i, j, k, l]
                 end
@@ -173,7 +173,7 @@ end
 
 function constitutive(material::SaintVenant_Kirchhoff, F::MTTensor)
     dim = size(F, 1)
-    C = transpose(F) * F
+    C = F' * F
     E = 0.5 * (C - I)
     λ = material.λ
     μ = material.μ
@@ -193,7 +193,9 @@ function constitutive(material::SaintVenant_Kirchhoff, F::MTTensor)
             end
         end
     end
-    return W, S, CC
+    P = F * S
+    AA = convect_tangent(CC, S, F)
+    return W, P, AA
 end
 
 function constitutive(material::Linear_Elastic, F::MTTensor)
@@ -218,12 +220,12 @@ function constitutive(material::Linear_Elastic, F::MTTensor)
             end
         end
     end
-    return σ, S, CC
+    return W, σ, CC
 end
 
 function constitutive(material::Neohookean, F::MTTensor)
     dim = size(F, 1)
-    C = transpose(F) * F
+    C = F' * F
     J2 = det(C)
     if dim == 1
         Jm2n = 1.0 / J2
@@ -250,7 +252,9 @@ function constitutive(material::Neohookean, F::MTTensor)
     CCvol = κ * (J2 * ICxIC - (J2 - 1) * ICoIC)
     CCdev = μJ2n * (trC * (ICxIC / dim + ICoIC) - oxI(IC) - Iox(IC))
     CC = CCvol + CCdev
-    return W, S, CC
+    P = F * S
+    AA = convect_tangent(CC, S, F)
+    return W, P, AA
 end
 
 function create_material(params::Dict{Any, Any})

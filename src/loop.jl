@@ -1,8 +1,5 @@
-include("apply_bcs.jl")
-
 function loop(params::Dict{Any, Any})
     model = params["model_struct"]
-    mesh_struct = params["mesh_struct"]
     num_steps = params["number of steps"]
     initial_time = params["initial time"]
     final_time = params["final time"]
@@ -12,7 +9,9 @@ function loop(params::Dict{Any, Any})
         time = initial_time + stop * time_step
         model.time = time
         apply_bcs(model)
-        energy = potential_energy(model)
+        energy, force, stiffness = energy_force_stiffness(model)
         println("Time: ", time, ", Energy: ", energy)
+        println("Force :\n", force)
+        println("Stiffness :\n", stiffness)
     end
 end

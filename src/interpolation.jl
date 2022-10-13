@@ -215,10 +215,8 @@ function isoparametric(element_type, num_int)
     return Na, dNa, w
 end
 
-function gradient_operator(DNDX)
-    dim = size(DNDX, 1)
-    nen = size(DNDX, 2)
-    I = eye(dim);
+function gradient_operator(dNdX)
+    dim, nen = size(dNdX);  
     B = zeros(dim * dim, nen * dim);
     for i ∈ 1 : dim
         for j ∈ 1 : dim
@@ -226,7 +224,7 @@ function gradient_operator(DNDX)
             for a ∈ 1 : nen
                 for k ∈ 1 : dim
                     q = dim * (a - 1) + k;
-                    B[p, q] = I[i, k] * DNDX[j, a];
+                    B[p, q] = I[i, k] * dNdX[j, a];
                 end
             end
         end

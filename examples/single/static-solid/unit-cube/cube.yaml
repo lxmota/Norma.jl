@@ -1,0 +1,29 @@
+type: single
+model: static solid
+mesh: cube.g
+initial time: 0.0
+final time: 1.0e-03
+number of steps: 1
+minimum iterations: 1
+maximum iterations: 1024
+relative tolerance: 1.0e-12
+absolute tolerance: 1.0e-08
+material: cube-material.yaml
+boundary conditions:
+  Dirichlet:
+    - node set: nsx-
+      component: x
+      function: "0.0"
+    - node set: nsy-
+      component: y
+      function: "0.0"
+    - node set: nsz-
+      component: z
+      function: "0.0"
+    - node set: nsz+
+      component: z
+      function: "1.0 * t"
+  Neumann:
+    - side set: ssz+
+      component: z
+      function: "0.0"
