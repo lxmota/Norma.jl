@@ -202,43 +202,6 @@ function create_model(params::Dict{Any, Any})
     end
 end
 
-function potential_energy(model::SolidMechanics)
-    params = model.params
-    materials = model.materials
-    mesh_struct = params["mesh_struct"]
-    body_energy = 0.0
-    elem_blk_ids = mesh_struct.get_elem_blk_ids()
-    num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
-        material = materials[blk_index]
-        blk_id = elem_blk_ids[blk_index]
-        elem_type = mesh_struct.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
-        _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
-        blk_conn = mesh_struct.get_elem_connectivity(blk_id)
-        num_blk_elems = blk_conn[2]
-        num_elem_nodes = blk_conn[3]
-        for blk_elem_index ∈ 1 : num_blk_elems
-            node_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes 
-            elem_ref_pos = model.reference[:, node_indices]
-            elem_cur_pos = model.current[:, node_indices]
-            element_energy = 0.0
-            for point ∈ 1 : num_points
-                dXdξ = dNdξ[:, :, point] * elem_ref_pos'
-                dxdξ = dNdξ[:, :, point] * elem_cur_pos'
-                dxdX = dXdξ \ dxdξ
-                j = det(dXdξ)
-                F = MTTensor(dxdX)
-                W, _, _ = constitutive(material, F)
-                w = elem_weights[point]
-                element_energy += W * j * w
-            end
-            body_energy += element_energy
-        end
-    end
-    return body_energy
-end
-
 function energy_force_stiffness(model::SolidMechanics)
     params = model.params
     materials = model.materials
