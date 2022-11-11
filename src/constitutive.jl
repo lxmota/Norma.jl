@@ -8,11 +8,11 @@ abstract type Solid <: Material end
 abstract type Thermal <: Material end
 
 struct SaintVenant_Kirchhoff <: Solid
-    E::MTScalar
-    ν::MTScalar
-    λ::MTScalar
-    μ::MTScalar
-    ρ::MTScalar
+    E::Float64
+    ν::Float64
+    λ::Float64
+    μ::Float64
+    ρ::Float64
     function SaintVenant_Kirchhoff(params::Dict{Any,Any})
         E = params["elastic modulus"]
         ν = params["Poisson's ratio"]
@@ -24,11 +24,11 @@ struct SaintVenant_Kirchhoff <: Solid
 end
 
 struct Linear_Elastic <: Solid
-    E::MTScalar
-    ν::MTScalar
-    λ::MTScalar
-    μ::MTScalar
-    ρ::MTScalar
+    E::Float64
+    ν::Float64
+    λ::Float64
+    μ::Float64
+    ρ::Float64
     function Linear_Elastic(params::Dict{Any,Any})
         E = params["elastic modulus"]
         ν = params["Poisson's ratio"]
@@ -40,11 +40,11 @@ struct Linear_Elastic <: Solid
 end
 
 struct Neohookean <: Solid
-    E::MTScalar
-    ν::MTScalar
-    κ::MTScalar
-    μ::MTScalar
-    ρ::MTScalar
+    E::Float64
+    ν::Float64
+    κ::Float64
+    μ::Float64
+    ρ::Float64
     function Neohookean(params::Dict{Any,Any})
         E = params["elastic modulus"]
         ν = params["Poisson's ratio"]
@@ -56,7 +56,7 @@ struct Neohookean <: Solid
 end
 
 struct Linear_Isotropic <: Thermal
-    κ::MTScalar
+    κ::Float64
     function Linear_Isotropic(params::Dict{Any,Any})
         κ = params["thermal conductivity"]
         new(κ)

@@ -11,18 +11,19 @@ abstract type HeatConduction <: Model end
 mutable struct StaticSolid <: SolidMechanics
     params::Dict{Any, Any}
     materials::Vector{Solid}
-    reference::Matrix{MTScalar}
-    current::Matrix{MTScalar}
+    reference::Matrix{Float64}
+    current::Matrix{Float64}
     nodal_dofs::Vector{DOF}
-    time::MTScalar
+    time::Float64
+    failed::Bool
 end
 
 function StaticSolid(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference = Matrix{MTScalar}(undef, 3, num_nodes)
-    current = Matrix{MTScalar}(undef, 3, num_nodes)
+    reference = Matrix{Float64}(undef, 3, num_nodes)
+    current = Matrix{Float64}(undef, 3, num_nodes)
     for node ∈ 1 : num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         current[:, node] = [x[node], y[node], z[node]]
@@ -47,27 +48,29 @@ function StaticSolid(params::Dict{Any, Any})
         push!(materials, material_model)
     end
     time = 0.0
+    failed = false
     nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
-    StaticSolid(params, materials, reference, current, nodal_dofs, time)
+    StaticSolid(params, materials, reference, current, nodal_dofs, time, failed)
 end
 
 mutable struct DynamicSolid <: SolidMechanics
     params::Dict{Any, Any}
     materials::Vector{Solid}
-    reference::Matrix{MTScalar}
-    current::Matrix{MTScalar}
-    velocity::Matrix{MTScalar}
-    acceleration::Matrix{MTScalar}
+    reference::Matrix{Float64}
+    current::Matrix{Float64}
+    velocity::Matrix{Float64}
+    acceleration::Matrix{Float64}
     nodal_dofs::Vector{DOF}
-    time::MTScalar
+    time::Float64
+    failed::Bool
 end
 
 function DynamicSolid(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference = Matrix{MTScalar}(undef, 3, num_nodes)
-    current = Matrix{MTScalar}(undef, 3, num_nodes)
+    reference = Matrix{Float64}(undef, 3, num_nodes)
+    current = Matrix{Float64}(undef, 3, num_nodes)
     for node ∈ 1 : num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         current[:, node] = [x[node], y[node], z[node]]
@@ -94,25 +97,27 @@ function DynamicSolid(params::Dict{Any, Any})
         push!(materials, material_model)
     end
     time = 0.0
+    failed = false
     nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
-    DynamicSolid(params, materials, reference, current, velocity, acceleration, nodal_dofs, time)
+    DynamicSolid(params, materials, reference, current, velocity, acceleration, nodal_dofs, time, failed)
 end
 
 mutable struct StaticHeat <: HeatConduction
     params::Dict{Any, Any}
     materials::Vector{Thermal}
-    reference::Matrix{MTScalar}
-    temperature::Vector{MTScalar}
+    reference::Matrix{Float64}
+    temperature::Vector{Float64}
     nodal_dofs::Vector{DOF}
-    time::MTScalar
+    time::Float64
+    failed::Bool
 end
 
 function StaticHeat(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference = Matrix{MTScalar}(undef, 3, num_nodes)
-    temperature = Vector{MTScalar}(undef, num_nodes)
+    reference = Matrix{Float64}(undef, 3, num_nodes)
+    temperature = Vector{Float64}(undef, num_nodes)
     for node ∈ 1 : num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         temperature[node] = 0.0
@@ -137,27 +142,29 @@ function StaticHeat(params::Dict{Any, Any})
         push!(materials, material_model)
     end
     time = 0.0
+    failed = false
     nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
-    StaticHeat(params, materials, reference, temperature, nodal_dofs, time)
+    StaticHeat(params, materials, reference, temperature, nodal_dofs, time, failed)
 end
 
 mutable struct DynamicHeat <: HeatConduction
     params::Dict{Any, Any}
     materials::Vector{Vector}
-    reference::Matrix{MTScalar}
-    temperature::Vector{MTScalar}
-    rate::Vector{MTScalar}
+    reference::Matrix{Float64}
+    temperature::Vector{Float64}
+    rate::Vector{Float64}
     nodal_dofs::Vector{DOF}
-    time::MTScalar
+    time::Float64
+    failed::Bool
 end
 
 function DynamicHeat(params::Dict{Any, Any})
     mesh_struct = params["mesh_struct"]
     x, y, z = mesh_struct.get_coords()
     num_nodes = length(x)
-    reference = Matrix{MTScalar}(undef, 3, num_nodes)
-    temperature = Vector{MTScalar}(undef, num_nodes)
-    rate = Vector{MTScalar}(undef, num_nodes)
+    reference = Matrix{Float64}(undef, 3, num_nodes)
+    temperature = Vector{Float64}(undef, num_nodes)
+    rate = Vector{Float64}(undef, num_nodes)
     for node ∈ 1 : num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         temperature[node] = 0.0
@@ -183,8 +190,9 @@ function DynamicHeat(params::Dict{Any, Any})
         push!(materials, material_model)
     end
     time = 0.0
+    failed = false
     nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
-    DynamicHeat(params, materials, reference, temperature, rate, nodal_dofs, time)
+    DynamicHeat(params, materials, reference, temperature, rate, nodal_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any, Any})
@@ -206,12 +214,13 @@ function energy_force_stiffness(model::SolidMechanics)
     params = model.params
     materials = model.materials
     mesh_struct = params["mesh_struct"]
+    solver_struct = params["solver_struct"]
     x, _, _ = mesh_struct.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
-    total_energy = 0.0
-    total_internal_force = spzeros(num_dof)
-    total_stiffness = spzeros(num_dof, num_dof)
+    total_energy = solver_struct.value
+    total_internal_force = solver_struct.gradient
+    total_stiffness = solver_struct.hessian
     elem_blk_ids = mesh_struct.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
@@ -241,6 +250,11 @@ function energy_force_stiffness(model::SolidMechanics)
                 dNdX = dXdξ \ dNdξ[:, :, point]
                 B = gradient_operator(dNdX)
                 j = det(dXdξ)
+                J = det(dxdX)
+                if J ≤ 0.0
+                    model.failed = true
+                    return 0.0, spzeros(num_dof), spzeros(num_dof, num_dof)
+                end
                 F = MTTensor(dxdX)
                 W, P, A = constitutive(material, F)
                 stress = reshape(P', 9, 1)

@@ -4,7 +4,7 @@ include("setup.jl")
 include("init.jl")
 include("loop.jl")
 
-ARGS = ["cube.yaml"]
+# ARGS = ["cube.yaml"]
 # cd("/Users/amota/Repos/jlcm/examples/single/static-solid/unit-cube")
 
 for input_file ∈ ARGS
