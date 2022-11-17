@@ -6,13 +6,12 @@ function loop(params::Dict{Any, Any})
     final_time = params["final time"]
     time_diff = final_time - initial_time
     time_step = time_diff / num_steps
-    solution = solver.initial_guess
     for stop ∈ 0 : num_steps
         time = initial_time + stop * time_step
         model.time = time
         apply_bcs(model)
-        solve(model, solver, solution)
+        solve(model, solver)
         println("Time: ", time)
-        println("Solution :\n", solution)
+        println("Solution :\n", solver.solution)
     end
 end

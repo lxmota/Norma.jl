@@ -6,7 +6,7 @@ abstract type Model end
 abstract type SolidMechanics <: Model end
 abstract type HeatConduction <: Model end
 
-@enum DOF free Dirichlet Neumann Schwarz
+@enum DOF free Dirichlet Schwarz
 
 mutable struct StaticSolid <: SolidMechanics
     params::Dict{Any, Any}
@@ -237,12 +237,12 @@ function energy_force_stiffness(model::SolidMechanics)
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
-            element_internal_force = spzeros(3 * num_elem_nodes)
-            element_stiffness = spzeros(3 * num_elem_nodes, 3 * num_elem_nodes)
+            element_internal_force = zeros(3 * num_elem_nodes)
+            element_stiffness = zeros(3 * num_elem_nodes, 3 * num_elem_nodes)
             elem_dofs = zeros(Int64, 3 * num_elem_nodes)
-            elem_dofs[1 : num_elem_nodes] = 3 .* node_indices .- 2
-            elem_dofs[num_elem_nodes + 1 : 2 * num_elem_nodes] = 3 .* node_indices .- 1
-            elem_dofs[2 * num_elem_nodes + 1 : 3 * num_elem_nodes] = 3 .* node_indices
+            elem_dofs[1 : 3 : 3 * num_elem_nodes - 2] = 3 .* node_indices .- 2
+            elem_dofs[2 : 3 : 3 * num_elem_nodes - 1] = 3 .* node_indices .- 1
+            elem_dofs[3 : 3 : 3 * num_elem_nodes] = 3 .* node_indices
             for point ∈ 1 : num_points
                 dXdξ = dNdξ[:, :, point] * elem_ref_pos'
                 dxdξ = dNdξ[:, :, point] * elem_cur_pos'
@@ -253,7 +253,7 @@ function energy_force_stiffness(model::SolidMechanics)
                 J = det(dxdX)
                 if J ≤ 0.0
                     model.failed = true
-                    return 0.0, spzeros(num_dof), spzeros(num_dof, num_dof)
+                    return 0.0, zeros(num_dof), spzeros(num_dof, num_dof)
                 end
                 F = MTTensor(dxdX)
                 W, P, A = constitutive(material, F)

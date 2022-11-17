@@ -11,9 +11,9 @@ mutable struct HessianMinimizer <: Minimizer
     absolute_error::Float64
     relative_error::Float64
     value::Float64
-    gradient::SparseVector{Float64, Int64}
+    gradient::Vector{Float64}
     hessian::SparseMatrixCSC{Float64, Int64}
-    initial_guess::SparseVector{Float64, Int64}
+    solution::Vector{Float64}
     initial_norm::Float64
     converged::Bool
     failed::Bool
@@ -46,9 +46,9 @@ function HessianMinimizer(params::Dict{Any, Any})
     absolute_error = 0.0
     relative_error = 0.0
     value = 0.0
-    gradient = spzeros(num_dof)
+    gradient = zeros(num_dof)
     hessian = spzeros(num_dof, num_dof)
-    initial_guess = spzeros(num_dof)
+    initial_guess = zeros(num_dof)
     initial_norm = 0.0
     converged = false
     failed = false
@@ -68,17 +68,31 @@ function create_solver(params::Dict{Any, Any})
     end
 end
 
-function evaluate(solver::HessianMinimizer, model::SolidMechanics, solution::SparseVector{Float64, Int64})
-    num_nodes = length(solution) ÷ 3
+function copy_solution_source_target(solver::HessianMinimizer, model::SolidMechanics)
+    displacement = solver.solution
+    num_nodes = length(displacement) ÷ 3
     for node ∈ 1 : num_nodes
-        model.current[:, node] = [solution[3 * node - 2], solution[3 * node - 1], solution[3 * node]]
+        nodal_displacement = displacement[3 * node - 2 : 3 * node]
+        model.current[:, node] = model.reference[:, node] + nodal_displacement
     end
+end
+
+function copy_solution_source_target(model::SolidMechanics, solver::HessianMinimizer)
+    displacement = solver.solution
+    num_nodes = length(displacement) ÷ 3
+    for node ∈ 1 : num_nodes
+        nodal_displacement = model.current[:, node] - model.reference[:, node]
+        displacement[3 * node - 2 : 3 * node] = nodal_displacement
+    end
+end
+
+function evaluate(solver::HessianMinimizer, model::SolidMechanics)
     solver.value, solver.gradient, solver.hessian = energy_force_stiffness(model)
 end
 
-function compute_step(solver::HessianMinimizer, model::SolidMechanics, step_type::NewtonStep, solution::SparseVector{Float64, Int64})
-    evaluate(solver, model, solution)
-    step = - solver.hessian \ solver.gradient
+function compute_step(solver::HessianMinimizer, model::SolidMechanics, step_type::NewtonStep, free_dofs::BitVector)
+    evaluate(solver, model)
+    step = - solver.hessian[free_dofs, free_dofs] \ solver.gradient[free_dofs]
     return step
 end
 
@@ -110,21 +124,23 @@ function continue_solve(solver::HessianMinimizer)
     return continue_solving
 end
 
-function solve(model::SolidMechanics, solver::HessianMinimizer, solution::SparseVector{Float64, Int64})
-    solver.initial_guess = solution
-    evaluate(solver, model, solution)
+function solve(model::SolidMechanics, solver::HessianMinimizer)
+    copy_solution_source_target(model, solver)
+    evaluate(solver, model)
     residual = solver.gradient
-    solver.initial_norm = norm(residual)
+    free_dofs = model.nodal_dofs .== free::DOF
+    solver.initial_norm = norm(residual[free_dofs])
     solver.iteration_number = 1
     solver.failed = solver.failed || model.failed
     step_type = solver.step
     update_convergence_criterion(solver, solver.initial_norm)
     while continue_solve(solver) == true
-        step = compute_step(solver, model, step_type, solution)
-        solution += step
-        evaluate(solver, model, solution)
+        step = compute_step(solver, model, step_type, free_dofs)
+        solver.solution[free_dofs] += step
+        copy_solution_source_target(solver, model)
+        evaluate(solver, model)
         residual = solver.gradient
-        norm_residual = norm(residual)
+        norm_residual = norm(residual[free_dofs])
         update_convergence_criterion(solver, norm_residual)
         solver.iteration_number += 1
     end
