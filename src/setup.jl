@@ -19,9 +19,13 @@ function setup(input_file::String)
 end
 
 function setup_single(params::Dict{Any, Any})
-    mesh_file = params["mesh"]
-    mesh_struct = Exodus.exodus(mesh_file)
-    params["mesh_struct"] = mesh_struct
+    input_mesh_file = params["input mesh"]
+    input_mesh_struct = Exodus.exodus(input_mesh_file)
+    params["input_mesh_struct"] = input_mesh_struct
+    output_mesh_file = params["output mesh"]
+    rm(output_mesh_file, force = true)
+    output_mesh_struct = Exodus.copy_mesh(input_mesh_file, output_mesh_file)
+    params["output_mesh_struct"] = output_mesh_struct
 end
 
 function setup_multi(params::Dict{Any, Any})
