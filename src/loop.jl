@@ -13,8 +13,7 @@ function loop(params::Dict{Any, Any})
         apply_bcs(model)
         solve(model, solver)
         write_step(model, stop + 1, time)
-        println("Time: ", time)
-        println("Solution :\n", solver.solution)
+        println("Stop ", stop, " of ", num_steps, ", time: ", time)
     end
     finalize_writing(model)
 end

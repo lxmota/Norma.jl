@@ -4,8 +4,8 @@ solution: quasi static
 input mesh: cube.g
 output mesh: cube.e
 initial time: 0.0
-final time: 1.0e-03
-number of steps: 1
+final time: 1.0
+number of steps: 2
 material: cube-material.yaml
 boundary conditions:
   Dirichlet:

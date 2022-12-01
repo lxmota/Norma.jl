@@ -21,9 +21,9 @@ function test_io(input_file::String, output_file::String)
     stress_xx_index = num_element_vars + 1
     stress_yy_index = num_element_vars + 2
     stress_zz_index = num_element_vars + 3
-    stress_xy_index = num_element_vars + 4
+    stress_yz_index = num_element_vars + 4
     stress_xz_index = num_element_vars + 5
-    stress_yz_index = num_element_vars + 6
+    stress_xy_index = num_element_vars + 6
     num_element_vars += 6
 
     mesh_struct.set_element_variable_number(num_element_vars)
@@ -31,9 +31,9 @@ function test_io(input_file::String, output_file::String)
     mesh_struct.put_element_variable_name("stress_xx", stress_xx_index)
     mesh_struct.put_element_variable_name("stress_yy", stress_yy_index)
     mesh_struct.put_element_variable_name("stress_zz", stress_zz_index)
-    mesh_struct.put_element_variable_name("stress_xy", stress_xy_index)
-    mesh_struct.put_element_variable_name("stress_xz", stress_xz_index)
     mesh_struct.put_element_variable_name("stress_yz", stress_yz_index)
+    mesh_struct.put_element_variable_name("stress_xz", stress_xz_index)
+    mesh_struct.put_element_variable_name("stress_xy", stress_xy_index)
 
     x, _, _ = mesh_struct.get_coords()
     num_nodes = length(x)
@@ -53,15 +53,15 @@ function test_io(input_file::String, output_file::String)
         stress_xx = 1 .* ones(num_blk_elems)
         stress_yy = 2 .* ones(num_blk_elems)
         stress_zz = 3 .* ones(num_blk_elems)
-        stress_xy = 4 .* ones(num_blk_elems)
+        stress_yz = 4 .* ones(num_blk_elems)
         stress_xz = 5 .* ones(num_blk_elems)
-        stress_yz = 6 .* ones(num_blk_elems)
+        stress_xy = 6 .* ones(num_blk_elems)
         mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx", 1, stress_xx)
         mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy", 1, stress_yy)
         mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_zz", 1, stress_zz)
-        mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xy", 1, stress_xy)
+        mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yz", 1, stress_xy)
         mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xz", 1, stress_xz)
-        mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yz", 1, stress_yz)
+        mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xy", 1, stress_yz)
     end
 
     mesh_struct.close()
