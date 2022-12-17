@@ -5,7 +5,7 @@ input mesh: cube.g
 output mesh: cube.e
 initial time: 0.0
 final time: 1.0
-number of steps: 2
+number of steps: 10
 material: cube-material.yaml
 boundary conditions:
   Dirichlet:
@@ -29,6 +29,6 @@ solver:
   type: Hessian minimizer
   step: full Newton
   minimum iterations: 1
-  maximum iterations: 1024
+  maximum iterations: 16
   relative tolerance: 1.0e-12
   absolute tolerance: 1.0e-08

@@ -229,12 +229,12 @@ function create_model(params::Dict{Any, Any})
     end
 end
 
-function voigt_cauchy_from_1pk(material::Any, P::MTTensor, F::MTTensor, J::Float64)
+function voigt_cauchy_from_stress(material::Any, P::MTTensor, F::MTTensor, J::Float64)
     σ = F * P' ./ J
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
-function voigt_cauchy_from_1pk(material::Linear_Elastic, σ::MTTensor, F::MTTensor, J::Float64)
+function voigt_cauchy_from_stress(material::Linear_Elastic, σ::MTTensor, F::MTTensor, J::Float64)
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
@@ -246,9 +246,11 @@ function energy_force_stiffness(model::SolidMechanics)
     x, _, _ = input_mesh_struct.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
-    total_energy = solver_struct.value
+    total_energy = solver_struct.value = 0.0
     total_internal_force = solver_struct.gradient
     total_stiffness = solver_struct.hessian
+    fill!(total_internal_force, 0.0)
+    fill!(total_stiffness, 0.0)
     elem_blk_ids = input_mesh_struct.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
@@ -257,12 +259,11 @@ function energy_force_stiffness(model::SolidMechanics)
         elem_type = input_mesh_struct.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
         _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
-        blk_conn = input_mesh_struct.get_elem_connectivity(blk_id)
-        num_blk_elems = blk_conn[2]
-        num_elem_nodes = blk_conn[3]
+        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh_struct.get_elem_connectivity(blk_id)
         elem_dofs = zeros(Int64, 3 * num_elem_nodes)
         for blk_elem_index ∈ 1 : num_blk_elems
-            node_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes 
+            conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
+            node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
@@ -285,13 +286,13 @@ function energy_force_stiffness(model::SolidMechanics)
                 end
                 F = MTTensor(dxdX)
                 W, P, A = constitutive(material, F)
-                stress = reshape(P', 9, 1)
+                stress = P[1:9]
                 moduli = second_from_fourth(A)
                 w = elem_weights[point]
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
                 element_stiffness += B' * moduli * B * j * w
-                voigt_cauchy = voigt_cauchy_from_1pk(material, P, F, J)
+                voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
             total_energy += element_energy
