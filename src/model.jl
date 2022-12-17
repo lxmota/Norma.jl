@@ -21,8 +21,8 @@ mutable struct StaticSolid <: SolidMechanics
 end
 
 function StaticSolid(params::Dict{Any, Any})
-    input_mesh_struct = params["input_mesh_struct"]
-    x, y, z = input_mesh_struct.get_coords()
+    input_mesh = params["input_mesh"]
+    x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
@@ -34,14 +34,14 @@ function StaticSolid(params::Dict{Any, Any})
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh_struct.get_elem_blk_ids()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", params["mesh"], " (", num_blks,
         ") must be equal to number of blocks in materials file ", params["material"],
         " (", num_blks_params, ")")
     end
-    elem_blk_names = input_mesh_struct.get_elem_blk_names()
+    elem_blk_names = input_mesh.get_elem_blk_names()
     materials = Vector{Solid}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
@@ -55,9 +55,9 @@ function StaticSolid(params::Dict{Any, Any})
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1 : num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh_struct.elem_type(blk_id)
+        elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
-        blk_conn = input_mesh_struct.get_elem_connectivity(blk_id)
+        blk_conn = input_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_stress = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
         for blk_elem_index ∈ 1 : num_blk_elems
@@ -85,8 +85,8 @@ mutable struct DynamicSolid <: SolidMechanics
 end
 
 function DynamicSolid(params::Dict{Any, Any})
-    input_mesh_struct = params["input_mesh_struct"]
-    x, y, z = input_mesh_struct.get_coords()
+    input_mesh = params["input_mesh"]
+    x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
@@ -100,14 +100,14 @@ function DynamicSolid(params::Dict{Any, Any})
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh_struct.get_elem_blk_ids()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", params["mesh"], " (", num_blks,
         ") must be equal to number of blocks in materials file ", params["material"],
         " (", num_blks_params, ")")
     end
-    elem_blk_names = input_mesh_struct.get_elem_blk_names()
+    elem_blk_names = input_mesh.get_elem_blk_names()
     materials = Vector{Solid}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
@@ -132,8 +132,8 @@ mutable struct StaticHeat <: HeatConduction
 end
 
 function StaticHeat(params::Dict{Any, Any})
-    input_mesh_struct = params["input_mesh_struct"]
-    x, y, z = input_mesh_struct.get_coords()
+    input_mesh = params["input_mesh"]
+    x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
@@ -145,14 +145,14 @@ function StaticHeat(params::Dict{Any, Any})
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh_struct.get_elem_blk_ids()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", params["mesh"], " (", num_blks,
         ") must be equal to number of blocks in materials file ", params["material"],
         " (", num_blks_params, ")")
     end
-    elem_blk_names = input_mesh_struct.get_elem_blk_names()
+    elem_blk_names = input_mesh.get_elem_blk_names()
     materials = Vector{Thermal}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
@@ -178,8 +178,8 @@ mutable struct DynamicHeat <: HeatConduction
 end
 
 function DynamicHeat(params::Dict{Any, Any})
-    input_mesh_struct = params["input_mesh_struct"]
-    x, y, z = input_mesh_struct.get_coords()
+    input_mesh = params["input_mesh"]
+    x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
@@ -193,14 +193,14 @@ function DynamicHeat(params::Dict{Any, Any})
     material_params = YAML.load_file(materials_file)
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh_struct.get_elem_blk_ids()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", params["mesh"], " (", num_blks,
         ") must be equal to number of blocks in materials file ", params["material"],
         " (", num_blks_params, ")")
     end
-    elem_blk_names = input_mesh_struct.get_elem_blk_names()
+    elem_blk_names = input_mesh.get_elem_blk_names()
     materials = Vector{Thermal}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
@@ -241,9 +241,9 @@ end
 function energy_force_stiffness(model::SolidMechanics)
     params = model.params
     materials = model.materials
-    input_mesh_struct = params["input_mesh_struct"]
+    input_mesh = params["input_mesh"]
     solver_struct = params["solver_struct"]
-    x, _, _ = input_mesh_struct.get_coords()
+    x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
     total_energy = solver_struct.value = 0.0
@@ -251,15 +251,15 @@ function energy_force_stiffness(model::SolidMechanics)
     total_stiffness = solver_struct.hessian
     fill!(total_internal_force, 0.0)
     fill!(total_stiffness, 0.0)
-    elem_blk_ids = input_mesh_struct.get_elem_blk_ids()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
         material = materials[blk_index]
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh_struct.elem_type(blk_id)
+        elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
         _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
-        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh_struct.get_elem_connectivity(blk_id)
+        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         elem_dofs = zeros(Int64, 3 * num_elem_nodes)
         for blk_elem_index ∈ 1 : num_blk_elems
             conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
@@ -303,8 +303,8 @@ function energy_force_stiffness(model::SolidMechanics)
     return total_energy, total_internal_force, total_stiffness
 end
 
-function node_set_id_from_name(node_set_name::String, mesh_struct::PyObject)
-    node_set_names = mesh_struct.get_node_set_names()
+function node_set_id_from_name(node_set_name::String, mesh::PyObject)
+    node_set_names = mesh.get_node_set_names()
     num_names = length(node_set_names)
     node_set_index = 0
     for index ∈ 1 : num_names
@@ -316,7 +316,7 @@ function node_set_id_from_name(node_set_name::String, mesh_struct::PyObject)
     if (node_set_index == 0)
         error("node set ", node_set_name, " cannot be found in mesh")
     end
-    node_set_ids = mesh_struct.get_node_set_ids()
+    node_set_ids = mesh.get_node_set_ids()
     node_set_id = node_set_ids[node_set_index]
     return node_set_id
 end
@@ -339,9 +339,9 @@ function apply_bcs(model::SolidMechanics)
     params = model.params
     reference = model.reference
     current = model.current
-    input_mesh_struct = params["input_mesh_struct"]
+    input_mesh = params["input_mesh"]
     global t = model.time
-    xc, yc, zc = input_mesh_struct.get_coords()
+    xc, yc, zc = input_mesh.get_coords()
     num_nodes = length(xc)
     nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
     bc_params = params["boundary conditions"]
@@ -352,8 +352,8 @@ function apply_bcs(model::SolidMechanics)
                 function_str = bc["function"]
                 component = bc["component"]
                 offset = component_offset_from_string(component)
-                node_set_id = node_set_id_from_name(node_set_name, input_mesh_struct)
-                node_set_node_indices = input_mesh_struct.get_node_set_nodes(node_set_id)
+                node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+                node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
                 for node_index ∈ node_set_node_indices
                     global x = xc[node_index]
                     global y = yc[node_index]
@@ -376,9 +376,9 @@ end
 function apply_bcs(model::HeatConduction)
     params = model.params
     temperature = model.temperature
-    input_mesh_struct = params["input_mesh_struct"]
+    input_mesh = params["input_mesh"]
     global t = model.time
-    xc, yc, zc = input_mesh_struct.get_coords()
+    xc, yc, zc = input_mesh.get_coords()
     num_nodes = length(xc)
     nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
     bc_params = params["boundary conditions"]
@@ -387,8 +387,8 @@ function apply_bcs(model::HeatConduction)
             if bc_type == "Dirichlet"
                 node_set_name = bc["node set"]
                 function_str = bc["function"]
-                node_set_id = node_set_id_from_name(node_set_name, input_mesh_struct)
-                node_set_node_indices = input_mesh_struct.get_node_set_nodes(node_set_id)
+                node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+                node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
                 for node_index ∈ node_set_node_indices
                     global x = xc[node_index]
                     global y = yc[node_index]
@@ -408,29 +408,29 @@ function apply_bcs(model::HeatConduction)
 end
 
 function initialize_writing(model::StaticSolid)
-    output_mesh_struct = model.params["output_mesh_struct"]
-    num_node_vars = output_mesh_struct.get_node_variable_number()
+    output_mesh = model.params["output_mesh"]
+    num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
     disp_y_index = num_node_vars + 2
     disp_z_index = num_node_vars + 3
     num_node_vars += 3
-    output_mesh_struct.set_node_variable_number(num_node_vars)
-    output_mesh_struct.put_node_variable_name("disp_x", disp_x_index)
-    output_mesh_struct.put_node_variable_name("disp_y", disp_y_index)
-    output_mesh_struct.put_node_variable_name("disp_z", disp_z_index)
-    num_element_vars = output_mesh_struct.get_element_variable_number()
-    elem_blk_ids = output_mesh_struct.get_elem_blk_ids()
+    output_mesh.set_node_variable_number(num_node_vars)
+    output_mesh.put_node_variable_name("disp_x", disp_x_index)
+    output_mesh.put_node_variable_name("disp_y", disp_y_index)
+    output_mesh.put_node_variable_name("disp_z", disp_z_index)
+    num_element_vars = output_mesh.get_element_variable_number()
+    elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     max_num_int_points = 0
     for blk_index ∈ 1 : num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = output_mesh_struct.elem_type(blk_id)
+        elem_type = output_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
         max_num_int_points = max(max_num_int_points, num_points)
     end
     ip_var_index = num_element_vars
     num_element_vars += 6 * max_num_int_points
-    output_mesh_struct.set_element_variable_number(num_element_vars)
+    output_mesh.set_element_variable_number(num_element_vars)
     for point ∈ 1 : max_num_int_points
         stress_xx_index = ip_var_index + 1
         stress_yy_index = ip_var_index + 2
@@ -440,38 +440,38 @@ function initialize_writing(model::StaticSolid)
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
         ip_str = sprintf1("_%d", point)
-        output_mesh_struct.put_element_variable_name("stress_xx" * ip_str, stress_xx_index)
-        output_mesh_struct.put_element_variable_name("stress_yy" * ip_str, stress_yy_index)
-        output_mesh_struct.put_element_variable_name("stress_zz" * ip_str, stress_zz_index)
-        output_mesh_struct.put_element_variable_name("stress_yz" * ip_str, stress_yz_index)
-        output_mesh_struct.put_element_variable_name("stress_xz" * ip_str, stress_xz_index)
-        output_mesh_struct.put_element_variable_name("stress_xy" * ip_str, stress_xy_index)
+        output_mesh.put_element_variable_name("stress_xx" * ip_str, stress_xx_index)
+        output_mesh.put_element_variable_name("stress_yy" * ip_str, stress_yy_index)
+        output_mesh.put_element_variable_name("stress_zz" * ip_str, stress_zz_index)
+        output_mesh.put_element_variable_name("stress_yz" * ip_str, stress_yz_index)
+        output_mesh.put_element_variable_name("stress_xz" * ip_str, stress_xz_index)
+        output_mesh.put_element_variable_name("stress_xy" * ip_str, stress_xy_index)
     end
 end
 
 function finalize_writing(model::StaticSolid)
-    output_mesh_struct = model.params["output_mesh_struct"]
-    output_mesh_struct.close()
+    output_mesh = model.params["output_mesh"]
+    output_mesh.close()
 end
 
 function write_step(model::StaticSolid, time_index::Int64, time::Float64)
-    output_mesh_struct = model.params["output_mesh_struct"]
-    output_mesh_struct.put_time(time_index, time)
+    output_mesh = model.params["output_mesh"]
+    output_mesh.put_time(time_index, time)
     displacement = model.current - model.reference
     disp_x = displacement[1, :]
     disp_y = displacement[2, :]
     disp_z = displacement[3, :]
-    output_mesh_struct.put_variable_values("EX_NODAL", 1, "disp_x", time_index, disp_x)
-    output_mesh_struct.put_variable_values("EX_NODAL", 1, "disp_y", time_index, disp_y)
-    output_mesh_struct.put_variable_values("EX_NODAL", 1, "disp_z", time_index, disp_z)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_x", time_index, disp_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_y", time_index, disp_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_z", time_index, disp_z)
     stress = model.stress
-    elem_blk_ids = output_mesh_struct.get_elem_blk_ids()
+    elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = output_mesh_struct.elem_type(blk_id)
+        elem_type = output_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
-        blk_conn = output_mesh_struct.get_elem_connectivity(blk_id)
+        blk_conn = output_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_stress = stress[blk_index]
         stress_xx = zeros(num_blk_elems, num_points)
@@ -494,12 +494,12 @@ function write_step(model::StaticSolid, time_index::Int64, time::Float64)
         end
         for point ∈ 1 : num_points
             ip_str = sprintf1("_%d", point)
-            output_mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx" * ip_str, time_index, stress_xx[ :, point])
-            output_mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy" * ip_str, time_index, stress_yy[ :, point])
-            output_mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_zz" * ip_str, time_index, stress_zz[ :, point])
-            output_mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yz" * ip_str, time_index, stress_yz[ :, point])
-            output_mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xz" * ip_str, time_index, stress_xz[ :, point])
-            output_mesh_struct.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xy" * ip_str, time_index, stress_xy[ :, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx" * ip_str, time_index, stress_xx[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy" * ip_str, time_index, stress_yy[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_zz" * ip_str, time_index, stress_zz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yz" * ip_str, time_index, stress_yz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xz" * ip_str, time_index, stress_xz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xy" * ip_str, time_index, stress_xy[:, point])
         end
     end
 end

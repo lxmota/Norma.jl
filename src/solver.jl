@@ -35,8 +35,8 @@ end
 
 function HessianMinimizer(params::Dict{Any, Any})
     solver_params = params["solver"]
-    input_mesh_struct = params["input_mesh_struct"]
-    x, _, _ = input_mesh_struct.get_coords()
+    input_mesh = params["input_mesh"]
+    x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
     minimum_iterations = solver_params["minimum iterations"]

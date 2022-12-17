@@ -1,8 +1,8 @@
 type: single
 model: static solid
 solution: quasi static
-input mesh: cube.g
-output mesh: cube.e
+input mesh file: cube.g
+output mesh file: cube.e
 initial time: 0.0
 final time: 1.0
 number of steps: 10

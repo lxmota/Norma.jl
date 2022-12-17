@@ -10,10 +10,10 @@ function loop(params::Dict{Any, Any})
     for stop ∈ 0 : num_steps
         time = initial_time + stop * time_step
         model.time = time
+        println("Stop ", stop, " of ", num_steps, ", time: ", time)
         apply_bcs(model)
         solve(model, solver)
         write_step(model, stop + 1, time)
-        println("Stop ", stop, " of ", num_steps, ", time: ", time)
     end
     finalize_writing(model)
 end
