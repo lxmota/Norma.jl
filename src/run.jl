@@ -4,10 +4,15 @@ include("setup.jl")
 include("init.jl")
 include("loop.jl")
 
-for input_file ∈ ARGS
+function run(input_file::String)
     params = setup(input_file)
     init(params)
-    loop(params)
+    model, solver = loop(params)
+    return model, solver
+end
+
+for input_file ∈ ARGS
+    run(input_file)
 end
 
 end

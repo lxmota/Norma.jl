@@ -16,4 +16,5 @@ function loop(params::Dict{Any, Any})
         write_step(model, stop + 1, time)
     end
     finalize_writing(model)
+    return model, solver
 end
