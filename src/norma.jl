@@ -1,4 +1,4 @@
-module JLCM
+module Norma
 
 include("setup.jl")
 include("init.jl")
