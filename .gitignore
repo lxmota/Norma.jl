@@ -8,5 +8,5 @@
 /sandbox/
 .DS_Store
 .vscode
-*.g
+*.e
 *.exo
