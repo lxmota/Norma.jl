@@ -1,6 +1,6 @@
 type: single
-model: static solid
-solution: quasi static
+model: solid mechanics
+integrator: quasi static
 input mesh file: cube.g
 output mesh file: cube.e
 initial time: 0.0

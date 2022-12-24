@@ -4,31 +4,35 @@ using SparseArrays
 include("constitutive.jl")
 
 abstract type Model end
-abstract type SolidMechanics <: Model end
-abstract type HeatConduction <: Model end
 
 @enum DOF free Dirichlet Schwarz
 
-mutable struct StaticSolid <: SolidMechanics
+mutable struct SolidMechanics <: Model
     params::Dict{Any, Any}
     materials::Vector{Solid}
     reference::Matrix{Float64}
     current::Matrix{Float64}
+    velocity::Matrix{Float64}
+    acceleration::Matrix{Float64}
     stress::Vector{Vector{Vector{Vector{Float64}}}}
     nodal_dofs::Vector{DOF}
     time::Float64
     failed::Bool
 end
 
-function StaticSolid(params::Dict{Any, Any})
+function SolidMechanics(params::Dict{Any, Any})
     input_mesh = params["input_mesh"]
     x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
+    velocity = Matrix{Float64}(undef, 3, num_nodes)
+    acceleration = Matrix{Float64}(undef, 3, num_nodes)
     for node ∈ 1 : num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         current[:, node] = [x[node], y[node], z[node]]
+        velocity[:, node] = [0.0, 0.0, 0.0]
+        acceleration[:, node] = [0.0, 0.0, 0.0]
     end
     materials_file = params["material"]
     material_params = YAML.load_file(materials_file)
@@ -69,115 +73,22 @@ function StaticSolid(params::Dict{Any, Any})
         end
         stress[blk_index] = block_stress
     end
-    StaticSolid(params, materials, reference, current, stress, nodal_dofs, time, failed)
+    SolidMechanics(params, materials, reference, current, velocity, acceleration, stress, nodal_dofs, time, failed)
 end
 
-mutable struct DynamicSolid <: SolidMechanics
-    params::Dict{Any, Any}
-    materials::Vector{Solid}
-    reference::Matrix{Float64}
-    current::Matrix{Float64}
-    velocity::Matrix{Float64}
-    acceleration::Matrix{Float64}
-    nodal_dofs::Vector{DOF}
-    time::Float64
-    failed::Bool
-end
-
-function DynamicSolid(params::Dict{Any, Any})
-    input_mesh = params["input_mesh"]
-    x, y, z = input_mesh.get_coords()
-    num_nodes = length(x)
-    reference = Matrix{Float64}(undef, 3, num_nodes)
-    current = Matrix{Float64}(undef, 3, num_nodes)
-    for node ∈ 1 : num_nodes
-        reference[:, node] = [x[node], y[node], z[node]]
-        current[:, node] = [x[node], y[node], z[node]]
-        velocity[:, node] = [0.0, 0.0, 0.0]
-        acceleration[:, node] = [0.0, 0.0, 0.0]
-    end
-    materials_file = params["material"]
-    material_params = YAML.load_file(materials_file)
-    material_blocks = material_params["blocks"]
-    num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
-    num_blks = length(elem_blk_ids)
-    if (num_blks_params ≠ num_blks)
-        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
-        ") must be equal to number of blocks in materials file ", params["material"],
-        " (", num_blks_params, ")")
-    end
-    elem_blk_names = input_mesh.get_elem_blk_names()
-    materials = Vector{Solid}(undef, 0)
-    for elem_blk_name ∈ elem_blk_names
-        material_name = material_blocks[elem_blk_name]
-        material_props = material_params[material_name]
-        material_model = create_material(material_props)
-        push!(materials, material_model)
-    end
-    time = 0.0
-    failed = false
-    nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
-    DynamicSolid(params, materials, reference, current, velocity, acceleration, nodal_dofs, time, failed)
-end
-
-mutable struct StaticHeat <: HeatConduction
-    params::Dict{Any, Any}
-    materials::Vector{Thermal}
-    reference::Matrix{Float64}
-    temperature::Vector{Float64}
-    nodal_dofs::Vector{DOF}
-    time::Float64
-    failed::Bool
-end
-
-function StaticHeat(params::Dict{Any, Any})
-    input_mesh = params["input_mesh"]
-    x, y, z = input_mesh.get_coords()
-    num_nodes = length(x)
-    reference = Matrix{Float64}(undef, 3, num_nodes)
-    temperature = Vector{Float64}(undef, num_nodes)
-    for node ∈ 1 : num_nodes
-        reference[:, node] = [x[node], y[node], z[node]]
-        temperature[node] = 0.0
-    end
-    materials_file = params["material"]
-    material_params = YAML.load_file(materials_file)
-    material_blocks = material_params["blocks"]
-    num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
-    num_blks = length(elem_blk_ids)
-    if (num_blks_params ≠ num_blks)
-        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
-        ") must be equal to number of blocks in materials file ", params["material"],
-        " (", num_blks_params, ")")
-    end
-    elem_blk_names = input_mesh.get_elem_blk_names()
-    materials = Vector{Thermal}(undef, 0)
-    for elem_blk_name ∈ elem_blk_names
-        material_name = material_blocks[elem_blk_name]
-        material_props = material_params[material_name]
-        material_model = create_material(material_props)
-        push!(materials, material_model)
-    end
-    time = 0.0
-    failed = false
-    nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
-    StaticHeat(params, materials, reference, temperature, nodal_dofs, time, failed)
-end
-
-mutable struct DynamicHeat <: HeatConduction
+mutable struct HeatConduction <: Model
     params::Dict{Any, Any}
     materials::Vector{Vector}
     reference::Matrix{Float64}
     temperature::Vector{Float64}
     rate::Vector{Float64}
+    flux::Vector{Vector{Vector{Vector{Float64}}}}
     nodal_dofs::Vector{DOF}
     time::Float64
     failed::Bool
 end
 
-function DynamicHeat(params::Dict{Any, Any})
+function HeatConduction(params::Dict{Any, Any})
     input_mesh = params["input_mesh"]
     x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
@@ -211,19 +122,32 @@ function DynamicHeat(params::Dict{Any, Any})
     time = 0.0
     failed = false
     nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
-    DynamicHeat(params, materials, reference, temperature, rate, nodal_dofs, time, failed)
+    flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
+    for blk_index ∈ 1 : num_blks
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        blk_conn = input_mesh.get_elem_connectivity(blk_id)
+        num_blk_elems = blk_conn[2]
+        block_flux = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
+        for blk_elem_index ∈ 1 : num_blk_elems
+            element_flux = Vector{Vector{Float64}}(undef, num_points)
+            for point ∈ 1 : num_points
+                element_flux[point] = zeros(3)
+            end
+            block_flux[blk_elem_index] = element_stress
+        end
+        flux[blk_index] = block_flux
+    end
+    HeatConduction(params, materials, reference, temperature, rate, flux, nodal_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any, Any})
     model_name = params["model"]
-    if model_name == "static solid"
-        return StaticSolid(params)
-    elseif model_name == "dynamic solid"
-        return DynamicSolid(params)
-    elseif model_name == "static heat"
-        return StaticHeat(params)
-    elseif model_name == "dynamic heat"
-        return DynamicHeat(params)
+    if model_name == "solid mechanics"
+        return SolidMechanics(params)
+    elseif model_name == "heat conduction"
+        return HeatConduction(params)
     else
         error("Unknown type of model : ", model_name)
     end
@@ -407,7 +331,7 @@ function apply_bcs(model::HeatConduction)
     model.nodal_dofs = nodal_dofs
 end
 
-function initialize_writing(model::StaticSolid)
+function initialize_writing(model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
@@ -449,12 +373,12 @@ function initialize_writing(model::StaticSolid)
     end
 end
 
-function finalize_writing(model::StaticSolid)
+function finalize_writing(model::Any)
     output_mesh = model.params["output_mesh"]
     output_mesh.close()
 end
 
-function write_step(model::StaticSolid, time_index::Int64, time::Float64)
+function write_step(model::SolidMechanics, time_index::Int64, time::Float64)
     output_mesh = model.params["output_mesh"]
     output_mesh.put_time(time_index, time)
     displacement = model.current - model.reference
