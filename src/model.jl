@@ -22,6 +22,7 @@ end
 
 function SolidMechanics(params::Dict{Any, Any})
     input_mesh = params["input_mesh"]
+    model_params = params["model"]
     x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
@@ -34,15 +35,14 @@ function SolidMechanics(params::Dict{Any, Any})
         velocity[:, node] = [0.0, 0.0, 0.0]
         acceleration[:, node] = [0.0, 0.0, 0.0]
     end
-    materials_file = params["material"]
-    material_params = YAML.load_file(materials_file)
+    material_params = model_params["material"]
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
-        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
-        ") must be equal to number of blocks in materials file ", params["material"],
+        error("number of blocks in mesh ", model_params["mesh"], " (", num_blks,
+        ") must be equal to number of blocks in materials file ", model_params["material"],
         " (", num_blks_params, ")")
     end
     elem_blk_names = input_mesh.get_elem_blk_names()
@@ -90,6 +90,7 @@ end
 
 function HeatConduction(params::Dict{Any, Any})
     input_mesh = params["input_mesh"]
+    model_params = params["model"]
     x, y, z = input_mesh.get_coords()
     num_nodes = length(x)
     reference = Matrix{Float64}(undef, 3, num_nodes)
@@ -100,15 +101,14 @@ function HeatConduction(params::Dict{Any, Any})
         temperature[node] = 0.0
         rate[node] = 0.0
     end
-    materials_file = params["material"]
-    material_params = YAML.load_file(materials_file)
+    material_params = model_params["material"]
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
-        error("number of blocks in mesh ", params["mesh"], " (", num_blks,
-        ") must be equal to number of blocks in materials file ", params["material"],
+        error("number of blocks in mesh ", model_params["mesh"], " (", num_blks,
+        ") must be equal to number of blocks in materials file ", model_params["material"],
         " (", num_blks_params, ")")
     end
     elem_blk_names = input_mesh.get_elem_blk_names()
@@ -143,7 +143,8 @@ function HeatConduction(params::Dict{Any, Any})
 end
 
 function create_model(params::Dict{Any, Any})
-    model_name = params["model"]
+    model_params = params["model"]
+    model_name = model_params["type"]
     if model_name == "solid mechanics"
         return SolidMechanics(params)
     elseif model_name == "heat conduction"
