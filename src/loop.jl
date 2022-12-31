@@ -1,3 +1,7 @@
+function update_dofs(model::Any, solver::Any)
+    solver.free_dofs = model.nodal_dofs .== free::DOF
+end
+
 function loop(params::Dict{Any, Any})
     time_integrator = params["time_integrator_struct"]
     model = params["model_struct"]
@@ -9,6 +13,7 @@ function loop(params::Dict{Any, Any})
         model.time = time
         println("Stop ", stop, ", time: ", time)
         apply_bcs(model)
+        update_dofs(model, solver)
         advance(time_integrator, model, solver)
         write_step(model, stop + 1, time)
         time += time_integrator.time_step

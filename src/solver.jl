@@ -133,7 +133,6 @@ function solve(model::SolidMechanics, solver::HessianMinimizer)
     evaluate(solver, model)
     residual = solver.gradient
     norm_residual = norm(residual[solver.free_dofs])
-    solver.free_dofs = model.nodal_dofs .== free::DOF
     solver.initial_norm = norm_residual
     solver.iteration_number = 1
     solver.failed = solver.failed || model.failed
