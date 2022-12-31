@@ -1,19 +1,18 @@
 function loop(params::Dict{Any, Any})
+    time_integrator = params["time_integrator_struct"]
     model = params["model_struct"]
     solver = params["solver_struct"]
-    num_steps = params["number of steps"]
-    initial_time = params["initial time"]
-    final_time = params["final time"]
-    time_diff = final_time - initial_time
-    time_step = time_diff / num_steps
+    time = time_integrator.initial_time
+    stop = 0
     initialize_writing(model)
-    for stop ∈ 0 : num_steps
-        time = initial_time + stop * time_step
+    while time <= time_integrator.final_time
         model.time = time
-        println("Stop ", stop, " of ", num_steps, ", time: ", time)
+        println("Stop ", stop, ", time: ", time)
         apply_bcs(model)
         solve(model, solver)
         write_step(model, stop + 1, time)
+        time += time_integrator.time_step
+        stop += 1
     end
     finalize_writing(model)
     return model, solver

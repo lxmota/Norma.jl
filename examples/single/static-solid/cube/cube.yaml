@@ -11,10 +11,11 @@ model:
       elastic modulus: 1.0e+09
       Poisson's ratio: 0.25
       density: 1000.0
-integrator: quasi static
-initial time: 0.0
-final time: 1.0
-number of steps: 1
+time integrator:
+  type: quasi static
+  initial time: 0.0
+  final time: 1.0
+  time step: 0.1
 boundary conditions:
   Dirichlet:
     - node set: nsx-
