@@ -64,11 +64,25 @@ function create_time_integrator(params::Dict{Any, Any})
     end
 end
 
-function predict(integrator::QuasiStatic)
+function predict(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
 end
 
-function correct(integrator::QuasiStatic)
+function correct(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
+    solve(model, solver)
 end
 
-function predict(integrator::Newmark)
+function advance(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
+    predict(integrator, model, solver)
+    correct(integrator, model, solver)
+end
+
+function predict(integrator::Newmark, model::SolidMechanics, solver::Any)
+end
+
+function correct(integrator::Newmark, model::SolidMechanics, solver::Any)
+end
+
+function advance(integrator::Newmark, model::SolidMechanics, solver::Any)
+    predict(integrator, model, solver)
+    correct(integrator, model, solver)
 end
