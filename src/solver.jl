@@ -89,8 +89,11 @@ function copy_solution_source_target(model::SolidMechanics, solver::HessianMinim
     end
 end
 
-function evaluate(solver::HessianMinimizer, model::SolidMechanics)
-    solver.value, solver.gradient, solver.hessian = evaluate(model)
+function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
+    strain_energy, internal_force, external_force, stiffness_matrix, _ = evaluate(model)
+    solver.value = strain_energy
+    solver.gradient = internal_force - external_force
+    solver.hessian = stiffness_matrix
 end
 
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)
@@ -128,9 +131,9 @@ function continue_solve(solver::HessianMinimizer)
     return continue_solving
 end
 
-function solve(model::SolidMechanics, solver::HessianMinimizer)
+function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
     copy_solution_source_target(model, solver)
-    evaluate(solver, model)
+    evaluate(integrator, solver, model)
     residual = solver.gradient
     norm_residual = norm(residual[solver.free_dofs])
     solver.initial_norm = norm_residual
@@ -143,7 +146,7 @@ function solve(model::SolidMechanics, solver::HessianMinimizer)
         step = compute_step(solver, step_type)
         solver.solution += step
         copy_solution_source_target(solver, model)
-        evaluate(solver, model)
+        evaluate(integrator, solver, model)
         residual = solver.gradient
         norm_step = norm(step)
         norm_residual = norm(residual[solver.free_dofs])

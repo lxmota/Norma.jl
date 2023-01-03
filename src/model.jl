@@ -167,23 +167,23 @@ function evaluate(model::SolidMechanics)
     params = model.params
     materials = model.materials
     input_mesh = params["input_mesh"]
-    solver_struct = params["solver_struct"]
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
-    total_energy = solver_struct.value = 0.0
-    total_internal_force = solver_struct.gradient
-    total_stiffness = solver_struct.hessian
-    fill!(total_internal_force, 0.0)
-    fill!(total_stiffness, 0.0)
+    strain_energy = 0.0
+    internal_force = zeros(num_dof)
+    external_force = zeros(num_dof)
+    stiffness_matrix = spzeros(num_dof, num_dof)
+    mass_matrix = spzeros(num_dof, num_dof)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
         material = materials[blk_index]
+        ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
         elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
-        _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
+        N, dNdξ, elem_weights = isoparametric(elem_type, num_points)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         elem_dofs = zeros(Int64, 3 * num_elem_nodes)
         for blk_elem_index ∈ 1 : num_blk_elems
@@ -194,6 +194,7 @@ function evaluate(model::SolidMechanics)
             element_energy = 0.0
             element_internal_force = zeros(3 * num_elem_nodes)
             element_stiffness = zeros(3 * num_elem_nodes, 3 * num_elem_nodes)
+            element_mass = zeros(3 * num_elem_nodes, 3 * num_elem_nodes)
             elem_dofs[1 : 3 : 3 * num_elem_nodes - 2] = 3 .* node_indices .- 2
             elem_dofs[2 : 3 : 3 * num_elem_nodes - 1] = 3 .* node_indices .- 1
             elem_dofs[3 : 3 : 3 * num_elem_nodes] = 3 .* node_indices
@@ -217,15 +218,17 @@ function evaluate(model::SolidMechanics)
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
                 element_stiffness += B' * moduli * B * j * w
+                element_mass += kron(N[:, point] * N[:, point]', I(3)) * ρ * j * w
                 voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
-            total_energy += element_energy
-            total_internal_force[elem_dofs] += element_internal_force
-            total_stiffness[elem_dofs, elem_dofs] += element_stiffness
+            strain_energy += element_energy
+            internal_force[elem_dofs] += element_internal_force
+            stiffness_matrix[elem_dofs, elem_dofs] += element_stiffness
+            mass_matrix[elem_dofs, elem_dofs] += element_mass
         end
     end
-    return total_energy, total_internal_force, total_stiffness
+    return strain_energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)

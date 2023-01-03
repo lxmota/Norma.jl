@@ -68,7 +68,7 @@ function predict(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
 end
 
 function correct(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
-    solve(model, solver)
+    solve(integrator, model, solver)
 end
 
 function advance(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
