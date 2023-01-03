@@ -16,8 +16,8 @@ mutable struct Newmark <: TimeIntegrator
     displacement::Vector{Float64}
     velocity::Vector{Float64}
     acceleration::Vector{Float64}
+    disp_pre::Vector{Float64}
     velo_pre::Vector{Float64}
-    acce_pre::Vector{Float64}
 end
 
 function QuasiStatic(params::Dict{Any, Any})
@@ -47,9 +47,9 @@ function Newmark(params::Dict{Any, Any})
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
+    disp_pre = zeros(num_dof)
     velo_pre = zeros(num_dof)
-    acce_pre = zeros(num_dof)
-    Newmark(initial_time, final_time, time_step, β, γ, displacement, velocity, acceleration, velo_pre, acce_pre)
+    Newmark(initial_time, final_time, time_step, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre)
 end
 
 function create_time_integrator(params::Dict{Any, Any})
@@ -77,6 +77,20 @@ function advance(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
 end
 
 function predict(integrator::Newmark, model::SolidMechanics, solver::Any)
+    free = solver.free_dofs
+    fixed = solver.free_dofs .== false
+    Δt = integrator.time_step
+    β = integrator.β
+    γ = integrator.γ
+    u = integrator.displacement
+    v = integrator.velocity
+    a = integrator.acceleration
+    uᵖʳᵉ = integrator.disp_pre
+    vᵖʳᵉ = integrator.velo_pre
+    uᵖʳᵉ[fixed] = u[fixed]
+    vᵖʳᵉ[fixed] = v[fixed]
+    uᵖʳᵉ[free] = u[free] + Δt * (v[free] + (0.5 - β) * Δt * a[free])
+    vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
 end
 
 function correct(integrator::Newmark, model::SolidMechanics, solver::Any)

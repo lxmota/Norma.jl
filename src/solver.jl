@@ -90,7 +90,7 @@ function copy_solution_source_target(model::SolidMechanics, solver::HessianMinim
 end
 
 function evaluate(solver::HessianMinimizer, model::SolidMechanics)
-    solver.value, solver.gradient, solver.hessian = energy_force_stiffness(model)
+    solver.value, solver.gradient, solver.hessian = evaluate(model)
 end
 
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)

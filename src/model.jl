@@ -163,7 +163,7 @@ function voigt_cauchy_from_stress(material::Linear_Elastic, σ::MTTensor, F::MTT
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
-function energy_force_stiffness(model::SolidMechanics)
+function evaluate(model::SolidMechanics)
     params = model.params
     materials = model.materials
     input_mesh = params["input_mesh"]
