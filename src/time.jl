@@ -64,13 +64,13 @@ function create_time_integrator(params::Dict{Any, Any})
     end
 end
 
-function predict(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
+function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
 end
 
-function correct(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
+function correct(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
 end
 
-function predict(integrator::Newmark, model::SolidMechanics, solver::Any)
+function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     free = solver.free_dofs
     fixed = solver.free_dofs .== false
     Δt = integrator.time_step
@@ -87,5 +87,15 @@ function predict(integrator::Newmark, model::SolidMechanics, solver::Any)
     vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
 end
 
-function correct(integrator::Newmark, model::SolidMechanics, solver::Any)
+function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
+    Δt = integrator.time_step
+    β = integrator.β
+    γ = integrator.γ
+    u = integrator.displacement
+    v = integrator.velocity
+    a = integrator.acceleration
+    uᵖʳᵉ = integrator.disp_pre
+    vᵖʳᵉ = integrator.velo_pre
+    a = (u - uᵖʳᵉ) / β / Δt / Δt
+    v = vᵖʳᵉ + γ * Δt * a
 end
