@@ -133,7 +133,7 @@ end
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     strain_energy, internal_force, external_force, stiffness_matrix, mass_matrix = evaluate(model)
     β = integrator.β
-    Δt = integrator.Δt
+    Δt = integrator.time_step
     implicit = β > 0.0
     if implicit == true
         inertial_force = mass_matrix * integrator.acceleration
@@ -144,7 +144,7 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
         inertial_force = mass_vector .* integrator.acceleration
         kinetic_energy = 0.5 * mass_vector .* integrator.velocity .* integrator.velocity
     end
-    solver.value = strain_energy - external_force * integrator.displacement' + kinetic_energy
+    solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
 end
 

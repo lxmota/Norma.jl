@@ -8,6 +8,7 @@ function loop(params::Dict{Any, Any})
     solver = params["solver_struct"]
     time = time_integrator.initial_time
     stop = 0
+    apply_ics(model)
     initialize_writing(model)
     while time <= time_integrator.final_time
         model.time = time

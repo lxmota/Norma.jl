@@ -265,6 +265,9 @@ end
 
 function apply_bcs(model::SolidMechanics)
     params = model.params
+    if haskey(params, "boundary conditions") == false
+        return
+    end
     reference = model.reference
     current = model.current
     input_mesh = params["input_mesh"]
@@ -295,6 +298,47 @@ function apply_bcs(model::SolidMechanics)
                 end
             elseif bc_type == "Schwarz"
             elseif bc_type == "Neumann"
+            end
+        end
+    end
+    model.nodal_dofs = nodal_dofs
+end
+
+function apply_ics(model::SolidMechanics)
+    params = model.params
+    if haskey(params, "initial conditions") == false
+        return
+    end
+    reference = model.reference
+    current = model.current
+    velocity = model.velocity
+    input_mesh = params["input_mesh"]
+    global t = model.time
+    xc, yc, zc = input_mesh.get_coords()
+    num_nodes = length(xc)
+    nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
+    ic_params = params["initial conditions"]
+    for (ic_type, ic_type_params) ∈ ic_params
+        for ic ∈ ic_type_params
+            node_set_name = ic["node set"]
+            function_str = ic["function"]
+            component = ic["component"]
+            offset = component_offset_from_string(component)
+            node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+            node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+            for node_index ∈ node_set_node_indices
+                global x = xc[node_index]
+                global y = yc[node_index]
+                global z = zc[node_index]
+                # function_str is an arbitrary function of t, x, y, z in the input file
+                ic_expr = Meta.parse(function_str)
+                ic_val = eval(ic_expr)
+                dof_index = 3 * (node_index - 1) + offset
+                if ic_type == "displacement"
+                    current[dof_index] = reference[dof_index] + ic_val
+                elseif ic_type == "velocity"
+                    velocity[dof_index] = ic_val
+                end
             end
         end
     end
