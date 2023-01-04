@@ -96,6 +96,24 @@ function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::Soli
     solver.hessian = stiffness_matrix
 end
 
+function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
+    strain_energy, internal_force, external_force, stiffness_matrix, mass_matrix = evaluate(model)
+    β = integrator.β
+    Δt = integrator.Δt
+    implicit = β > 0.0
+    if implicit == true
+        inertial_force = mass_matrix * integrator.acceleration
+        kinetic_energy = 0.5 * integrator.velocity' * mass_matrix * integrator.velocity
+        solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
+    else
+        mass_vector = sum(mass_matrix, dim = 2)
+        inertial_force = mass_vector .* integrator.acceleration
+        kinetic_energy = 0.5 * mass_vector .* integrator.velocity .* integrator.velocity
+    end
+    solver.value = strain_energy - external_force * integrator.displacement' + kinetic_energy
+    solver.gradient = internal_force - external_force + inertial_force
+end
+
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)
     step = zeros(length(solver.gradient))
     free_dofs = solver.free_dofs
@@ -134,6 +152,7 @@ end
 function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
     copy_solution_source_target(model, solver)
     evaluate(integrator, solver, model)
+    predict(integrator, model, solver)
     residual = solver.gradient
     norm_residual = norm(residual[solver.free_dofs])
     solver.initial_norm = norm_residual
@@ -147,6 +166,7 @@ function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
         solver.solution += step
         copy_solution_source_target(solver, model)
         evaluate(integrator, solver, model)
+        correct(integrator, model, solver)
         residual = solver.gradient
         norm_step = norm(step)
         norm_residual = norm(residual[solver.free_dofs])

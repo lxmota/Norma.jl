@@ -60,7 +60,7 @@ function create_time_integrator(params::Dict{Any, Any})
     elseif time_integrator_name == "Newmark"
         return Newmark(params)
     else
-        error("Unknown type of solver : ", solver_name)
+        error("Unknown type of time integrator : ", time_integrator_name)
     end
 end
 
@@ -68,12 +68,6 @@ function predict(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
 end
 
 function correct(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
-    solve(integrator, model, solver)
-end
-
-function advance(integrator::QuasiStatic, model::SolidMechanics, solver::Any)
-    predict(integrator, model, solver)
-    correct(integrator, model, solver)
 end
 
 function predict(integrator::Newmark, model::SolidMechanics, solver::Any)
@@ -94,9 +88,4 @@ function predict(integrator::Newmark, model::SolidMechanics, solver::Any)
 end
 
 function correct(integrator::Newmark, model::SolidMechanics, solver::Any)
-end
-
-function advance(integrator::Newmark, model::SolidMechanics, solver::Any)
-    predict(integrator, model, solver)
-    correct(integrator, model, solver)
 end

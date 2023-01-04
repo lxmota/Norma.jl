@@ -14,7 +14,7 @@ function loop(params::Dict{Any, Any})
         println("Stop ", stop, ", time: ", time)
         apply_bcs(model)
         update_dofs(model, solver)
-        advance(time_integrator, model, solver)
+        solve(time_integrator, model, solver)
         write_step(model, stop + 1, time)
         time += time_integrator.time_step
         stop += 1
