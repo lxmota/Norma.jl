@@ -85,6 +85,7 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     vᵖʳᵉ[fixed] = v[fixed]
     uᵖʳᵉ[free] = u[free] + Δt * (v[free] + (0.5 - β) * Δt * a[free])
     vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
+    u[free] = uᵖʳᵉ[free]
 end
 
 function correct(integrator::Newmark, solver::Any, model::SolidMechanics)

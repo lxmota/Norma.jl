@@ -82,12 +82,21 @@ function copy_solution_source_targets(solver::HessianMinimizer, integrator::Quas
 end
 
 function copy_solution_source_targets(model::SolidMechanics, integrator::QuasiStatic, solver::HessianMinimizer)
+    _, num_nodes = size(model.reference)
+    for node ∈ 1 : num_nodes
+        nodal_displacement = model.current[:, node] - model.reference[:, node]
+        integrator.displacement[3 * node - 2 : 3 * node] = nodal_displacement
+    end
+    solver.solution = integrator.displacement
+end
+
+function copy_solution_source_targets(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     displacement = integrator.displacement
     solver.solution = displacement
     _, num_nodes = size(model.reference)
     for node ∈ 1 : num_nodes
-        nodal_displacement = model.current[:, node] - model.reference[:, node]
-        displacement[3 * node - 2 : 3 * node] = nodal_displacement
+        nodal_displacement = displacement[3 * node - 2 : 3 * node]
+        model.current[:, node] = model.reference[:, node] + nodal_displacement
     end
 end
 
@@ -108,18 +117,31 @@ function copy_solution_source_targets(solver::HessianMinimizer, integrator::Newm
 end
 
 function copy_solution_source_targets(model::SolidMechanics, integrator::Newmark, solver::HessianMinimizer)
+    _, num_nodes = size(model.reference)
+    for node ∈ 1 : num_nodes
+        nodal_displacement = model.current[:, node] - model.reference[:, node]
+        nodal_velocity = model.velocity[:, node]
+        nodal_acceleration = model.acceleration[:, node]
+        integrator.displacement[3 * node - 2 : 3 * node] = nodal_displacement
+        integrator.velocity[3 * node - 2 : 3 * node] = nodal_velocity
+        integrator.acceleration[3 * node - 2 : 3 * node] = nodal_acceleration
+    end
+    solver.solution = integrator.displacement
+end
+
+function copy_solution_source_targets(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = integrator.acceleration
     solver.solution = displacement
     _, num_nodes = size(model.reference)
     for node ∈ 1 : num_nodes
-        nodal_displacement = model.current[:, node] - model.reference[:, node]
-        nodal_velocity = model.velocity[:, node]
-        nodal_acceleration = model.acceleration[:, node]
-        displacement[3 * node - 2 : 3 * node] = nodal_displacement
-        velocity[3 * node - 2 : 3 * node] = nodal_velocity
-        acceleration[3 * node - 2 : 3 * node] = nodal_acceleration
+        nodal_displacement = displacement[3 * node - 2 : 3 * node]
+        nodal_velocity = velocity[3 * node - 2 : 3 * node]
+        nodal_acceleration = acceleration[3 * node - 2 : 3 * node]
+        model.current[:, node] = model.reference[:, node] + nodal_displacement
+        model.velocity[:, node] = nodal_velocity
+        model.acceleration[:, node] = nodal_acceleration
     end
 end
 
@@ -195,7 +217,7 @@ function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
     step_type = solver.step
     update_convergence_criterion(solver, solver.initial_norm)
     println("initial |R|=", norm_residual, ", |Δ|=", norm(solver.solution))
-    while continue_solve(solver) == true
+    while true
         step = compute_step(solver, step_type)
         solver.solution += step
         copy_solution_source_targets(solver, integrator, model)
@@ -207,5 +229,8 @@ function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
         println("iter=", solver.iteration_number, ", |R|=", norm_residual, ", |Δ|=", norm(solver.solution), ", |δΔ|=", norm_step)
         update_convergence_criterion(solver, norm_residual)
         solver.iteration_number += 1
+        if continue_solve(solver) == false
+            break
+        end
     end
 end
