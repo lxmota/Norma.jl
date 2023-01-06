@@ -315,8 +315,6 @@ function apply_ics(model::SolidMechanics)
     input_mesh = params["input_mesh"]
     global t = model.time
     xc, yc, zc = input_mesh.get_coords()
-    num_nodes = length(xc)
-    nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
     ic_params = params["initial conditions"]
     for (ic_type, ic_type_params) ∈ ic_params
         for ic ∈ ic_type_params
@@ -342,11 +340,13 @@ function apply_ics(model::SolidMechanics)
             end
         end
     end
-    model.nodal_dofs = nodal_dofs
 end
 
 function apply_bcs(model::HeatConduction)
     params = model.params
+    if haskey(params, "boundary conditions") == false
+        return
+    end
     temperature = model.temperature
     input_mesh = params["input_mesh"]
     global t = model.time

@@ -4,6 +4,8 @@ mutable struct QuasiStatic <: TimeIntegrator
     initial_time::Float64
     final_time::Float64
     time_step::Float64
+    time::Float64
+    stop::Int64
     displacement::Vector{Float64}
 end
 
@@ -11,6 +13,8 @@ mutable struct Newmark <: TimeIntegrator
     initial_time::Float64
     final_time::Float64
     time_step::Float64
+    time::Float64
+    stop::Int64
     β::Float64
     γ::Float64
     displacement::Vector{Float64}
@@ -25,12 +29,14 @@ function QuasiStatic(params::Dict{Any, Any})
     initial_time = time_integrator_params["initial time"]
     final_time = time_integrator_params["final time"]
     time_step = time_integrator_params["time step"]
+    time = initial_time
+    stop = 0
     input_mesh = params["input_mesh"]
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
-    QuasiStatic(initial_time, final_time, time_step, displacement)
+    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement)
 end
 
 function Newmark(params::Dict{Any, Any})
@@ -38,6 +44,8 @@ function Newmark(params::Dict{Any, Any})
     initial_time = time_integrator_params["initial time"]
     final_time = time_integrator_params["final time"]
     time_step = time_integrator_params["time step"]
+    time = initial_time
+    stop = 0
     β = time_integrator_params["β"]
     γ = time_integrator_params["γ"]
     input_mesh = params["input_mesh"]
@@ -49,7 +57,7 @@ function Newmark(params::Dict{Any, Any})
     acceleration = zeros(num_dof)
     disp_pre = zeros(num_dof)
     velo_pre = zeros(num_dof)
-    Newmark(initial_time, final_time, time_step, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre)
+    Newmark(initial_time, final_time, time_step, time, stop, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre)
 end
 
 function create_time_integrator(params::Dict{Any, Any})
@@ -68,6 +76,7 @@ function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
 end
 
 function correct(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+    copy_solution_source_targets(solver, model, integrator)
 end
 
 function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
@@ -85,10 +94,14 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     vᵖʳᵉ[fixed] = v[fixed]
     uᵖʳᵉ[free] = u[free] + Δt * (v[free] + (0.5 - β) * Δt * a[free])
     vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
-    u[free] = uᵖʳᵉ[free]
+    if integrator.stop > 0
+        u[free] = uᵖʳᵉ[free]
+    end
+    copy_solution_source_targets(integrator, solver, model)
 end
 
 function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
+    copy_solution_source_targets(solver, model, integrator)
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
