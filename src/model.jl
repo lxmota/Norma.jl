@@ -208,7 +208,8 @@ function evaluate(model::SolidMechanics)
                 J = det(dxdX)
                 if J ≤ 0.0
                     model.failed = true
-                    return 0.0, zeros(num_dof), spzeros(num_dof, num_dof)
+                    error("evaluation of model has failed with a non-positive Jacobian")
+                    return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof), spzeros(num_dof, num_dof)
                 end
                 F = MTTensor(dxdX)
                 W, P, A = constitutive(material, F)
@@ -272,7 +273,7 @@ function apply_bcs(model::SolidMechanics)
     current = model.current
     input_mesh = params["input_mesh"]
     global t = model.time
-    xc, yc, zc = input_mesh.get_coords()
+    xc, _, _ = input_mesh.get_coords()
     num_nodes = length(xc)
     nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
     bc_params = params["boundary conditions"]
@@ -286,14 +287,14 @@ function apply_bcs(model::SolidMechanics)
                 node_set_id = node_set_id_from_name(node_set_name, input_mesh)
                 node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
                 for node_index ∈ node_set_node_indices
-                    global x = xc[node_index]
-                    global y = yc[node_index]
-                    global z = zc[node_index]
+                    global x = reference[1, node_index]
+                    global y = reference[2, node_index]
+                    global z = reference[3, node_index]
                     # function_str is an arbitrary function of t, x, y, z in the input file
                     bc_expr = Meta.parse(function_str)
                     bc_val = eval(bc_expr)
                     dof_index = 3 * (node_index - 1) + offset
-                    current[dof_index] = reference[dof_index] + bc_val
+                    current[offset, node_index] = reference[offset, node_index] + bc_val
                     nodal_dofs[dof_index] = Dirichlet::DOF
                 end
             elseif bc_type == "Schwarz"
@@ -314,7 +315,7 @@ function apply_ics(model::SolidMechanics)
     velocity = model.velocity
     input_mesh = params["input_mesh"]
     global t = model.time
-    xc, yc, zc = input_mesh.get_coords()
+    xc, _, _ = input_mesh.get_coords()
     ic_params = params["initial conditions"]
     for (ic_type, ic_type_params) ∈ ic_params
         for ic ∈ ic_type_params
@@ -325,17 +326,16 @@ function apply_ics(model::SolidMechanics)
             node_set_id = node_set_id_from_name(node_set_name, input_mesh)
             node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
             for node_index ∈ node_set_node_indices
-                global x = xc[node_index]
-                global y = yc[node_index]
-                global z = zc[node_index]
+                global x = reference[1, node_index]
+                global y = reference[2, node_index]
+                global z = reference[3, node_index]
                 # function_str is an arbitrary function of t, x, y, z in the input file
                 ic_expr = Meta.parse(function_str)
                 ic_val = eval(ic_expr)
-                dof_index = 3 * (node_index - 1) + offset
                 if ic_type == "displacement"
-                    current[dof_index] = reference[dof_index] + ic_val
+                    current[offset, node_index] = reference[offset, node_index] + bc_val
                 elseif ic_type == "velocity"
-                    velocity[dof_index] = ic_val
+                    velocity[offset, node_index] = ic_val
                 end
             end
         end
@@ -380,16 +380,44 @@ function apply_bcs(model::HeatConduction)
 end
 
 function initialize_writing(model::SolidMechanics)
+    time_integrator_params = model.params["time integrator"]
+    time_integrator_name = time_integrator_params["type"]
+    is_dynamic = time_integrator_name ≠ "quasi static"
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
     disp_y_index = num_node_vars + 2
     disp_z_index = num_node_vars + 3
     num_node_vars += 3
+    refe_x_index = num_node_vars + 1
+    refe_y_index = num_node_vars + 2
+    refe_z_index = num_node_vars + 3
+    num_node_vars += 3
+    if is_dynamic == true
+        velo_x_index = num_node_vars + 1
+        velo_y_index = num_node_vars + 2
+        velo_z_index = num_node_vars + 3
+        num_node_vars += 3
+        acce_x_index = num_node_vars + 1
+        acce_y_index = num_node_vars + 2
+        acce_z_index = num_node_vars + 3
+        num_node_vars += 3
+    end
     output_mesh.set_node_variable_number(num_node_vars)
+    output_mesh.put_node_variable_name("refe_x", refe_x_index)
+    output_mesh.put_node_variable_name("refe_y", refe_y_index)
+    output_mesh.put_node_variable_name("refe_z", refe_z_index)
     output_mesh.put_node_variable_name("disp_x", disp_x_index)
     output_mesh.put_node_variable_name("disp_y", disp_y_index)
     output_mesh.put_node_variable_name("disp_z", disp_z_index)
+    if is_dynamic == true
+        output_mesh.put_node_variable_name("velo_x", velo_x_index)
+        output_mesh.put_node_variable_name("velo_y", velo_y_index)
+        output_mesh.put_node_variable_name("velo_z", velo_z_index)
+        output_mesh.put_node_variable_name("acce_x", acce_x_index)
+        output_mesh.put_node_variable_name("acce_y", acce_y_index)
+        output_mesh.put_node_variable_name("acce_z", acce_z_index)
+    end
     num_element_vars = output_mesh.get_element_variable_number()
     elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
@@ -427,15 +455,40 @@ function finalize_writing(model::Any)
 end
 
 function write_step(model::SolidMechanics, time_index::Int64, time::Float64)
+    time_integrator_params = model.params["time integrator"]
+    time_integrator_name = time_integrator_params["type"]
+    is_dynamic = time_integrator_name ≠ "quasi static"
     output_mesh = model.params["output_mesh"]
     output_mesh.put_time(time_index, time)
     displacement = model.current - model.reference
+    refe_x = model.current[1, :]
+    refe_y = model.current[2, :]
+    refe_z = model.current[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_x", time_index, refe_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_y", time_index, refe_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_z", time_index, refe_z)
     disp_x = displacement[1, :]
     disp_y = displacement[2, :]
     disp_z = displacement[3, :]
     output_mesh.put_variable_values("EX_NODAL", 1, "disp_x", time_index, disp_x)
     output_mesh.put_variable_values("EX_NODAL", 1, "disp_y", time_index, disp_y)
     output_mesh.put_variable_values("EX_NODAL", 1, "disp_z", time_index, disp_z)
+    if is_dynamic == true
+        velocity = model.velocity
+        velo_x = velocity[1, :]
+        velo_y = velocity[2, :]
+        velo_z = velocity[3, :]
+        output_mesh.put_variable_values("EX_NODAL", 1, "velo_x", time_index, velo_x)
+        output_mesh.put_variable_values("EX_NODAL", 1, "velo_y", time_index, velo_y)
+        output_mesh.put_variable_values("EX_NODAL", 1, "velo_z", time_index, velo_z)
+        acceleration = model.acceleration
+        acce_x = acceleration[1, :]
+        acce_y = acceleration[2, :]
+        acce_z = acceleration[3, :]
+        output_mesh.put_variable_values("EX_NODAL", 1, "acce_x", time_index, acce_x)
+        output_mesh.put_variable_values("EX_NODAL", 1, "acce_y", time_index, acce_y)
+        output_mesh.put_variable_values("EX_NODAL", 1, "acce_z", time_index, acce_z)
+    end
     stress = model.stress
     elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
