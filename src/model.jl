@@ -273,8 +273,7 @@ function apply_bcs(model::SolidMechanics)
     current = model.current
     input_mesh = params["input_mesh"]
     global t = model.time
-    xc, _, _ = input_mesh.get_coords()
-    num_nodes = length(xc)
+    _, num_nodes = size(reference)
     nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
@@ -315,7 +314,6 @@ function apply_ics(model::SolidMechanics)
     velocity = model.velocity
     input_mesh = params["input_mesh"]
     global t = model.time
-    xc, _, _ = input_mesh.get_coords()
     ic_params = params["initial conditions"]
     for (ic_type, ic_type_params) ∈ ic_params
         for ic ∈ ic_type_params
@@ -333,7 +331,7 @@ function apply_ics(model::SolidMechanics)
                 ic_expr = Meta.parse(function_str)
                 ic_val = eval(ic_expr)
                 if ic_type == "displacement"
-                    current[offset, node_index] = reference[offset, node_index] + bc_val
+                    current[offset, node_index] = reference[offset, node_index] + ic_val
                 elseif ic_type == "velocity"
                     velocity[offset, node_index] = ic_val
                 end

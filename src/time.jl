@@ -96,8 +96,8 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
     if integrator.stop == 0
         _, internal_force, external_force, _, mass_matrix = evaluate(model)
-        force = internal_force - external_force
-        integrator.acceleration = - mass_matrix \ force
+        inertial_force = external_force - internal_force
+        integrator.acceleration = mass_matrix \ inertial_force
     else
         u[free] = uᵖʳᵉ[free]
     end

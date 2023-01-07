@@ -47,6 +47,6 @@ solver:
   type: Hessian minimizer
   step: full Newton
   minimum iterations: 1
-  maximum iterations: 1
+  maximum iterations: 4
   relative tolerance: 1.0e-10
   absolute tolerance: 1.0e-06
