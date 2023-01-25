@@ -73,6 +73,7 @@ function create_time_integrator(params::Dict{Any, Any})
 end
 
 function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+    copy_solution_source_targets(model, integrator, solver)
 end
 
 function correct(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
@@ -80,11 +81,17 @@ function correct(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
 end
 
 function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
+    copy_solution_source_targets(model, integrator, solver)
     free = solver.free_dofs
     fixed = solver.free_dofs .== false
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
+    if integrator.stop == 0
+        _, internal_force, external_force, _, mass_matrix = evaluate(model)
+        inertial_force = external_force - internal_force
+        integrator.acceleration = mass_matrix \ inertial_force
+    end
     u = integrator.displacement
     v = integrator.velocity
     a = integrator.acceleration
@@ -92,28 +99,25 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     vᵖʳᵉ = integrator.velo_pre
     uᵖʳᵉ[fixed] = u[fixed]
     vᵖʳᵉ[fixed] = v[fixed]
-    uᵖʳᵉ[free] = u[free] + Δt * (v[free] + (0.5 - β) * Δt * a[free])
+    uᵖʳᵉ[free] = u[free] + Δt * v[free] + (0.5 - β) * Δt * Δt * a[free]
     vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
-    if integrator.stop == 0
-        _, internal_force, external_force, _, mass_matrix = evaluate(model)
-        inertial_force = external_force - internal_force
-        integrator.acceleration = mass_matrix \ inertial_force
-    else
+    if integrator.stop > 0
         u[free] = uᵖʳᵉ[free]
+        v[free] = vᵖʳᵉ[free]
     end
     copy_solution_source_targets(integrator, solver, model)
 end
 
 function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
-    copy_solution_source_targets(solver, model, integrator)
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
-    u = integrator.displacement
+    u = integrator.displacement = solver.solution
     v = integrator.velocity
     a = integrator.acceleration
     uᵖʳᵉ = integrator.disp_pre
     vᵖʳᵉ = integrator.velo_pre
     a = (u - uᵖʳᵉ) / β / Δt / Δt
     v = vᵖʳᵉ + γ * Δt * a
+    copy_solution_source_targets(integrator, solver, model)
 end

@@ -172,8 +172,8 @@ end
 
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)
     step = zeros(length(solver.gradient))
-    free_dofs = solver.free_dofs
-    step[free_dofs] = - solver.hessian[free_dofs, free_dofs] \ solver.gradient[free_dofs]
+    free = solver.free_dofs
+    step[free] = - solver.hessian[free, free] \ solver.gradient[free]
     return step
 end
 
@@ -206,7 +206,6 @@ function continue_solve(solver::HessianMinimizer)
 end
 
 function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
-    copy_solution_source_targets(model, integrator, solver)
     predict(integrator, solver, model)
     evaluate(integrator, solver, model)
     residual = solver.gradient
