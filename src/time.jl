@@ -1,3 +1,5 @@
+using DelimitedFiles
+
 abstract type TimeIntegrator end
 
 mutable struct QuasiStatic <: TimeIntegrator
@@ -240,7 +242,43 @@ function finalize_writing(model::Any)
     output_mesh.close()
 end
 
-function write_step(integrator::QuasiStatic, model::SolidMechanics)
+function write_step(integrator::Any, model::Any)
+    stop = integrator.stop
+    exodus_interval = 1
+    if haskey(model.params, "Exodus output interval") == true
+        exodus_interval = model.params["Exodus output interval"]
+    end
+    if exodus_interval > 0 && stop % exodus_interval == 0
+        write_step_exodus(integrator, model)
+    end
+    csv_interval = 0
+    if haskey(model.params, "CSV output interval") == true
+        csv_interval = model.params["CSV output interval"]
+    end
+    if csv_interval > 0 && stop % csv_interval == 0
+        write_step_csv(integrator)
+    end
+end
+
+function write_step_csv(integrator::QuasiStatic)
+    stop = integrator.stop
+    index_string = "-" * string(stop, pad = 4)
+    disp_filename = "disp" * index_string * ".csv"
+    writedlm(disp_filename, integrator.displacement, '\n')
+end
+
+function write_step_csv(integrator::Newmark)
+    stop = integrator.stop
+    index_string = "-" * string(stop, pad = 4)
+    disp_filename = "disp" * index_string * ".csv"
+    velo_filename = "velo" * index_string * ".csv"
+    acce_filename = "acce" * index_string * ".csv"
+    writedlm(disp_filename, integrator.displacement, '\n')
+    writedlm(velo_filename, integrator.velocity, '\n')
+    writedlm(acce_filename, integrator.acceleration, '\n')
+end
+
+function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
@@ -299,7 +337,7 @@ function write_step(integrator::QuasiStatic, model::SolidMechanics)
     end
 end
 
-function write_step(integrator::Newmark, model::SolidMechanics)
+function write_step_exodus(integrator::Newmark, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1

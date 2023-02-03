@@ -1,5 +1,3 @@
-using DelimitedFiles
-
 abstract type Solver end
 abstract type Minimizer <: Solver end
 abstract type Step end
@@ -170,11 +168,6 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     end
     solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
-    #writedlm("disp.txt", solver.solution, '\n')
-    #writedlm("velo.txt", integrator.velocity, '\n')
-    #writedlm("acce.txt", integrator.acceleration, '\n')
-    #writedlm("resi.txt", solver.gradient, '\n')
-    #exit()
 end
 
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)
@@ -218,11 +211,9 @@ function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
     residual = solver.gradient
     norm_residual = norm(residual[solver.free_dofs])
     solver.initial_norm = norm_residual
-    solver.iteration_number = 1
+    solver.iteration_number = 0
     solver.failed = solver.failed || model.failed
     step_type = solver.step
-    update_convergence_criterion(solver, solver.initial_norm)
-    println("initial |R|=", norm_residual, ", |Δ|=", norm(solver.solution))
     while true
         step = compute_step(solver, step_type)
         solver.solution += step
@@ -231,7 +222,11 @@ function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
         residual = solver.gradient
         norm_step = norm(step)
         norm_residual = norm(residual[solver.free_dofs])
-        println("iter=", solver.iteration_number, ", |R|=", norm_residual, ", |Δ|=", norm(solver.solution), ", |δΔ|=", norm_step)
+        if solver.iteration_number == 0
+            println("initial |R|=", norm_residual, ", |X|=", norm(solver.solution))
+        else
+            println("iter=", solver.iteration_number, ", |R|=", norm_residual, ", |X|=", norm(solver.solution), ", |ΔX|=", norm_step)
+        end
         update_convergence_criterion(solver, norm_residual)
         solver.iteration_number += 1
         if continue_solve(solver) == false
