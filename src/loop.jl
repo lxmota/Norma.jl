@@ -19,5 +19,5 @@ function loop(params::Dict{Any, Any})
         integrator.stop += 1
     end
     finalize_writing(model)
-    return model, solver
+    return integrator, solver, model
 end
