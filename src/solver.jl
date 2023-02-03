@@ -1,3 +1,5 @@
+using DelimitedFiles
+
 abstract type Solver end
 abstract type Minimizer <: Solver end
 abstract type Step end
@@ -168,6 +170,11 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     end
     solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
+    #writedlm("disp.txt", solver.solution, '\n')
+    #writedlm("velo.txt", integrator.velocity, '\n')
+    #writedlm("acce.txt", integrator.acceleration, '\n')
+    #writedlm("resi.txt", solver.gradient, '\n')
+    #exit()
 end
 
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)

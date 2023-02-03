@@ -90,7 +90,7 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     if integrator.stop == 0
         _, internal_force, external_force, _, mass_matrix = evaluate(model)
         inertial_force = external_force - internal_force
-        integrator.acceleration = mass_matrix \ inertial_force
+        integrator.acceleration[free] = mass_matrix[free, free] \ inertial_force[free]
     end
     u = integrator.displacement
     v = integrator.velocity
@@ -113,11 +113,261 @@ function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
     β = integrator.β
     γ = integrator.γ
     u = integrator.displacement = solver.solution
-    v = integrator.velocity
-    a = integrator.acceleration
     uᵖʳᵉ = integrator.disp_pre
     vᵖʳᵉ = integrator.velo_pre
-    a = (u - uᵖʳᵉ) / β / Δt / Δt
-    v = vᵖʳᵉ + γ * Δt * a
+    free = solver.free_dofs
+    if integrator.stop > 0
+        integrator.acceleration[free] = (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
+        integrator.velocity[free] = vᵖʳᵉ[free] + γ * Δt * (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
+    end
     copy_solution_source_targets(integrator, solver, model)
+end
+
+function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
+    output_mesh = model.params["output_mesh"]
+    num_node_vars = output_mesh.get_node_variable_number()
+    disp_x_index = num_node_vars + 1
+    disp_y_index = num_node_vars + 2
+    disp_z_index = num_node_vars + 3
+    num_node_vars += 3
+    refe_x_index = num_node_vars + 1
+    refe_y_index = num_node_vars + 2
+    refe_z_index = num_node_vars + 3
+    num_node_vars += 3
+    output_mesh.set_node_variable_number(num_node_vars)
+    output_mesh.put_node_variable_name("refe_x", refe_x_index)
+    output_mesh.put_node_variable_name("refe_y", refe_y_index)
+    output_mesh.put_node_variable_name("refe_z", refe_z_index)
+    output_mesh.put_node_variable_name("disp_x", disp_x_index)
+    output_mesh.put_node_variable_name("disp_y", disp_y_index)
+    output_mesh.put_node_variable_name("disp_z", disp_z_index)
+    num_element_vars = output_mesh.get_element_variable_number()
+    elem_blk_ids = output_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    max_num_int_points = 0
+    for blk_index ∈ 1 : num_blks
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        max_num_int_points = max(max_num_int_points, num_points)
+    end
+    ip_var_index = num_element_vars
+    num_element_vars += 6 * max_num_int_points
+    output_mesh.set_element_variable_number(num_element_vars)
+    for point ∈ 1 : max_num_int_points
+        stress_xx_index = ip_var_index + 1
+        stress_yy_index = ip_var_index + 2
+        stress_zz_index = ip_var_index + 3
+        stress_yz_index = ip_var_index + 4
+        stress_xz_index = ip_var_index + 5
+        stress_xy_index = ip_var_index + 6
+        ip_var_index += 6
+        ip_str = sprintf1("_%d", point)
+        output_mesh.put_element_variable_name("stress_xx" * ip_str, stress_xx_index)
+        output_mesh.put_element_variable_name("stress_yy" * ip_str, stress_yy_index)
+        output_mesh.put_element_variable_name("stress_zz" * ip_str, stress_zz_index)
+        output_mesh.put_element_variable_name("stress_yz" * ip_str, stress_yz_index)
+        output_mesh.put_element_variable_name("stress_xz" * ip_str, stress_xz_index)
+        output_mesh.put_element_variable_name("stress_xy" * ip_str, stress_xy_index)
+    end
+end
+
+function initialize_writing(integrator::Newmark, model::SolidMechanics)
+    output_mesh = model.params["output_mesh"]
+    num_node_vars = output_mesh.get_node_variable_number()
+    disp_x_index = num_node_vars + 1
+    disp_y_index = num_node_vars + 2
+    disp_z_index = num_node_vars + 3
+    num_node_vars += 3
+    refe_x_index = num_node_vars + 1
+    refe_y_index = num_node_vars + 2
+    refe_z_index = num_node_vars + 3
+    num_node_vars += 3
+    velo_x_index = num_node_vars + 1
+    velo_y_index = num_node_vars + 2
+    velo_z_index = num_node_vars + 3
+    num_node_vars += 3
+    acce_x_index = num_node_vars + 1
+    acce_y_index = num_node_vars + 2
+    acce_z_index = num_node_vars + 3
+    num_node_vars += 3
+    output_mesh.set_node_variable_number(num_node_vars)
+    output_mesh.put_node_variable_name("refe_x", refe_x_index)
+    output_mesh.put_node_variable_name("refe_y", refe_y_index)
+    output_mesh.put_node_variable_name("refe_z", refe_z_index)
+    output_mesh.put_node_variable_name("disp_x", disp_x_index)
+    output_mesh.put_node_variable_name("disp_y", disp_y_index)
+    output_mesh.put_node_variable_name("disp_z", disp_z_index)
+    output_mesh.put_node_variable_name("velo_x", velo_x_index)
+    output_mesh.put_node_variable_name("velo_y", velo_y_index)
+    output_mesh.put_node_variable_name("velo_z", velo_z_index)
+    output_mesh.put_node_variable_name("acce_x", acce_x_index)
+    output_mesh.put_node_variable_name("acce_y", acce_y_index)
+    output_mesh.put_node_variable_name("acce_z", acce_z_index)
+    num_element_vars = output_mesh.get_element_variable_number()
+    elem_blk_ids = output_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    max_num_int_points = 0
+    for blk_index ∈ 1 : num_blks
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        max_num_int_points = max(max_num_int_points, num_points)
+    end
+    ip_var_index = num_element_vars
+    num_element_vars += 6 * max_num_int_points
+    output_mesh.set_element_variable_number(num_element_vars)
+    for point ∈ 1 : max_num_int_points
+        stress_xx_index = ip_var_index + 1
+        stress_yy_index = ip_var_index + 2
+        stress_zz_index = ip_var_index + 3
+        stress_yz_index = ip_var_index + 4
+        stress_xz_index = ip_var_index + 5
+        stress_xy_index = ip_var_index + 6
+        ip_var_index += 6
+        ip_str = sprintf1("_%d", point)
+        output_mesh.put_element_variable_name("stress_xx" * ip_str, stress_xx_index)
+        output_mesh.put_element_variable_name("stress_yy" * ip_str, stress_yy_index)
+        output_mesh.put_element_variable_name("stress_zz" * ip_str, stress_zz_index)
+        output_mesh.put_element_variable_name("stress_yz" * ip_str, stress_yz_index)
+        output_mesh.put_element_variable_name("stress_xz" * ip_str, stress_xz_index)
+        output_mesh.put_element_variable_name("stress_xy" * ip_str, stress_xy_index)
+    end
+end
+
+function finalize_writing(model::Any)
+    output_mesh = model.params["output_mesh"]
+    output_mesh.close()
+end
+
+function write_step(integrator::QuasiStatic, model::SolidMechanics)
+    time = integrator.time
+    stop = integrator.stop
+    time_index = stop + 1
+    output_mesh = model.params["output_mesh"]
+    output_mesh.put_time(time_index, time)
+    displacement = model.current - model.reference
+    refe_x = model.current[1, :]
+    refe_y = model.current[2, :]
+    refe_z = model.current[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_x", time_index, refe_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_y", time_index, refe_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_z", time_index, refe_z)
+    disp_x = displacement[1, :]
+    disp_y = displacement[2, :]
+    disp_z = displacement[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_x", time_index, disp_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_y", time_index, disp_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_z", time_index, disp_z)
+    stress = model.stress
+    elem_blk_ids = output_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    for blk_index ∈ 1 : num_blks
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        blk_conn = output_mesh.get_elem_connectivity(blk_id)
+        num_blk_elems = blk_conn[2]
+        block_stress = stress[blk_index]
+        stress_xx = zeros(num_blk_elems, num_points)
+        stress_yy = zeros(num_blk_elems, num_points)
+        stress_zz = zeros(num_blk_elems, num_points)
+        stress_yz = zeros(num_blk_elems, num_points)
+        stress_xz = zeros(num_blk_elems, num_points)
+        stress_xy = zeros(num_blk_elems, num_points)
+        for blk_elem_index ∈ 1 : num_blk_elems
+            element_stress = block_stress[blk_elem_index]
+            for point ∈ 1 : num_points
+                point_stress = element_stress[point]
+                stress_xx[blk_elem_index, point] = point_stress[1]
+                stress_yy[blk_elem_index, point] = point_stress[2]
+                stress_zz[blk_elem_index, point] = point_stress[3]
+                stress_yz[blk_elem_index, point] = point_stress[4]
+                stress_xz[blk_elem_index, point] = point_stress[5]
+                stress_xy[blk_elem_index, point] = point_stress[6]
+            end
+        end
+        for point ∈ 1 : num_points
+            ip_str = sprintf1("_%d", point)
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx" * ip_str, time_index, stress_xx[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy" * ip_str, time_index, stress_yy[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_zz" * ip_str, time_index, stress_zz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yz" * ip_str, time_index, stress_yz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xz" * ip_str, time_index, stress_xz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xy" * ip_str, time_index, stress_xy[:, point])
+        end
+    end
+end
+
+function write_step(integrator::Newmark, model::SolidMechanics)
+    time = integrator.time
+    stop = integrator.stop
+    time_index = stop + 1
+    output_mesh = model.params["output_mesh"]
+    output_mesh.put_time(time_index, time)
+    displacement = model.current - model.reference
+    refe_x = model.current[1, :]
+    refe_y = model.current[2, :]
+    refe_z = model.current[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_x", time_index, refe_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_y", time_index, refe_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "refe_z", time_index, refe_z)
+    disp_x = displacement[1, :]
+    disp_y = displacement[2, :]
+    disp_z = displacement[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_x", time_index, disp_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_y", time_index, disp_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "disp_z", time_index, disp_z)
+    velocity = model.velocity
+    velo_x = velocity[1, :]
+    velo_y = velocity[2, :]
+    velo_z = velocity[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "velo_x", time_index, velo_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "velo_y", time_index, velo_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "velo_z", time_index, velo_z)
+    acceleration = model.acceleration
+    acce_x = acceleration[1, :]
+    acce_y = acceleration[2, :]
+    acce_z = acceleration[3, :]
+    output_mesh.put_variable_values("EX_NODAL", 1, "acce_x", time_index, acce_x)
+    output_mesh.put_variable_values("EX_NODAL", 1, "acce_y", time_index, acce_y)
+    output_mesh.put_variable_values("EX_NODAL", 1, "acce_z", time_index, acce_z)
+    stress = model.stress
+    elem_blk_ids = output_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    for blk_index ∈ 1 : num_blks
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        blk_conn = output_mesh.get_elem_connectivity(blk_id)
+        num_blk_elems = blk_conn[2]
+        block_stress = stress[blk_index]
+        stress_xx = zeros(num_blk_elems, num_points)
+        stress_yy = zeros(num_blk_elems, num_points)
+        stress_zz = zeros(num_blk_elems, num_points)
+        stress_yz = zeros(num_blk_elems, num_points)
+        stress_xz = zeros(num_blk_elems, num_points)
+        stress_xy = zeros(num_blk_elems, num_points)
+        for blk_elem_index ∈ 1 : num_blk_elems
+            element_stress = block_stress[blk_elem_index]
+            for point ∈ 1 : num_points
+                point_stress = element_stress[point]
+                stress_xx[blk_elem_index, point] = point_stress[1]
+                stress_yy[blk_elem_index, point] = point_stress[2]
+                stress_zz[blk_elem_index, point] = point_stress[3]
+                stress_yz[blk_elem_index, point] = point_stress[4]
+                stress_xz[blk_elem_index, point] = point_stress[5]
+                stress_xy[blk_elem_index, point] = point_stress[6]
+            end
+        end
+        for point ∈ 1 : num_points
+            ip_str = sprintf1("_%d", point)
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx" * ip_str, time_index, stress_xx[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy" * ip_str, time_index, stress_yy[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_zz" * ip_str, time_index, stress_zz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yz" * ip_str, time_index, stress_yz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xz" * ip_str, time_index, stress_xz[:, point])
+            output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xy" * ip_str, time_index, stress_xy[:, point])
+        end
+    end
 end
