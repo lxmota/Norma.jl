@@ -1,7 +1,8 @@
 type: single
 input mesh file: sho.g
 output mesh file: sho.e
-CSV output interval: 1
+Exodus output interval: 1
+CSV output interval: 0
 model:
   type: solid mechanics
   material:
