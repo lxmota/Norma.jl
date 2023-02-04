@@ -17,7 +17,7 @@ time integrator:
   type: Newmark
   initial time: 0.0
   final time: 1.0e-05
-  time step: 1.0e-05
+  time step: 1.0e-06
   β: 0.25
   γ: 0.5
 initial conditions:

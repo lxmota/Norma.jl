@@ -238,6 +238,8 @@ function initialize_writing(integrator::Newmark, model::SolidMechanics)
 end
 
 function finalize_writing(model::Any)
+    input_mesh = model.params["input_mesh"]
+    input_mesh.close()
     output_mesh = model.params["output_mesh"]
     output_mesh.close()
 end

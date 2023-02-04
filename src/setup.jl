@@ -20,12 +20,12 @@ end
 
 function setup_single(params::Dict{Any, Any})
     input_mesh_file = params["input mesh file"]
-    input_mesh = Exodus.exodus(input_mesh_file)
-    params["input_mesh"] = input_mesh
     output_mesh_file = params["output mesh file"]
     rm(output_mesh_file, force = true)
     output_mesh = Exodus.copy_mesh(input_mesh_file, output_mesh_file)
     params["output_mesh"] = output_mesh
+    input_mesh = Exodus.exodus(input_mesh_file)
+    params["input_mesh"] = input_mesh
 end
 
 function setup_multi(params::Dict{Any, Any})
