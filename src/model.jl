@@ -317,12 +317,12 @@ function apply_bcs(model::SolidMechanics)
                 offset = component_offset_from_string(component)
                 node_set_id = node_set_id_from_name(node_set_name, input_mesh)
                 node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+                # function_str is an arbitrary function of t, x, y, z in the input file
+                bc_expr = Meta.parse(function_str)
                 for node_index ∈ node_set_node_indices
                     global x = reference[1, node_index]
                     global y = reference[2, node_index]
                     global z = reference[3, node_index]
-                    # function_str is an arbitrary function of t, x, y, z in the input file
-                    bc_expr = Meta.parse(function_str)
                     bc_val = eval(bc_expr)
                     dof_index = 3 * (node_index - 1) + offset
                     current[offset, node_index] = reference[offset, node_index] + bc_val
@@ -355,12 +355,12 @@ function apply_ics(model::SolidMechanics)
             offset = component_offset_from_string(component)
             node_set_id = node_set_id_from_name(node_set_name, input_mesh)
             node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+            # function_str is an arbitrary function of t, x, y, z in the input file
+            ic_expr = Meta.parse(function_str)
             for node_index ∈ node_set_node_indices
                 global x = reference[1, node_index]
                 global y = reference[2, node_index]
                 global z = reference[3, node_index]
-                # function_str is an arbitrary function of t, x, y, z in the input file
-                ic_expr = Meta.parse(function_str)
                 ic_val = eval(ic_expr)
                 if ic_type == "displacement"
                     current[offset, node_index] = reference[offset, node_index] + ic_val
