@@ -215,19 +215,20 @@ function evaluate(model::SolidMechanics)
         num_points = default_num_int_pts(elem_type)
         N, dNdξ, elem_weights = isoparametric(elem_type, num_points)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
-        elem_dofs = zeros(Int64, 3 * num_elem_nodes)
+        num_elem_dofs = 3 * num_elem_nodes
+        elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1 : num_blk_elems
             conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
-            element_internal_force = zeros(3 * num_elem_nodes)
-            element_stiffness = zeros(3 * num_elem_nodes, 3 * num_elem_nodes)
-            element_mass = zeros(3 * num_elem_nodes, 3 * num_elem_nodes)
-            elem_dofs[1 : 3 : 3 * num_elem_nodes - 2] = 3 .* node_indices .- 2
-            elem_dofs[2 : 3 : 3 * num_elem_nodes - 1] = 3 .* node_indices .- 1
-            elem_dofs[3 : 3 : 3 * num_elem_nodes] = 3 .* node_indices
+            element_internal_force = zeros(num_elem_dofs)
+            element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
+            element_mass = zeros(num_elem_dofs, num_elem_dofs)
+            elem_dofs[1 : 3 : num_elem_dofs - 2] = 3 .* node_indices .- 2
+            elem_dofs[2 : 3 : num_elem_dofs - 1] = 3 .* node_indices .- 1
+            elem_dofs[3 : 3 : num_elem_dofs] = 3 .* node_indices
             for point ∈ 1 : num_points
                 dNdξₚ = dNdξ[:, :, point] 
                 dXdξ = dNdξₚ * elem_ref_pos'
