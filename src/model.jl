@@ -391,12 +391,12 @@ function apply_bcs(model::HeatConduction)
                 function_str = bc["function"]
                 node_set_id = node_set_id_from_name(node_set_name, input_mesh)
                 node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+                # function_str is an arbitrary function of t, x, y, z in the input file
+                bc_expr = Meta.parse(function_str)
                 for node_index ∈ node_set_node_indices
                     global x = xc[node_index]
                     global y = yc[node_index]
                     global z = zc[node_index]
-                    # function_str is an arbitrary function of t, x, y, z in the input file
-                    bc_expr = Meta.parse(function_str)
                     bc_val = eval(bc_expr)
                     temperature[node_index] = bc_val
                     nodal_dofs[node_index] = Dirichlet::DOF

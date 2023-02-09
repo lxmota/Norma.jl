@@ -1,7 +1,3 @@
-function update_dofs(model::Any, solver::Any)
-    solver.free_dofs = model.nodal_dofs .== free::DOF
-end
-
 function loop(params::Dict{Any, Any})
     integrator = params["time_integrator_struct"]
     model = params["model_struct"]

@@ -205,6 +205,10 @@ function continue_solve(solver::HessianMinimizer)
     return continue_solving
 end
 
+function update_dofs(model::Any, solver::Any)
+    solver.free_dofs = model.nodal_dofs .== free::DOF
+end
+
 function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
     predict(integrator, solver, model)
     evaluate(integrator, solver, model)
