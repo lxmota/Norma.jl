@@ -229,10 +229,11 @@ function evaluate(model::SolidMechanics)
             elem_dofs[2 : 3 : 3 * num_elem_nodes - 1] = 3 .* node_indices .- 1
             elem_dofs[3 : 3 : 3 * num_elem_nodes] = 3 .* node_indices
             for point ∈ 1 : num_points
-                dXdξ = dNdξ[:, :, point] * elem_ref_pos'
-                dxdξ = dNdξ[:, :, point] * elem_cur_pos'
+                dNdξₚ = dNdξ[:, :, point] 
+                dXdξ = dNdξₚ * elem_ref_pos'
+                dxdξ = dNdξₚ * elem_cur_pos'
                 dxdX = dXdξ \ dxdξ
-                dNdX = dXdξ \ dNdξ[:, :, point]
+                dNdX = dXdξ \ dNdξₚ
                 B = gradient_operator(dNdX)
                 j = det(dXdξ)
                 J = det(dxdX)
