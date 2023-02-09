@@ -200,7 +200,7 @@ function evaluate(model::SolidMechanics)
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
-    strain_energy = 0.0
+    energy = 0.0
     internal_force = zeros(num_dof)
     external_force = zeros(num_dof)
     stiffness = Dict{Pair{Int64, Int64}, Float64}()
@@ -254,7 +254,7 @@ function evaluate(model::SolidMechanics)
                 voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
-            strain_energy += element_energy
+            energy += element_energy
             internal_force[elem_dofs] += element_internal_force
             assemble(stiffness, element_stiffness, elem_dofs)
             assemble(mass, element_mass, elem_dofs)
@@ -262,7 +262,7 @@ function evaluate(model::SolidMechanics)
     end
     stiffness_matrix = make_sparse(stiffness)
     mass_matrix = make_sparse(mass)
-    return strain_energy, internal_force, external_force, stiffness_matrix, mass_matrix
+    return energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
