@@ -8,4 +8,5 @@ include("helpers.jl")
     include("single-static-solid-cube.jl")
     include("single-dynamic-solid-cube.jl")
     include("single-dynamic-solid-sho.jl")
+    include("single-dynamic-solid-clamped.jl")
 end
