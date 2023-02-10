@@ -184,10 +184,10 @@ function make_sparse(global_matrix::Dict{Pair{Int64, Int64}, Float64})
     J = zeros(Int64, num_not_zeros)
     V = zeros(num_not_zeros)
     index = 1
-    for entry ∈ global_matrix
-        I[index] = entry[1][1]
-        J[index] = entry[1][2]
-        V[index] = entry[2]
+    for (IJ, value) ∈ global_matrix
+        I[index] = IJ.first
+        J[index] = IJ.second
+        V[index] = value
         index += 1
     end
     return sparse(I, J, V)
