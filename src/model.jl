@@ -169,11 +169,8 @@ function assemble(global_matrix::Dict{Pair{Int64, Int64}, Float64}, element_matr
         I = dofs[i]
         for j ∈ 1 : num_dofs
             J = dofs[j]
-            if haskey(global_matrix, I => J) == true
-                global_matrix[I => J] += element_matrix[i, j]
-            else
-                global_matrix[I => J] = element_matrix[i, j]
-            end
+            global_entry = get(global_matrix, I => J, 0.0)
+            global_matrix[I => J] = global_entry + element_matrix[i, j]
         end
     end
 end
