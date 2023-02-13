@@ -163,31 +163,18 @@ function voigt_cauchy_from_stress(material::Linear_Elastic, σ::MTTensor, F::MTT
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
-function assemble(global_matrix::Dict{Pair{Int64, Int64}, Float64}, element_matrix::Matrix{Float64}, dofs::Vector{Int64})
+function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Vector{Float64}, global_mass::Vector{Float64}, element_stiffness::Matrix{Float64}, element_mass::Matrix{Float64}, dofs::Vector{Int64})
     num_dofs = length(dofs)
     for i ∈ 1 : num_dofs
         I = dofs[i]
         for j ∈ 1 : num_dofs
             J = dofs[j]
-            global_entry = get(global_matrix, I => J, 0.0)
-            global_matrix[I => J] = global_entry + element_matrix[i, j]
+            push!(rows, I)
+            push!(cols, J)
+            push!(global_mass, element_mass[i, j])
+            push!(global_stiffness, element_stiffness[i, j])
         end
     end
-end
-
-function make_sparse(global_matrix::Dict{Pair{Int64, Int64}, Float64})
-    num_not_zeros = length(global_matrix)
-    I = zeros(Int64, num_not_zeros)
-    J = zeros(Int64, num_not_zeros)
-    V = zeros(num_not_zeros)
-    index = 1
-    for (IJ, value) ∈ global_matrix
-        I[index] = IJ.first
-        J[index] = IJ.second
-        V[index] = value
-        index += 1
-    end
-    return sparse(I, J, V)
 end
 
 function evaluate(model::SolidMechanics)
@@ -200,8 +187,10 @@ function evaluate(model::SolidMechanics)
     energy = 0.0
     internal_force = zeros(num_dof)
     external_force = zeros(num_dof)
-    stiffness = Dict{Pair{Int64, Int64}, Float64}()
-    mass = Dict{Pair{Int64, Int64}, Float64}()
+    rows = Vector{Int64}()
+    cols = Vector{Int64}()
+    stiffness = Vector{Float64}()
+    mass = Vector{Float64}()
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
@@ -254,12 +243,11 @@ function evaluate(model::SolidMechanics)
             end
             energy += element_energy
             internal_force[elem_dofs] += element_internal_force
-            assemble(stiffness, element_stiffness, elem_dofs)
-            assemble(mass, element_mass, elem_dofs)
+            assemble(rows, cols, stiffness, mass, element_stiffness, element_mass, elem_dofs)
         end
     end
-    stiffness_matrix = make_sparse(stiffness)
-    mass_matrix = make_sparse(mass)
+    stiffness_matrix = sparse(rows, cols, stiffness)
+    mass_matrix = sparse(rows, cols, mass)
     return energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
