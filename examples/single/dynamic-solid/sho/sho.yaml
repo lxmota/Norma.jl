@@ -24,7 +24,7 @@ initial conditions:
   displacement:
     - node set: nsz+
       component: z
-      function: "z > 0.9 ? 1.0 : 0.0"
+      function: "1.0"
 boundary conditions:
   Dirichlet:
     - node set: nsx-

@@ -1,4 +1,3 @@
-using Formatting
 using SparseArrays
 
 include("constitutive.jl")
