@@ -211,9 +211,12 @@ function evaluate(model::SolidMechanics)
             element_internal_force = zeros(num_elem_dofs)
             element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
             element_mass = zeros(num_elem_dofs, num_elem_dofs)
-            elem_dofs[1 : 3 : num_elem_dofs - 2] = 3 .* node_indices .- 2
-            elem_dofs[2 : 3 : num_elem_dofs - 1] = 3 .* node_indices .- 1
-            elem_dofs[3 : 3 : num_elem_dofs] = 3 .* node_indices
+            index_x = 1 : 3 : num_elem_dofs .- 2
+            index_y = index_x .+ 1
+            index_z = index_x .+ 2
+            elem_dofs[index_x] = 3 .* node_indices .- 2
+            elem_dofs[index_y] = 3 .* node_indices .- 1
+            elem_dofs[index_z] = 3 .* node_indices
             for point ∈ 1 : num_points
                 dNdξₚ = dNdξ[:, :, point] 
                 dXdξ = dNdξₚ * elem_ref_pos'
@@ -236,7 +239,10 @@ function evaluate(model::SolidMechanics)
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
                 element_stiffness += B' * moduli * B * j * w
-                element_mass += kron(N[:, point] * N[:, point]', I(3)) * ρ * j * w
+                reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
+                element_mass[index_x, index_x] += reduced_mass
+                element_mass[index_y, index_y] += reduced_mass
+                element_mass[index_z, index_z] += reduced_mass
                 voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
