@@ -5,7 +5,6 @@ abstract type Step end
 mutable struct HessianMinimizer <: Minimizer
     minimum_iterations::Int64
     maximum_iterations::Int64
-    iteration_number::Int64
     absolute_tolerance::Float64
     relative_tolerance::Float64
     absolute_error::Float64
@@ -22,7 +21,6 @@ mutable struct HessianMinimizer <: Minimizer
 end
 
 mutable struct ExplicitSolver <: Solver
-    iteration_number::Int64
     value::Float64
     gradient::Vector{Float64}
     lumped_hessian::Vector{Float64}

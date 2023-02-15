@@ -17,7 +17,6 @@ function HessianMinimizer(params::Dict{Any,Any})
     num_dof = 3 * num_nodes
     minimum_iterations = solver_params["minimum iterations"]
     maximum_iterations = solver_params["maximum iterations"]
-    iteration_number = 1
     absolute_tolerance = solver_params["absolute tolerance"]
     relative_tolerance = solver_params["relative tolerance"]
     absolute_error = 0.0
@@ -31,7 +30,7 @@ function HessianMinimizer(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    HessianMinimizer(minimum_iterations, maximum_iterations, iteration_number,
+    HessianMinimizer(minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         value, gradient, hessian, initial_guess, free_dofs,
         initial_norm, converged, failed, step)
@@ -43,7 +42,6 @@ function ExplicitSolver(params::Dict{Any,Any})
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
-    iteration_number = 0
     value = 0.0
     gradient = zeros(num_dof)
     lumped_hessian = zeros(num_dof)
@@ -53,7 +51,7 @@ function ExplicitSolver(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    ExplicitSolver(iteration_number, value, gradient, lumped_hessian, initial_guess, free_dofs,
+    ExplicitSolver(value, gradient, lumped_hessian, initial_guess, free_dofs,
         initial_norm, converged, failed, step)
 end
 
@@ -237,11 +235,11 @@ function update_convergence_criterion(solver::HessianMinimizer, absolute_error::
     solver.converged = converged_absolute || converged_relative
 end
 
-function update_convergence_criterion(solver::ExplicitSolver, absolute_error::Float64)
+function update_convergence_criterion(solver::ExplicitSolver, _::Float64)
     solver.converged = true
 end
 
-function continue_solve(solver::HessianMinimizer)
+function continue_solve(solver::HessianMinimizer, iteration_number::Int64)
     if solver.failed == true
         return false
     end
@@ -249,11 +247,11 @@ function continue_solve(solver::HessianMinimizer)
     if zero_residual == true
         return false
     end
-    exceeds_minimum_iterations = solver.iteration_number > solver.minimum_iterations
+    exceeds_minimum_iterations = iteration_number > solver.minimum_iterations
     if exceeds_minimum_iterations == false
         return true
     end
-    exceeds_maximum_iterations = solver.iteration_number > solver.maximum_iterations
+    exceeds_maximum_iterations = iteration_number > solver.maximum_iterations
     if exceeds_maximum_iterations == true
         return false
     end
@@ -261,7 +259,7 @@ function continue_solve(solver::HessianMinimizer)
     return continue_solving
 end
 
-function continue_solve(solver::ExplicitSolver)
+function continue_solve(_::ExplicitSolver, _::Int64)
     return false
 end
 
@@ -275,7 +273,7 @@ function solve(integrator::Any, model::SolidMechanics, solver::Any)
     residual = solver.gradient
     norm_residual = norm(residual[solver.free_dofs])
     solver.initial_norm = norm_residual
-    solver.iteration_number = 0
+    iteration_number = 0
     solver.failed = solver.failed || model.failed
     step_type = solver.step
     while true
@@ -286,14 +284,14 @@ function solve(integrator::Any, model::SolidMechanics, solver::Any)
         residual = solver.gradient
         norm_step = norm(step)
         norm_residual = norm(residual[solver.free_dofs])
-        if solver.iteration_number == 0
+        if iteration_number == 0
             println("initial |R|=", norm_residual, ", |X|=", norm(solver.solution))
         else
-            println("iter=", solver.iteration_number, ", |R|=", norm_residual, ", |X|=", norm(solver.solution), ", |ΔX|=", norm_step)
+            println("iter=", iteration_number, ", |R|=", norm_residual, ", |X|=", norm(solver.solution), ", |ΔX|=", norm_step)
         end
         update_convergence_criterion(solver, norm_residual)
-        solver.iteration_number += 1
-        if continue_solve(solver) == false
+        iteration_number += 1
+        if continue_solve(solver, iteration_number) == false
             break
         end
     end

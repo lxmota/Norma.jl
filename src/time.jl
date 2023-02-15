@@ -145,7 +145,6 @@ function correct(integrator::CentralDifference, solver::ExplicitSolver, model::S
     Δt = integrator.time_step
     γ = integrator.γ
     a = integrator.acceleration = solver.solution
-    v = integrator.velocity
     free = solver.free_dofs
     integrator.velocity[free] += γ * Δt * a[free]
     copy_solution_source_targets(integrator, solver, model)
