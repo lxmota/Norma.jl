@@ -1,0 +1,51 @@
+type: single
+input mesh file: sho.g
+output mesh file: sho.e
+Exodus output interval: 1
+CSV output interval: 0
+model:
+  type: solid mechanics
+  material:
+    blocks:
+      sho: elastic
+    elastic:
+      model: linear elastic
+      elastic modulus: 1.3333333333333333
+      Poisson's ratio: 0.0
+      density: 1.0
+time integrator:
+  type: Newmark
+  initial time: 0.0
+  final time: 1.58
+  time step: 0.09817477042468103
+  β: 0.25
+  γ: 0.5
+initial conditions:
+  displacement:
+    - node set: nsz+
+      component: z
+      function: "1.0"
+boundary conditions:
+  Dirichlet:
+    - node set: nsx-
+      component: x
+      function: "0.0"
+    - node set: nsx+
+      component: x
+      function: "0.0"
+    - node set: nsy-
+      component: y
+      function: "0.0"
+    - node set: nsy+
+      component: y
+      function: "0.0"
+    - node set: nsz-
+      component: z
+      function: "0.0"
+solver:
+  type: Hessian minimizer
+  step: full Newton
+  minimum iterations: 1
+  maximum iterations: 16
+  relative tolerance: 1.0e-10
+  absolute tolerance: 1.0e-06
