@@ -1,6 +1,8 @@
 abstract type TimeIntegrator end
+abstract type StaticTimeIntegrator <: TimeIntegrator end
+abstract type DynamicTimeIntegrator <: TimeIntegrator end
 
-mutable struct QuasiStatic <: TimeIntegrator
+mutable struct QuasiStatic <: StaticTimeIntegrator
     initial_time::Float64
     final_time::Float64
     time_step::Float64
@@ -9,7 +11,7 @@ mutable struct QuasiStatic <: TimeIntegrator
     displacement::Vector{Float64}
 end
 
-mutable struct Newmark <: TimeIntegrator
+mutable struct Newmark <: DynamicTimeIntegrator
     initial_time::Float64
     final_time::Float64
     time_step::Float64
@@ -24,7 +26,7 @@ mutable struct Newmark <: TimeIntegrator
     velo_pre::Vector{Float64}
 end
 
-mutable struct CentralDifference <: TimeIntegrator
+mutable struct CentralDifference <: DynamicTimeIntegrator
     initial_time::Float64
     final_time::Float64
     time_step::Float64

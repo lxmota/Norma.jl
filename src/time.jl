@@ -1,6 +1,8 @@
 using DelimitedFiles
 using Formatting
 
+include("solver_def.jl")
+
 function QuasiStatic(params::Dict{Any, Any})
     time_integrator_params = params["time integrator"]
     initial_time = time_integrator_params["initial time"]
@@ -69,15 +71,15 @@ function create_time_integrator(params::Dict{Any, Any})
     end
 end
 
-function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+function predict(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
 end
 
-function correct(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+function correct(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(solver, model, integrator)
 end
 
-function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
+function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
     free = solver.free_dofs
     fixed = solver.free_dofs .== false
@@ -105,7 +107,7 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
+function correct(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
@@ -120,20 +122,35 @@ function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function predict(integrator::CentralDifference, solver::Any, model::SolidMechanics)
-end
-
-function correct(integrator::CentralDifference, solver::Any, model::SolidMechanics)
+function predict(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
+    copy_solution_source_targets(model, integrator, solver)
+    free = solver.free_dofs
     Δt = integrator.time_step
     γ = integrator.γ
-    a = integrator.acceleration = solver.solution
-    vᵖʳᵉ = integrator.velo_pre
-    free = solver.free_dofs
-    integrator.velocity[free] = vᵖʳᵉ[free] + γ * Δt * a[free]
+    if integrator.stop == 0
+        _, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+        inertial_force = external_force - internal_force
+        integrator.acceleration[free] = inertial_force[free] ./ lumped_mass[free]
+    end
+    u = integrator.displacement
+    v = integrator.velocity
+    a = integrator.acceleration
+    u[free] += Δt * v[free] + 0.5 * Δt * Δt * a[free]
+    v[free] += (1.0 - γ) * Δt * a[free]
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
+function correct(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
+    Δt = integrator.time_step
+    γ = integrator.γ
+    a = integrator.acceleration = solver.solution
+    v = integrator.velocity
+    free = solver.free_dofs
+    integrator.velocity[free] += γ * Δt * a[free]
+    copy_solution_source_targets(integrator, solver, model)
+end
+
+function initialize_writing(integrator::StaticTimeIntegrator, model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
@@ -182,7 +199,7 @@ function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
     end
 end
 
-function initialize_writing(integrator::Newmark, model::SolidMechanics)
+function initialize_writing(integrator::DynamicTimeIntegrator, model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
@@ -270,14 +287,14 @@ function write_step(integrator::Any, model::Any)
     end
 end
 
-function write_step_csv(integrator::QuasiStatic)
+function write_step_csv(integrator::StaticTimeIntegrator)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     disp_filename = "disp" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
 end
 
-function write_step_csv(integrator::Newmark)
+function write_step_csv(integrator::DynamicTimeIntegrator)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     disp_filename = "disp" * index_string * ".csv"
@@ -288,7 +305,7 @@ function write_step_csv(integrator::Newmark)
     writedlm(acce_filename, integrator.acceleration, '\n')
 end
 
-function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
+function write_step_exodus(integrator::StaticTimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
@@ -347,7 +364,7 @@ function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
     end
 end
 
-function write_step_exodus(integrator::Newmark, model::SolidMechanics)
+function write_step_exodus(integrator::DynamicTimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1

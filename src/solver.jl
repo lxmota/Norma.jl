@@ -1,9 +1,9 @@
-include("solver_def.jl")
-
 function create_step(solver_params::Dict{Any, Any})
     step_name = solver_params["step"]
     if step_name == "full Newton"
         return NewtonStep()
+    elseif step_name == "explicit"
+        return ExplicitStep()
     else
         error("Unknown type of solver step: ", step_name)
     end
@@ -35,13 +35,34 @@ function HessianMinimizer(params::Dict{Any, Any})
     absolute_tolerance, relative_tolerance, absolute_error, relative_error,
     value, gradient, hessian, initial_guess, free_dofs,
     initial_norm, converged, failed, step)
-   end
+end
+
+function ExplicitSolver(params::Dict{Any, Any})
+    solver_params = params["solver"]
+    input_mesh = params["input_mesh"]
+    x, _, _ = input_mesh.get_coords()
+    num_nodes = length(x)
+    num_dof = 3 * num_nodes
+    value = 0.0
+    gradient = zeros(num_dof)
+    lumped_hessian = zeros(num_dof)
+    free_dofs = trues(num_dof)
+    initial_guess = zeros(num_dof)
+    initial_norm = 0.0
+    converged = false
+    failed = false
+    step = create_step(solver_params)
+    ExplicitSolver(value, gradient, lumped_hessian, initial_guess, free_dofs,
+    initial_norm, converged, failed, step)
+end
 
 function create_solver(params::Dict{Any, Any})
     solver_params = params["solver"]
     solver_name = solver_params["type"]
     if solver_name == "Hessian minimizer"
         return HessianMinimizer(params)
+    elseif solver_name == "explicit solver"
+        return ExplicitSolver(params)
     else
         error("Unknown type of solver : ", solver_name)
     end
@@ -121,7 +142,7 @@ function copy_solution_source_targets(model::SolidMechanics, integrator::Newmark
     solver.solution = integrator.displacement
 end
 
-function copy_solution_source_targets(integrator::CentralDifference, solver::HessianMinimizer, model::SolidMechanics)
+function copy_solution_source_targets(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = integrator.acceleration
@@ -137,7 +158,7 @@ function copy_solution_source_targets(integrator::CentralDifference, solver::Hes
     end
 end
 
-function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMechanics, integrator::CentralDifference)
+function copy_solution_source_targets(solver::ExplicitSolver, model::SolidMechanics, integrator::CentralDifference)
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = solver.solution
@@ -153,7 +174,7 @@ function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMech
     end
 end
 
-function copy_solution_source_targets(model::SolidMechanics, integrator::CentralDifference, solver::HessianMinimizer)
+function copy_solution_source_targets(model::SolidMechanics, integrator::CentralDifference, solver::ExplicitSolver)
     _, num_nodes = size(model.reference)
     for node ∈ 1 : num_nodes
         nodal_displacement = model.current[:, node] - model.reference[:, node]
@@ -184,7 +205,7 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     solver.gradient = internal_force - external_force + inertial_force
 end
 
-function evaluate(integrator::CentralDifference, solver::HessianMinimizer, model::SolidMechanics)
+function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     strain_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
     inertial_force = lumped_mass .* integrator.acceleration
     kinetic_energy = 0.5 * lumped_mass .* integrator.velocity .* integrator.velocity
@@ -199,12 +220,23 @@ function compute_step(solver::HessianMinimizer, step_type::NewtonStep)
     return step
 end
 
+function compute_step(solver::ExplicitSolver, step_type::ExplicitStep)
+    step = zeros(length(solver.gradient))
+    free = solver.free_dofs
+    step[free] = - solver.gradient[free] ./ solver.lumped_hessian[free]
+    return step
+end
+
 function update_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
     solver.absolute_error = absolute_error
     solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : 0.0
     converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
     converged_relative = solver.relative_error ≤ solver.relative_tolerance
     solver.converged = converged_absolute || converged_relative
+end
+
+function update_convergence_criterion(solver::ExplicitSolver, absolute_error::Float64)
+    solver.converged = true
 end
 
 function continue_solve(solver::HessianMinimizer)
@@ -227,11 +259,15 @@ function continue_solve(solver::HessianMinimizer)
     return continue_solving
 end
 
+function continue_solve(solver::ExplicitSolver)
+    return false
+end
+
 function update_dofs(model::Any, solver::Any)
     solver.free_dofs = model.nodal_dofs .== free::DOF
 end
 
-function solve(integrator::Any, model::SolidMechanics, solver::HessianMinimizer)
+function solve(integrator::Any, model::SolidMechanics, solver::Any)
     predict(integrator, solver, model)
     evaluate(integrator, solver, model)
     residual = solver.gradient
