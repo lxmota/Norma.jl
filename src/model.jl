@@ -4,7 +4,7 @@ include("constitutive.jl")
 include("model_def.jl")
 include("time_def.jl")
 
-function SolidMechanics(params::Dict{Any, Any})
+function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     x, y, z = input_mesh.get_coords()
@@ -13,7 +13,7 @@ function SolidMechanics(params::Dict{Any, Any})
     current = Matrix{Float64}(undef, 3, num_nodes)
     velocity = Matrix{Float64}(undef, 3, num_nodes)
     acceleration = Matrix{Float64}(undef, 3, num_nodes)
-    for node ∈ 1 : num_nodes
+    for node ∈ 1:num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         current[:, node] = [x[node], y[node], z[node]]
         velocity[:, node] = [0.0, 0.0, 0.0]
@@ -26,8 +26,8 @@ function SolidMechanics(params::Dict{Any, Any})
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", model_params["mesh"], " (", num_blks,
-        ") must be equal to number of blocks in materials file ", model_params["material"],
-        " (", num_blks_params, ")")
+            ") must be equal to number of blocks in materials file ", model_params["material"],
+            " (", num_blks_params, ")")
     end
     elem_blk_names = input_mesh.get_elem_blk_names()
     materials = Vector{Solid}(undef, 0)
@@ -39,18 +39,18 @@ function SolidMechanics(params::Dict{Any, Any})
     end
     time = 0.0
     failed = false
-    nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
+    nodal_dofs = [free::DOF for _ ∈ 1:3*num_nodes]
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
         elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
         blk_conn = input_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_stress = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
-        for blk_elem_index ∈ 1 : num_blk_elems
+        for blk_elem_index ∈ 1:num_blk_elems
             element_stress = Vector{Vector{Float64}}(undef, num_points)
-            for point ∈ 1 : num_points
+            for point ∈ 1:num_points
                 element_stress[point] = zeros(6)
             end
             block_stress[blk_elem_index] = element_stress
@@ -60,7 +60,7 @@ function SolidMechanics(params::Dict{Any, Any})
     SolidMechanics(params, materials, reference, current, velocity, acceleration, stress, nodal_dofs, time, failed)
 end
 
-function HeatConduction(params::Dict{Any, Any})
+function HeatConduction(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     x, y, z = input_mesh.get_coords()
@@ -68,7 +68,7 @@ function HeatConduction(params::Dict{Any, Any})
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
     rate = Vector{Float64}(undef, num_nodes)
-    for node ∈ 1 : num_nodes
+    for node ∈ 1:num_nodes
         reference[:, node] = [x[node], y[node], z[node]]
         temperature[node] = 0.0
         rate[node] = 0.0
@@ -80,8 +80,8 @@ function HeatConduction(params::Dict{Any, Any})
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", model_params["mesh"], " (", num_blks,
-        ") must be equal to number of blocks in materials file ", model_params["material"],
-        " (", num_blks_params, ")")
+            ") must be equal to number of blocks in materials file ", model_params["material"],
+            " (", num_blks_params, ")")
     end
     elem_blk_names = input_mesh.get_elem_blk_names()
     materials = Vector{Thermal}(undef, 0)
@@ -93,18 +93,18 @@ function HeatConduction(params::Dict{Any, Any})
     end
     time = 0.0
     failed = false
-    nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
+    nodal_dofs = [free::DOF for _ ∈ 1:num_nodes]
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
         elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
         blk_conn = input_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_flux = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
-        for blk_elem_index ∈ 1 : num_blk_elems
+        for blk_elem_index ∈ 1:num_blk_elems
             element_flux = Vector{Vector{Float64}}(undef, num_points)
-            for point ∈ 1 : num_points
+            for point ∈ 1:num_points
                 element_flux[point] = zeros(3)
             end
             block_flux[blk_elem_index] = element_stress
@@ -114,7 +114,7 @@ function HeatConduction(params::Dict{Any, Any})
     HeatConduction(params, materials, reference, temperature, rate, flux, nodal_dofs, time, failed)
 end
 
-function create_model(params::Dict{Any, Any})
+function create_model(params::Dict{Any,Any})
     model_params = params["model"]
     model_name = model_params["type"]
     if model_name == "solid mechanics"
@@ -137,9 +137,9 @@ end
 
 function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Vector{Float64}, element_stiffness::Matrix{Float64}, dofs::Vector{Int64})
     num_dofs = length(dofs)
-    for i ∈ 1 : num_dofs
+    for i ∈ 1:num_dofs
         I = dofs[i]
-        for j ∈ 1 : num_dofs
+        for j ∈ 1:num_dofs
             J = dofs[j]
             push!(rows, I)
             push!(cols, J)
@@ -150,9 +150,9 @@ end
 
 function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Vector{Float64}, global_mass::Vector{Float64}, element_stiffness::Matrix{Float64}, element_mass::Matrix{Float64}, dofs::Vector{Int64})
     num_dofs = length(dofs)
-    for i ∈ 1 : num_dofs
+    for i ∈ 1:num_dofs
         I = dofs[i]
-        for j ∈ 1 : num_dofs
+        for j ∈ 1:num_dofs
             J = dofs[j]
             push!(rows, I)
             push!(cols, J)
@@ -177,7 +177,7 @@ function evaluate(integrator::QuasiStatic, model::SolidMechanics)
     stiffness = Vector{Float64}()
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
@@ -187,19 +187,19 @@ function evaluate(integrator::QuasiStatic, model::SolidMechanics)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
-        for blk_elem_index ∈ 1 : num_blk_elems
-            conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
+        for blk_elem_index ∈ 1:num_blk_elems
+            conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
             element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
-            elem_dofs[1 : 3 : num_elem_dofs - 2] = 3 .* node_indices .- 2
-            elem_dofs[2 : 3 : num_elem_dofs - 1] = 3 .* node_indices .- 1
-            elem_dofs[3 : 3 : num_elem_dofs] = 3 .* node_indices
-            for point ∈ 1 : num_points
-                dNdξₚ = dNdξ[:, :, point] 
+            elem_dofs[1:3:num_elem_dofs-2] = 3 .* node_indices .- 2
+            elem_dofs[2:3:num_elem_dofs-1] = 3 .* node_indices .- 1
+            elem_dofs[3:3:num_elem_dofs] = 3 .* node_indices
+            for point ∈ 1:num_points
+                dNdξₚ = dNdξ[:, :, point]
                 dXdξ = dNdξₚ * elem_ref_pos'
                 dxdξ = dNdξₚ * elem_cur_pos'
                 dxdX = dXdξ \ dxdξ
@@ -225,7 +225,7 @@ function evaluate(integrator::QuasiStatic, model::SolidMechanics)
             end
             energy += element_energy
             internal_force[elem_dofs] += element_internal_force
-            assemble(rows, cols, stiffness,element_stiffness, elem_dofs)
+            assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
         end
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
@@ -248,7 +248,7 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
     mass = Vector{Float64}()
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
@@ -258,8 +258,8 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
-        for blk_elem_index ∈ 1 : num_blk_elems
-            conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
+        for blk_elem_index ∈ 1:num_blk_elems
+            conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
@@ -267,14 +267,14 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
             element_internal_force = zeros(num_elem_dofs)
             element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
             element_mass = zeros(num_elem_dofs, num_elem_dofs)
-            index_x = 1 : 3 : num_elem_dofs .- 2
+            index_x = 1:3:num_elem_dofs.-2
             index_y = index_x .+ 1
             index_z = index_x .+ 2
             elem_dofs[index_x] = 3 .* node_indices .- 2
             elem_dofs[index_y] = 3 .* node_indices .- 1
             elem_dofs[index_z] = 3 .* node_indices
-            for point ∈ 1 : num_points
-                dNdξₚ = dNdξ[:, :, point] 
+            for point ∈ 1:num_points
+                dNdξₚ = dNdξ[:, :, point]
                 dXdξ = dNdξₚ * elem_ref_pos'
                 dxdξ = dNdξₚ * elem_cur_pos'
                 dxdX = dXdξ \ dxdξ
@@ -325,7 +325,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
     lumped_mass = zeros(num_dof)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
@@ -335,22 +335,22 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
-        for blk_elem_index ∈ 1 : num_blk_elems
-            conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
+        for blk_elem_index ∈ 1:num_blk_elems
+            conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
             element_lumped_mass = zeros(num_elem_dofs)
-            index_x = 1 : 3 : num_elem_dofs .- 2
+            index_x = 1:3:num_elem_dofs.-2
             index_y = index_x .+ 1
             index_z = index_x .+ 2
             elem_dofs[index_x] = 3 .* node_indices .- 2
             elem_dofs[index_y] = 3 .* node_indices .- 1
             elem_dofs[index_z] = 3 .* node_indices
-            for point ∈ 1 : num_points
-                dNdξₚ = dNdξ[:, :, point] 
+            for point ∈ 1:num_points
+                dNdξₚ = dNdξ[:, :, point]
                 dXdξ = dNdξₚ * elem_ref_pos'
                 dxdξ = dNdξₚ * elem_cur_pos'
                 dxdX = dXdξ \ dxdξ
@@ -370,7 +370,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
                 reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
-                reduced_lumped_mass = sum(reduced_mass, dims = 2)
+                reduced_lumped_mass = sum(reduced_mass, dims=2)
                 element_lumped_mass[index_x] += reduced_lumped_mass
                 element_lumped_mass[index_y] += reduced_lumped_mass
                 element_lumped_mass[index_z] += reduced_lumped_mass
@@ -389,7 +389,7 @@ function node_set_id_from_name(node_set_name::String, mesh::PyObject)
     node_set_names = mesh.get_node_set_names()
     num_names = length(node_set_names)
     node_set_index = 0
-    for index ∈ 1 : num_names
+    for index ∈ 1:num_names
         if (node_set_name == node_set_names[index])
             node_set_index = index
             break
@@ -427,7 +427,7 @@ function apply_bcs(model::SolidMechanics)
     input_mesh = params["input_mesh"]
     global t = model.time
     _, num_nodes = size(reference)
-    nodal_dofs = [free::DOF for _ ∈ 1 : 3 * num_nodes]
+    nodal_dofs = [free::DOF for _ ∈ 1:3*num_nodes]
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
         for bc ∈ bc_type_params
@@ -503,7 +503,7 @@ function apply_bcs(model::HeatConduction)
     global t = model.time
     xc, yc, zc = input_mesh.get_coords()
     num_nodes = length(xc)
-    nodal_dofs = [free::DOF for _ ∈ 1 : num_nodes]
+    nodal_dofs = [free::DOF for _ ∈ 1:num_nodes]
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
         for bc ∈ bc_type_params

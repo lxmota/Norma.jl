@@ -18,20 +18,20 @@ function setup(input_file::String)
     return params
 end
 
-function setup_single(params::Dict{Any, Any})
+function setup_single(params::Dict{Any,Any})
     input_mesh_file = params["input mesh file"]
     output_mesh_file = params["output mesh file"]
-    rm(output_mesh_file, force = true)
+    rm(output_mesh_file, force=true)
     output_mesh = Exodus.copy_mesh(input_mesh_file, output_mesh_file)
     params["output_mesh"] = output_mesh
     input_mesh = Exodus.exodus(input_mesh_file)
     params["input_mesh"] = input_mesh
 end
 
-function setup_multi(params::Dict{Any, Any})
+function setup_multi(params::Dict{Any,Any})
     domain_files = params["domains"]
     num_domains = length(domain_files)
-    for domain ∈ 1 : num_domains
+    for domain ∈ 1:num_domains
         domain_file = domain_files[domain]
         println("domain: ", domain, ", domain file: ", domain_file)
         setup(domain_file)

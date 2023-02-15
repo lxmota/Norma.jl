@@ -3,7 +3,7 @@ abstract type Model end
 @enum DOF free Dirichlet Schwarz
 
 mutable struct SolidMechanics <: Model
-    params::Dict{Any, Any}
+    params::Dict{Any,Any}
     materials::Vector{Solid}
     reference::Matrix{Float64}
     current::Matrix{Float64}
@@ -16,7 +16,7 @@ mutable struct SolidMechanics <: Model
 end
 
 mutable struct HeatConduction <: Model
-    params::Dict{Any, Any}
+    params::Dict{Any,Any}
     materials::Vector{Vector}
     reference::Matrix{Float64}
     temperature::Vector{Float64}

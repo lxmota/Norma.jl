@@ -1,4 +1,4 @@
-function loop(params::Dict{Any, Any})
+function loop(params::Dict{Any,Any})
     integrator = params["time_integrator_struct"]
     model = params["model_struct"]
     solver = params["solver_struct"]
