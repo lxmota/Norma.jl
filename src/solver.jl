@@ -1,28 +1,4 @@
-abstract type Solver end
-abstract type Minimizer <: Solver end
-abstract type Step end
-
-mutable struct HessianMinimizer <: Minimizer
-    minimum_iterations::Int64
-    maximum_iterations::Int64
-    iteration_number::Int64
-    absolute_tolerance::Float64
-    relative_tolerance::Float64
-    absolute_error::Float64
-    relative_error::Float64
-    value::Float64
-    gradient::Vector{Float64}
-    hessian::SparseMatrixCSC{Float64, Int64}
-    solution::Vector{Float64}
-    free_dofs::BitVector
-    initial_norm::Float64
-    converged::Bool
-    failed::Bool
-    step::Step
-end
-
-struct NewtonStep <: Step
-end
+include("solver_def.jl")
 
 function create_step(solver_params::Dict{Any, Any})
     step_name = solver_params["step"]
@@ -145,27 +121,73 @@ function copy_solution_source_targets(model::SolidMechanics, integrator::Newmark
     solver.solution = integrator.displacement
 end
 
+function copy_solution_source_targets(integrator::CentralDifference, solver::HessianMinimizer, model::SolidMechanics)
+    displacement = integrator.displacement
+    velocity = integrator.velocity
+    acceleration = integrator.acceleration
+    solver.solution = acceleration
+    _, num_nodes = size(model.reference)
+    for node ∈ 1 : num_nodes
+        nodal_displacement = displacement[3 * node - 2 : 3 * node]
+        nodal_velocity = velocity[3 * node - 2 : 3 * node]
+        nodal_acceleration = acceleration[3 * node - 2 : 3 * node]
+        model.current[:, node] = model.reference[:, node] + nodal_displacement
+        model.velocity[:, node] = nodal_velocity
+        model.acceleration[:, node] = nodal_acceleration
+    end
+end
+
+function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMechanics, integrator::CentralDifference)
+    displacement = integrator.displacement
+    velocity = integrator.velocity
+    acceleration = solver.solution
+    integrator.acceleration = acceleration
+    _, num_nodes = size(model.reference)
+    for node ∈ 1 : num_nodes
+        nodal_displacement = displacement[3 * node - 2 : 3 * node]
+        nodal_velocity = velocity[3 * node - 2 : 3 * node]
+        nodal_acceleration = acceleration[3 * node - 2 : 3 * node]
+        model.current[:, node] = model.reference[:, node] + nodal_displacement
+        model.velocity[:, node] = nodal_velocity
+        model.acceleration[:, node] = nodal_acceleration
+    end
+end
+
+function copy_solution_source_targets(model::SolidMechanics, integrator::CentralDifference, solver::HessianMinimizer)
+    _, num_nodes = size(model.reference)
+    for node ∈ 1 : num_nodes
+        nodal_displacement = model.current[:, node] - model.reference[:, node]
+        nodal_velocity = model.velocity[:, node]
+        nodal_acceleration = model.acceleration[:, node]
+        integrator.displacement[3 * node - 2 : 3 * node] = nodal_displacement
+        integrator.velocity[3 * node - 2 : 3 * node] = nodal_velocity
+        integrator.acceleration[3 * node - 2 : 3 * node] = nodal_acceleration
+    end
+    solver.solution = integrator.acceleration
+end
+
 function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
-    strain_energy, internal_force, external_force, stiffness_matrix, _ = evaluate(model)
+    strain_energy, internal_force, external_force, stiffness_matrix = evaluate(integrator, model)
     solver.value = strain_energy
     solver.gradient = internal_force - external_force
     solver.hessian = stiffness_matrix
 end
 
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
-    strain_energy, internal_force, external_force, stiffness_matrix, mass_matrix = evaluate(model)
+    strain_energy, internal_force, external_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
     β = integrator.β
     Δt = integrator.time_step
-    implicit = β > 0.0
-    if implicit == true
-        inertial_force = mass_matrix * integrator.acceleration
-        kinetic_energy = 0.5 * integrator.velocity' * mass_matrix * integrator.velocity
-        solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
-    else
-        mass_vector = sum(mass_matrix, dim = 2)
-        inertial_force = mass_vector .* integrator.acceleration
-        kinetic_energy = 0.5 * mass_vector .* integrator.velocity .* integrator.velocity
-    end
+    inertial_force = mass_matrix * integrator.acceleration
+    kinetic_energy = 0.5 * integrator.velocity' * mass_matrix * integrator.velocity
+    solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
+    solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
+    solver.gradient = internal_force - external_force + inertial_force
+end
+
+function evaluate(integrator::CentralDifference, solver::HessianMinimizer, model::SolidMechanics)
+    strain_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+    inertial_force = lumped_mass .* integrator.acceleration
+    kinetic_energy = 0.5 * lumped_mass .* integrator.velocity .* integrator.velocity
     solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
 end

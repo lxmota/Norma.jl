@@ -1,0 +1,37 @@
+abstract type TimeIntegrator end
+
+mutable struct QuasiStatic <: TimeIntegrator
+    initial_time::Float64
+    final_time::Float64
+    time_step::Float64
+    time::Float64
+    stop::Int64
+    displacement::Vector{Float64}
+end
+
+mutable struct Newmark <: TimeIntegrator
+    initial_time::Float64
+    final_time::Float64
+    time_step::Float64
+    time::Float64
+    stop::Int64
+    β::Float64
+    γ::Float64
+    displacement::Vector{Float64}
+    velocity::Vector{Float64}
+    acceleration::Vector{Float64}
+    disp_pre::Vector{Float64}
+    velo_pre::Vector{Float64}
+end
+
+mutable struct CentralDifference <: TimeIntegrator
+    initial_time::Float64
+    final_time::Float64
+    time_step::Float64
+    time::Float64
+    stop::Int64
+    γ::Float64
+    displacement::Vector{Float64}
+    velocity::Vector{Float64}
+    acceleration::Vector{Float64}
+end

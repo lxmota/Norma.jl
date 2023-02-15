@@ -1,23 +1,8 @@
 using SparseArrays
 
 include("constitutive.jl")
-
-abstract type Model end
-
-@enum DOF free Dirichlet Schwarz
-
-mutable struct SolidMechanics <: Model
-    params::Dict{Any, Any}
-    materials::Vector{Solid}
-    reference::Matrix{Float64}
-    current::Matrix{Float64}
-    velocity::Matrix{Float64}
-    acceleration::Matrix{Float64}
-    stress::Vector{Vector{Vector{Vector{Float64}}}}
-    nodal_dofs::Vector{DOF}
-    time::Float64
-    failed::Bool
-end
+include("model_def.jl")
+include("time_def.jl")
 
 function SolidMechanics(params::Dict{Any, Any})
     input_mesh = params["input_mesh"]
@@ -73,18 +58,6 @@ function SolidMechanics(params::Dict{Any, Any})
         stress[blk_index] = block_stress
     end
     SolidMechanics(params, materials, reference, current, velocity, acceleration, stress, nodal_dofs, time, failed)
-end
-
-mutable struct HeatConduction <: Model
-    params::Dict{Any, Any}
-    materials::Vector{Vector}
-    reference::Matrix{Float64}
-    temperature::Vector{Float64}
-    rate::Vector{Float64}
-    flux::Vector{Vector{Vector{Vector{Float64}}}}
-    nodal_dofs::Vector{DOF}
-    time::Float64
-    failed::Bool
 end
 
 function HeatConduction(params::Dict{Any, Any})
@@ -162,6 +135,19 @@ function voigt_cauchy_from_stress(material::Linear_Elastic, σ::MTTensor, F::MTT
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
+function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Vector{Float64}, element_stiffness::Matrix{Float64}, dofs::Vector{Int64})
+    num_dofs = length(dofs)
+    for i ∈ 1 : num_dofs
+        I = dofs[i]
+        for j ∈ 1 : num_dofs
+            J = dofs[j]
+            push!(rows, I)
+            push!(cols, J)
+            push!(global_stiffness, element_stiffness[i, j])
+        end
+    end
+end
+
 function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Vector{Float64}, global_mass::Vector{Float64}, element_stiffness::Matrix{Float64}, element_mass::Matrix{Float64}, dofs::Vector{Int64})
     num_dofs = length(dofs)
     for i ∈ 1 : num_dofs
@@ -176,7 +162,77 @@ function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Ve
     end
 end
 
-function evaluate(model::SolidMechanics)
+function evaluate(integrator::QuasiStatic, model::SolidMechanics)
+    params = model.params
+    materials = model.materials
+    input_mesh = params["input_mesh"]
+    x, _, _ = input_mesh.get_coords()
+    num_nodes = length(x)
+    num_dof = 3 * num_nodes
+    energy = 0.0
+    internal_force = zeros(num_dof)
+    external_force = zeros(num_dof)
+    rows = Vector{Int64}()
+    cols = Vector{Int64}()
+    stiffness = Vector{Float64}()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    for blk_index ∈ 1 : num_blks
+        material = materials[blk_index]
+        ρ = material.ρ
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
+        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        num_elem_dofs = 3 * num_elem_nodes
+        elem_dofs = zeros(Int64, num_elem_dofs)
+        for blk_elem_index ∈ 1 : num_blk_elems
+            conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
+            node_indices = elem_blk_conn[conn_indices]
+            elem_ref_pos = model.reference[:, node_indices]
+            elem_cur_pos = model.current[:, node_indices]
+            element_energy = 0.0
+            element_internal_force = zeros(num_elem_dofs)
+            element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
+            elem_dofs[1 : 3 : num_elem_dofs - 2] = 3 .* node_indices .- 2
+            elem_dofs[2 : 3 : num_elem_dofs - 1] = 3 .* node_indices .- 1
+            elem_dofs[3 : 3 : num_elem_dofs] = 3 .* node_indices
+            for point ∈ 1 : num_points
+                dNdξₚ = dNdξ[:, :, point] 
+                dXdξ = dNdξₚ * elem_ref_pos'
+                dxdξ = dNdξₚ * elem_cur_pos'
+                dxdX = dXdξ \ dxdξ
+                dNdX = dXdξ \ dNdξₚ
+                B = gradient_operator(dNdX)
+                j = det(dXdξ)
+                J = det(dxdX)
+                if J ≤ 0.0
+                    model.failed = true
+                    error("evaluation of model has failed with a non-positive Jacobian")
+                    return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof)
+                end
+                F = MTTensor(dxdX)
+                W, P, A = constitutive(material, F)
+                stress = P[1:9]
+                moduli = second_from_fourth(A)
+                w = elem_weights[point]
+                element_energy += W * j * w
+                element_internal_force += B' * stress * j * w
+                element_stiffness += B' * moduli * B * j * w
+                voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
+                model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
+            end
+            energy += element_energy
+            internal_force[elem_dofs] += element_internal_force
+            assemble(rows, cols, stiffness,element_stiffness, elem_dofs)
+        end
+    end
+    stiffness_matrix = sparse(rows, cols, stiffness)
+    return energy, internal_force, external_force, stiffness_matrix
+end
+
+function evaluate(integrator::Newmark, model::SolidMechanics)
     params = model.params
     materials = model.materials
     input_mesh = params["input_mesh"]
@@ -254,6 +310,79 @@ function evaluate(model::SolidMechanics)
     stiffness_matrix = sparse(rows, cols, stiffness)
     mass_matrix = sparse(rows, cols, mass)
     return energy, internal_force, external_force, stiffness_matrix, mass_matrix
+end
+
+function evaluate(integrator::CentralDifference, model::SolidMechanics)
+    params = model.params
+    materials = model.materials
+    input_mesh = params["input_mesh"]
+    x, _, _ = input_mesh.get_coords()
+    num_nodes = length(x)
+    num_dof = 3 * num_nodes
+    energy = 0.0
+    internal_force = zeros(num_dof)
+    external_force = zeros(num_dof)
+    lumped_mass = Vector{Float64}()
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    for blk_index ∈ 1 : num_blks
+        material = materials[blk_index]
+        ρ = material.ρ
+        blk_id = elem_blk_ids[blk_index]
+        elem_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(elem_type)
+        N, dNdξ, elem_weights = isoparametric(elem_type, num_points)
+        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        num_elem_dofs = 3 * num_elem_nodes
+        elem_dofs = zeros(Int64, num_elem_dofs)
+        for blk_elem_index ∈ 1 : num_blk_elems
+            conn_indices = (blk_elem_index - 1) * num_elem_nodes + 1 : blk_elem_index * num_elem_nodes
+            node_indices = elem_blk_conn[conn_indices]
+            elem_ref_pos = model.reference[:, node_indices]
+            elem_cur_pos = model.current[:, node_indices]
+            element_energy = 0.0
+            element_internal_force = zeros(num_elem_dofs)
+            element_lumped_mass = zeros(num_elem_dofs)
+            index_x = 1 : 3 : num_elem_dofs .- 2
+            index_y = index_x .+ 1
+            index_z = index_x .+ 2
+            elem_dofs[index_x] = 3 .* node_indices .- 2
+            elem_dofs[index_y] = 3 .* node_indices .- 1
+            elem_dofs[index_z] = 3 .* node_indices
+            for point ∈ 1 : num_points
+                dNdξₚ = dNdξ[:, :, point] 
+                dXdξ = dNdξₚ * elem_ref_pos'
+                dxdξ = dNdξₚ * elem_cur_pos'
+                dxdX = dXdξ \ dxdξ
+                dNdX = dXdξ \ dNdξₚ
+                B = gradient_operator(dNdX)
+                j = det(dXdξ)
+                J = det(dxdX)
+                if J ≤ 0.0
+                    model.failed = true
+                    error("evaluation of model has failed with a non-positive Jacobian")
+                    return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof), spzeros(num_dof, num_dof)
+                end
+                F = MTTensor(dxdX)
+                W, P, A = constitutive(material, F)
+                stress = P[1:9]
+                w = elem_weights[point]
+                element_energy += W * j * w
+                element_internal_force += B' * stress * j * w
+                reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
+                reduced_lumped_mass = sum(reduced_mass, dim = 2)
+                element_lumped_mass[index_x] += reduced_lumped_mass
+                element_lumped_mass[index_y] += reduced_lumped_mass
+                element_lumped_mass[index_z] += reduced_lumped_mass
+                voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
+                model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
+            end
+            energy += element_energy
+            internal_force[elem_dofs] += element_internal_force
+            lumped_mass[elem_dofs] += element_lumped_mass
+        end
+    end
+    return energy, internal_force, external_force, lumped_mass
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
