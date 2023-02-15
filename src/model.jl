@@ -322,7 +322,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
     energy = 0.0
     internal_force = zeros(num_dof)
     external_force = zeros(num_dof)
-    lumped_mass = Vector{Float64}()
+    lumped_mass = zeros(num_dof)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1 : num_blks
@@ -370,7 +370,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
                 reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
-                reduced_lumped_mass = sum(reduced_mass, dim = 2)
+                reduced_lumped_mass = sum(reduced_mass, dims = 2)
                 element_lumped_mass[index_x] += reduced_lumped_mass
                 element_lumped_mass[index_y] += reduced_lumped_mass
                 element_lumped_mass[index_z] += reduced_lumped_mass

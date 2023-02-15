@@ -22,6 +22,7 @@ mutable struct HessianMinimizer <: Minimizer
 end
 
 mutable struct ExplicitSolver <: Solver
+    iteration_number::Int64
     value::Float64
     gradient::Vector{Float64}
     lumped_hessian::Vector{Float64}

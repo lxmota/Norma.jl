@@ -43,6 +43,7 @@ function ExplicitSolver(params::Dict{Any, Any})
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
+    iteration_number = 0
     value = 0.0
     gradient = zeros(num_dof)
     lumped_hessian = zeros(num_dof)
@@ -52,7 +53,7 @@ function ExplicitSolver(params::Dict{Any, Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    ExplicitSolver(value, gradient, lumped_hessian, initial_guess, free_dofs,
+    ExplicitSolver(iteration_number, value, gradient, lumped_hessian, initial_guess, free_dofs,
     initial_norm, converged, failed, step)
 end
 
@@ -208,9 +209,10 @@ end
 function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     strain_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
     inertial_force = lumped_mass .* integrator.acceleration
-    kinetic_energy = 0.5 * lumped_mass .* integrator.velocity .* integrator.velocity
+    kinetic_energy = 0.5 * lumped_mass' * (integrator.velocity .* integrator.velocity)
     solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
+    solver.lumped_hessian = lumped_mass
 end
 
 function compute_step(solver::HessianMinimizer, step_type::NewtonStep)

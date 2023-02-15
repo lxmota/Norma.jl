@@ -10,15 +10,14 @@ model:
       cube: elastic
     elastic:
       model: linear elastic
-      elastic modulus: 1.0e+09
+      elastic modulus: 1.0e+03
       Poisson's ratio: 0.25
       density: 1000.0
 time integrator:
-  type: Newmark
+  type: central difference
   initial time: 0.0
-  final time: 1.0
-  time step: 0.1
-  β: 0.25
+  final time: 1
+  time step: 0.01
   γ: 0.5
 initial conditions:
   velocity:
@@ -26,9 +25,5 @@ initial conditions:
       component: z
       function: "1.0"
 solver:
-  type: Hessian minimizer
-  step: full Newton
-  minimum iterations: 1
-  maximum iterations: 16
-  relative tolerance: 1.0e-10
-  absolute tolerance: 1.0e-06
+  type: explicit solver
+  step: explicit
