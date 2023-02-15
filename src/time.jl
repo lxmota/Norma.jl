@@ -131,13 +131,14 @@ function predict(integrator::CentralDifference, solver::ExplicitSolver, model::S
         _, internal_force, external_force, lumped_mass = evaluate(integrator, model)
         inertial_force = external_force - internal_force
         integrator.acceleration[free] = inertial_force[free] ./ lumped_mass[free]
+    else
+        u = integrator.displacement
+        v = integrator.velocity
+        a = integrator.acceleration
+        u[free] += Δt * v[free] + 0.5 * Δt * Δt * a[free]
+        v[free] += (1.0 - γ) * Δt * a[free]
     end
-    u = integrator.displacement
-    v = integrator.velocity
-    a = integrator.acceleration
-    u[free] += Δt * v[free] + 0.5 * Δt * Δt * a[free]
-    v[free] += (1.0 - γ) * Δt * a[free]
-    copy_solution_source_targets(integrator, solver, model)
+copy_solution_source_targets(integrator, solver, model)
 end
 
 function correct(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)

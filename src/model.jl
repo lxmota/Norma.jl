@@ -361,7 +361,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
                 if J ≤ 0.0
                     model.failed = true
                     error("evaluation of model has failed with a non-positive Jacobian")
-                    return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof), spzeros(num_dof, num_dof)
+                    return 0.0, zeros(num_dof), zeros(num_dof), zeros(num_dof)
                 end
                 F = MTTensor(dxdX)
                 W, P, A = constitutive(material, F)
