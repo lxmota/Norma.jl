@@ -126,12 +126,12 @@ function create_model(params::Dict{Any,Any})
     end
 end
 
-function voigt_cauchy_from_stress(material::Any, P::MTTensor, F::MTTensor, J::Float64)
+function voigt_cauchy_from_stress(_::Any, P::MTTensor, F::MTTensor, J::Float64)
     σ = F * P' ./ J
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
-function voigt_cauchy_from_stress(material::Linear_Elastic, σ::MTTensor, F::MTTensor, J::Float64)
+function voigt_cauchy_from_stress(_::Linear_Elastic, σ::MTTensor, _::MTTensor, _::Float64)
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
@@ -162,7 +162,7 @@ function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Ve
     end
 end
 
-function evaluate(integrator::QuasiStatic, model::SolidMechanics)
+function evaluate(_::QuasiStatic, model::SolidMechanics)
     params = model.params
     materials = model.materials
     input_mesh = params["input_mesh"]
@@ -232,7 +232,7 @@ function evaluate(integrator::QuasiStatic, model::SolidMechanics)
     return energy, internal_force, external_force, stiffness_matrix
 end
 
-function evaluate(integrator::Newmark, model::SolidMechanics)
+function evaluate(_::Newmark, model::SolidMechanics)
     params = model.params
     materials = model.materials
     input_mesh = params["input_mesh"]
@@ -312,7 +312,7 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
     return energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
-function evaluate(integrator::CentralDifference, model::SolidMechanics)
+function evaluate(_::CentralDifference, model::SolidMechanics)
     params = model.params
     materials = model.materials
     input_mesh = params["input_mesh"]

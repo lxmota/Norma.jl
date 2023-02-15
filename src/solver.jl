@@ -213,14 +213,14 @@ function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::
     solver.lumped_hessian = lumped_mass
 end
 
-function compute_step(solver::HessianMinimizer, step_type::NewtonStep)
+function compute_step(solver::HessianMinimizer, _::NewtonStep)
     step = zeros(length(solver.gradient))
     free = solver.free_dofs
     step[free] = -solver.hessian[free, free] \ solver.gradient[free]
     return step
 end
 
-function compute_step(solver::ExplicitSolver, step_type::ExplicitStep)
+function compute_step(solver::ExplicitSolver, _::ExplicitStep)
     step = zeros(length(solver.gradient))
     free = solver.free_dofs
     step[free] = -solver.gradient[free] ./ solver.lumped_hessian[free]

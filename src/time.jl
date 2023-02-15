@@ -150,7 +150,7 @@ function correct(integrator::CentralDifference, solver::ExplicitSolver, model::S
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function initialize_writing(integrator::StaticTimeIntegrator, model::SolidMechanics)
+function initialize_writing(_::StaticTimeIntegrator, model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
@@ -199,7 +199,7 @@ function initialize_writing(integrator::StaticTimeIntegrator, model::SolidMechan
     end
 end
 
-function initialize_writing(integrator::DynamicTimeIntegrator, model::SolidMechanics)
+function initialize_writing(_::DynamicTimeIntegrator, model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
