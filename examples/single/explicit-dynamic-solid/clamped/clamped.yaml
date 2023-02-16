@@ -14,11 +14,10 @@ model:
       Poisson's ratio: 0.0
       density: 1000.0
 time integrator:
-  type: Newmark
+  type: central difference
   initial time: 0.0
   final time: 1.0e-05
   time step: 1.0e-06
-  β: 0.25
   γ: 0.5
 initial conditions:
   displacement:
@@ -46,9 +45,5 @@ boundary conditions:
       component: z
       function: "0.0"
 solver:
-  type: Hessian minimizer
-  step: full Newton
-  minimum iterations: 1
-  maximum iterations: 4
-  relative tolerance: 1.0e-10
-  absolute tolerance: 1.0e-06
+    type: explicit solver
+    step: explicit

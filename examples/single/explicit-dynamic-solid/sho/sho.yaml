@@ -10,15 +10,14 @@ model:
       sho: elastic
     elastic:
       model: linear elastic
-      elastic modulus: 1.3333333333333333
+      elastic modulus: 2.0
       Poisson's ratio: 0.0
       density: 1.0
 time integrator:
-  type: Newmark
+  type: central difference
   initial time: 0.0
   final time: 1.58
   time step: 0.09817477042468103
-  β: 0.25
   γ: 0.5
 initial conditions:
   displacement:
@@ -43,9 +42,5 @@ boundary conditions:
       component: z
       function: "0.0"
 solver:
-  type: Hessian minimizer
-  step: full Newton
-  minimum iterations: 1
-  maximum iterations: 16
-  relative tolerance: 1.0e-10
-  absolute tolerance: 1.0e-06
+  type: explicit solver
+  step: explicit

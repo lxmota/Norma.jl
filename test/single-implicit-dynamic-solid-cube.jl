@@ -4,7 +4,7 @@ integrator, solver, model = Norma.run("cube.yaml")
 rm("cube.yaml")
 rm("cube.g")
 rm("cube.e")
-avg_disp = average_components(solver.solution)
+avg_disp = average_components(integrator.displacement)
 avg_stress = average_components(model.stress)
 @testset "single-implicit-dynamic-solid-cube" begin
     @test avg_disp[1] ≈ 0.0 atol = 1.0e-06
