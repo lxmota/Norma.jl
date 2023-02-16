@@ -312,6 +312,18 @@ function evaluate(_::Newmark, model::SolidMechanics)
     return energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
+function get_minimum_edge_length(nodal_coordinates::Matrix{Float64})
+    _, num_nodes = size(nodal_coordinates)
+    minimum_edge_length = Inf
+    origin = nodal_coordinates[:, 1]
+    for node = 2:num_nodes
+        edge = nodal_coordinates[:, node] - origin
+        distance = sqrt(edge' * edge)
+        minimum_edge_length = min(minimum_edge_length, distance)
+    end
+    return minimum_edge_length
+end
+
 function evaluate(_::CentralDifference, model::SolidMechanics)
     params = model.params
     materials = model.materials
@@ -325,9 +337,13 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
     lumped_mass = zeros(num_dof)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
+    stable_time_step = Inf
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
+        M = estimate_p_wave_modulus(material)
+        wave_speed = sqrt(M / ρ)
+        minimum_blk_edge_length = Inf
         blk_id = elem_blk_ids[blk_index]
         elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -340,6 +356,8 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
+            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos)
+            minimum_blk_edge_length = min(minimum_blk_edge_length, minimum_elem_edge_length)
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
             element_lumped_mass = zeros(num_elem_dofs)
@@ -364,7 +382,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
                     return 0.0, zeros(num_dof), zeros(num_dof), zeros(num_dof)
                 end
                 F = MTTensor(dxdX)
-                W, P, A = constitutive(material, F)
+                W, P, _ = constitutive(material, F)
                 stress = P[1:9]
                 w = elem_weights[point]
                 element_energy += W * j * w
@@ -381,6 +399,8 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             internal_force[elem_dofs] += element_internal_force
             lumped_mass[elem_dofs] += element_lumped_mass
         end
+        blk_stable_time_step = minimum_blk_edge_length / wave_speed
+        stable_time_step = min(stable_time_step, blk_stable_time_step)
     end
     return energy, internal_force, external_force, lumped_mass
 end
