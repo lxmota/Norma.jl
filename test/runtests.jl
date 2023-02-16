@@ -11,5 +11,5 @@ include("helpers.jl")
     include("single-implicit-dynamic-solid-clamped.jl")
     include("single-explicit-dynamic-solid-cube.jl")
     include("single-explicit-dynamic-solid-sho.jl")
-    #include("single-explicit-dynamic-solid-clamped.jl")
+    include("single-explicit-dynamic-solid-clamped.jl")
 end
