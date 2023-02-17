@@ -30,8 +30,11 @@ mutable struct CentralDifference <: DynamicTimeIntegrator
     initial_time::Float64
     final_time::Float64
     time_step::Float64
+    user_time_step::Float64
+    stable_time_step::Float64
     time::Float64
     stop::Int64
+    CFL::Float64
     γ::Float64
     displacement::Vector{Float64}
     velocity::Vector{Float64}

@@ -324,6 +324,38 @@ function get_minimum_edge_length(nodal_coordinates::Matrix{Float64})
     return minimum_edge_length
 end
 
+function set_time_step(integrator::CentralDifference, model::SolidMechanics)
+    params = model.params
+    materials = model.materials
+    input_mesh = params["input_mesh"]
+    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    stable_time_step = Inf
+    for blk_index ∈ 1:num_blks
+        material = materials[blk_index]
+        ρ = material.ρ
+        M = estimate_p_wave_modulus(material)
+        wave_speed = sqrt(M / ρ)
+        minimum_blk_edge_length = Inf
+        blk_id = elem_blk_ids[blk_index]
+        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        for blk_elem_index ∈ 1:num_blk_elems
+            conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
+            node_indices = elem_blk_conn[conn_indices]
+            elem_cur_pos = model.current[:, node_indices]
+            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos)
+            minimum_blk_edge_length = min(minimum_blk_edge_length, minimum_elem_edge_length)
+        end
+        blk_stable_time_step = minimum_blk_edge_length / wave_speed
+        stable_time_step = integrator.CFL * min(stable_time_step, blk_stable_time_step)
+    end
+    integrator.stable_time_step = stable_time_step
+    if stable_time_step < integrator.user_time_step
+        println("Warning: Estimated stable time step: ", stable_time_step, " < provided time step: ", integrator.user_time_step)
+    end
+    integrator.time_step = min(stable_time_step, integrator.user_time_step)
+end
+
 function evaluate(_::CentralDifference, model::SolidMechanics)
     params = model.params
     materials = model.materials
@@ -337,13 +369,9 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
     lumped_mass = zeros(num_dof)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    stable_time_step = Inf
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
-        M = estimate_p_wave_modulus(material)
-        wave_speed = sqrt(M / ρ)
-        minimum_blk_edge_length = Inf
         blk_id = elem_blk_ids[blk_index]
         elem_type = input_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -356,8 +384,6 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             node_indices = elem_blk_conn[conn_indices]
             elem_ref_pos = model.reference[:, node_indices]
             elem_cur_pos = model.current[:, node_indices]
-            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos)
-            minimum_blk_edge_length = min(minimum_blk_edge_length, minimum_elem_edge_length)
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
             element_lumped_mass = zeros(num_elem_dofs)
@@ -399,8 +425,6 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             internal_force[elem_dofs] += element_internal_force
             lumped_mass[elem_dofs] += element_lumped_mass
         end
-        blk_stable_time_step = minimum_blk_edge_length / wave_speed
-        stable_time_step = min(stable_time_step, blk_stable_time_step)
     end
     return energy, internal_force, external_force, lumped_mass
 end

@@ -43,9 +43,12 @@ function CentralDifference(params::Dict{Any,Any})
     time_integrator_params = params["time integrator"]
     initial_time = time_integrator_params["initial time"]
     final_time = time_integrator_params["final time"]
-    time_step = time_integrator_params["time step"]
+    time_step = 0.0
+    stable_time_step = 0.0
+    user_time_step = time_integrator_params["time step"]
     time = initial_time
     stop = 0
+    CFL = time_integrator_params["CFL"]
     γ = time_integrator_params["γ"]
     input_mesh = params["input_mesh"]
     x, _, _ = input_mesh.get_coords()
@@ -54,7 +57,7 @@ function CentralDifference(params::Dict{Any,Any})
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
-    CentralDifference(initial_time, final_time, time_step, time, stop, γ, displacement, velocity, acceleration)
+    CentralDifference(initial_time, final_time, time_step, user_time_step, stable_time_step, time, stop, CFL, γ, displacement, velocity, acceleration)
 end
 
 function create_time_integrator(params::Dict{Any,Any})
@@ -125,6 +128,7 @@ end
 function predict(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
     free = solver.free_dofs
+    set_time_step(integrator, model)
     Δt = integrator.time_step
     γ = integrator.γ
     if integrator.stop == 0

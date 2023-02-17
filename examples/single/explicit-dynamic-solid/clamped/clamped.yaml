@@ -18,6 +18,7 @@ time integrator:
   initial time: 0.0
   final time: 1.0e-05
   time step: 1.0e-07
+  CFL: 0.2
   γ: 0.5
 initial conditions:
   displacement:
