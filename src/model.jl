@@ -312,16 +312,39 @@ function evaluate(_::Newmark, model::SolidMechanics)
     return energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
-function get_minimum_edge_length(nodal_coordinates::Matrix{Float64})
-    _, num_nodes = size(nodal_coordinates)
+function get_minimum_edge_length_tetra4(nodal_coordinates::Matrix{Float64})
+    num_nodes = 4
     minimum_edge_length = Inf
     origin = nodal_coordinates[:, 1]
     for node = 2:num_nodes
-        edge = nodal_coordinates[:, node] - origin
-        distance = sqrt(edge' * edge)
+        edge_length = nodal_coordinates[:, node] - origin
+        distance = sqrt(edge_length' * edge_length)
         minimum_edge_length = min(minimum_edge_length, distance)
     end
     return minimum_edge_length
+end
+
+function get_minimum_edge_length_hex8(nodal_coordinates::Matrix{Float64})
+    num_edges = 12
+    node_left = [1, 1, 4, 5, 2, 2, 3, 6, 1, 3, 5, 7]
+    node_right = [4, 5, 8, 8, 3, 6, 7, 7, 2, 4, 6, 8]
+    minimum_edge_length = Inf
+    for edge = 1:num_edges
+        edge_length = nodal_coordinates[:, node_left[edge]] - nodal_coordinates[:, node_right[edge]]
+        distance = sqrt(edge_length' * edge_length)
+        minimum_edge_length = min(minimum_edge_length, distance)
+    end
+    return minimum_edge_length
+end
+
+function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, elem_type::String)
+    if elem_type == "TETRA4"
+        return get_minimum_edge_length_tetra4(nodal_coordinates)
+    elseif elem_type == "HEX8"
+        return get_minimum_edge_length_hex8(nodal_coordinates)
+    else
+        error("Invalid element type: ", elem_type)
+    end
 end
 
 function set_time_step(integrator::CentralDifference, model::SolidMechanics)
@@ -338,12 +361,13 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
         wave_speed = sqrt(M / ρ)
         minimum_blk_edge_length = Inf
         blk_id = elem_blk_ids[blk_index]
+        elem_type = input_mesh.elem_type(blk_id)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             elem_cur_pos = model.current[:, node_indices]
-            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos)
+            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos, elem_type)
             minimum_blk_edge_length = min(minimum_blk_edge_length, minimum_elem_edge_length)
         end
         blk_stable_time_step = minimum_blk_edge_length / wave_speed
