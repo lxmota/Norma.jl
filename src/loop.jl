@@ -1,4 +1,4 @@
-function loop(params::Dict{Any, Any})
+function loop(params::Dict{Any,Any})
     integrator = params["time_integrator_struct"]
     model = params["model_struct"]
     solver = params["solver_struct"]
@@ -11,7 +11,7 @@ function loop(params::Dict{Any, Any})
         update_dofs(model, solver)
         solve(integrator, model, solver)
         write_step(integrator, model)
-        integrator.time += integrator.time_step
+        integrator.time = round(integrator.time + integrator.time_step; digits=10)
         integrator.stop += 1
     end
     finalize_writing(model)

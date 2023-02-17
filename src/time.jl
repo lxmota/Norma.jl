@@ -1,33 +1,9 @@
 using DelimitedFiles
 using Formatting
 
-abstract type TimeIntegrator end
+include("solver_def.jl")
 
-mutable struct QuasiStatic <: TimeIntegrator
-    initial_time::Float64
-    final_time::Float64
-    time_step::Float64
-    time::Float64
-    stop::Int64
-    displacement::Vector{Float64}
-end
-
-mutable struct Newmark <: TimeIntegrator
-    initial_time::Float64
-    final_time::Float64
-    time_step::Float64
-    time::Float64
-    stop::Int64
-    β::Float64
-    γ::Float64
-    displacement::Vector{Float64}
-    velocity::Vector{Float64}
-    acceleration::Vector{Float64}
-    disp_pre::Vector{Float64}
-    velo_pre::Vector{Float64}
-end
-
-function QuasiStatic(params::Dict{Any, Any})
+function QuasiStatic(params::Dict{Any,Any})
     time_integrator_params = params["time integrator"]
     initial_time = time_integrator_params["initial time"]
     final_time = time_integrator_params["final time"]
@@ -42,7 +18,7 @@ function QuasiStatic(params::Dict{Any, Any})
     QuasiStatic(initial_time, final_time, time_step, time, stop, displacement)
 end
 
-function Newmark(params::Dict{Any, Any})
+function Newmark(params::Dict{Any,Any})
     time_integrator_params = params["time integrator"]
     initial_time = time_integrator_params["initial time"]
     final_time = time_integrator_params["final time"]
@@ -63,27 +39,50 @@ function Newmark(params::Dict{Any, Any})
     Newmark(initial_time, final_time, time_step, time, stop, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre)
 end
 
-function create_time_integrator(params::Dict{Any, Any})
+function CentralDifference(params::Dict{Any,Any})
+    time_integrator_params = params["time integrator"]
+    initial_time = time_integrator_params["initial time"]
+    final_time = time_integrator_params["final time"]
+    time_step = 0.0
+    stable_time_step = 0.0
+    user_time_step = time_integrator_params["time step"]
+    time = initial_time
+    stop = 0
+    CFL = time_integrator_params["CFL"]
+    γ = time_integrator_params["γ"]
+    input_mesh = params["input_mesh"]
+    x, _, _ = input_mesh.get_coords()
+    num_nodes = length(x)
+    num_dof = 3 * num_nodes
+    displacement = zeros(num_dof)
+    velocity = zeros(num_dof)
+    acceleration = zeros(num_dof)
+    CentralDifference(initial_time, final_time, time_step, user_time_step, stable_time_step, time, stop, CFL, γ, displacement, velocity, acceleration)
+end
+
+function create_time_integrator(params::Dict{Any,Any})
     time_integrator_params = params["time integrator"]
     time_integrator_name = time_integrator_params["type"]
     if time_integrator_name == "quasi static"
         return QuasiStatic(params)
     elseif time_integrator_name == "Newmark"
         return Newmark(params)
+    elseif time_integrator_name == "central difference"
+        return CentralDifference(params)
     else
         error("Unknown type of time integrator : ", time_integrator_name)
     end
 end
 
-function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+function predict(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
 end
 
-function correct(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+function correct(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(solver, model, integrator)
 end
 
-function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
+function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
     free = solver.free_dofs
     fixed = solver.free_dofs .== false
@@ -91,7 +90,7 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     β = integrator.β
     γ = integrator.γ
     if integrator.stop == 0
-        _, internal_force, external_force, _, mass_matrix = evaluate(model)
+        _, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
         inertial_force = external_force - internal_force
         integrator.acceleration[free] = mass_matrix[free, free] \ inertial_force[free]
     end
@@ -111,7 +110,7 @@ function predict(integrator::Newmark, solver::Any, model::SolidMechanics)
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
+function correct(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
@@ -126,7 +125,38 @@ function correct(integrator::Newmark, solver::Any, model::SolidMechanics)
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
+function predict(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
+    copy_solution_source_targets(model, integrator, solver)
+    free = solver.free_dofs
+    set_time_step(integrator, model)
+    Δt = integrator.time_step
+    γ = integrator.γ
+    if integrator.stop == 0
+        _, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+        inertial_force = external_force - internal_force
+        integrator.acceleration[free] = inertial_force[free] ./ lumped_mass[free]
+    else
+        u = integrator.displacement
+        v = integrator.velocity
+        a = integrator.acceleration
+        u[free] += Δt * v[free] + 0.5 * Δt * Δt * a[free]
+        v[free] += (1.0 - γ) * Δt * a[free]
+    end
+    copy_solution_source_targets(integrator, solver, model)
+end
+
+function correct(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
+    Δt = integrator.time_step
+    γ = integrator.γ
+    a = integrator.acceleration = solver.solution
+    free = solver.free_dofs
+    if integrator.stop > 0
+        integrator.velocity[free] += γ * Δt * a[free]
+    end
+    copy_solution_source_targets(integrator, solver, model)
+end
+
+function initialize_writing(_::StaticTimeIntegrator, model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
@@ -148,7 +178,7 @@ function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
     elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     max_num_int_points = 0
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
         elem_type = output_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -157,7 +187,7 @@ function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
     ip_var_index = num_element_vars
     num_element_vars += 6 * max_num_int_points
     output_mesh.set_element_variable_number(num_element_vars)
-    for point ∈ 1 : max_num_int_points
+    for point ∈ 1:max_num_int_points
         stress_xx_index = ip_var_index + 1
         stress_yy_index = ip_var_index + 2
         stress_zz_index = ip_var_index + 3
@@ -175,7 +205,7 @@ function initialize_writing(integrator::QuasiStatic, model::SolidMechanics)
     end
 end
 
-function initialize_writing(integrator::Newmark, model::SolidMechanics)
+function initialize_writing(_::DynamicTimeIntegrator, model::SolidMechanics)
     output_mesh = model.params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
@@ -211,7 +241,7 @@ function initialize_writing(integrator::Newmark, model::SolidMechanics)
     elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     max_num_int_points = 0
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
         elem_type = output_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -220,7 +250,7 @@ function initialize_writing(integrator::Newmark, model::SolidMechanics)
     ip_var_index = num_element_vars
     num_element_vars += 6 * max_num_int_points
     output_mesh.set_element_variable_number(num_element_vars)
-    for point ∈ 1 : max_num_int_points
+    for point ∈ 1:max_num_int_points
         stress_xx_index = ip_var_index + 1
         stress_yy_index = ip_var_index + 2
         stress_zz_index = ip_var_index + 3
@@ -263,16 +293,16 @@ function write_step(integrator::Any, model::Any)
     end
 end
 
-function write_step_csv(integrator::QuasiStatic)
+function write_step_csv(integrator::StaticTimeIntegrator)
     stop = integrator.stop
-    index_string = "-" * string(stop, pad = 4)
+    index_string = "-" * string(stop, pad=4)
     disp_filename = "disp" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
 end
 
-function write_step_csv(integrator::Newmark)
+function write_step_csv(integrator::DynamicTimeIntegrator)
     stop = integrator.stop
-    index_string = "-" * string(stop, pad = 4)
+    index_string = "-" * string(stop, pad=4)
     disp_filename = "disp" * index_string * ".csv"
     velo_filename = "velo" * index_string * ".csv"
     acce_filename = "acce" * index_string * ".csv"
@@ -281,7 +311,7 @@ function write_step_csv(integrator::Newmark)
     writedlm(acce_filename, integrator.acceleration, '\n')
 end
 
-function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
+function write_step_exodus(integrator::StaticTimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
@@ -303,7 +333,7 @@ function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
     stress = model.stress
     elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
         elem_type = output_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -316,9 +346,9 @@ function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
         stress_yz = zeros(num_blk_elems, num_points)
         stress_xz = zeros(num_blk_elems, num_points)
         stress_xy = zeros(num_blk_elems, num_points)
-        for blk_elem_index ∈ 1 : num_blk_elems
+        for blk_elem_index ∈ 1:num_blk_elems
             element_stress = block_stress[blk_elem_index]
-            for point ∈ 1 : num_points
+            for point ∈ 1:num_points
                 point_stress = element_stress[point]
                 stress_xx[blk_elem_index, point] = point_stress[1]
                 stress_yy[blk_elem_index, point] = point_stress[2]
@@ -328,7 +358,7 @@ function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
                 stress_xy[blk_elem_index, point] = point_stress[6]
             end
         end
-        for point ∈ 1 : num_points
+        for point ∈ 1:num_points
             ip_str = sprintf1("_%d", point)
             output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx" * ip_str, time_index, stress_xx[:, point])
             output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy" * ip_str, time_index, stress_yy[:, point])
@@ -340,7 +370,7 @@ function write_step_exodus(integrator::QuasiStatic, model::SolidMechanics)
     end
 end
 
-function write_step_exodus(integrator::Newmark, model::SolidMechanics)
+function write_step_exodus(integrator::DynamicTimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
@@ -376,7 +406,7 @@ function write_step_exodus(integrator::Newmark, model::SolidMechanics)
     stress = model.stress
     elem_blk_ids = output_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
-    for blk_index ∈ 1 : num_blks
+    for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
         elem_type = output_mesh.elem_type(blk_id)
         num_points = default_num_int_pts(elem_type)
@@ -389,9 +419,9 @@ function write_step_exodus(integrator::Newmark, model::SolidMechanics)
         stress_yz = zeros(num_blk_elems, num_points)
         stress_xz = zeros(num_blk_elems, num_points)
         stress_xy = zeros(num_blk_elems, num_points)
-        for blk_elem_index ∈ 1 : num_blk_elems
+        for blk_elem_index ∈ 1:num_blk_elems
             element_stress = block_stress[blk_elem_index]
-            for point ∈ 1 : num_points
+            for point ∈ 1:num_points
                 point_stress = element_stress[point]
                 stress_xx[blk_elem_index, point] = point_stress[1]
                 stress_yy[blk_elem_index, point] = point_stress[2]
@@ -401,7 +431,7 @@ function write_step_exodus(integrator::Newmark, model::SolidMechanics)
                 stress_xy[blk_elem_index, point] = point_stress[6]
             end
         end
-        for point ∈ 1 : num_points
+        for point ∈ 1:num_points
             ip_str = sprintf1("_%d", point)
             output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_xx" * ip_str, time_index, stress_xx[:, point])
             output_mesh.put_variable_values("EX_ELEM_BLOCK", blk_id, "stress_yy" * ip_str, time_index, stress_yy[:, point])

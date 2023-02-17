@@ -260,3 +260,7 @@ function create_material(params::Dict{Any,Any})
         error("Unknown material model : ", model_name)
     end
 end
+
+function estimate_p_wave_modulus(material::Solid)
+    return material.λ + 2.0 * material.μ
+end
