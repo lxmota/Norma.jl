@@ -312,36 +312,26 @@ function evaluate(_::Newmark, model::SolidMechanics)
     return energy, internal_force, external_force, stiffness_matrix, mass_matrix
 end
 
-function get_minimum_edge_length_tetra4(nodal_coordinates::Matrix{Float64})
-    num_nodes = 4
+function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, edges::Vector{Tuple{Int64,Int64}})
     minimum_edge_length = Inf
-    origin = nodal_coordinates[:, 1]
-    for node = 2:num_nodes
-        edge_length = nodal_coordinates[:, node] - origin
-        distance = sqrt(edge_length' * edge_length)
+    for edge ∈ edges
+        node_a = edge[1]
+        node_b = edge[2]
+        edge_vector = nodal_coordinates[:, node_a] - nodal_coordinates[:, node_b]
+        distance = sqrt(edge_vector' * edge_vector)
         minimum_edge_length = min(minimum_edge_length, distance)
     end
     return minimum_edge_length
 end
 
-function get_minimum_edge_length_hex8(nodal_coordinates::Matrix{Float64})
-    num_edges = 12
-    node_left = [1, 1, 4, 5, 2, 2, 3, 6, 1, 3, 5, 7]
-    node_right = [4, 5, 8, 8, 3, 6, 7, 7, 2, 4, 6, 8]
-    minimum_edge_length = Inf
-    for edge = 1:num_edges
-        edge_length = nodal_coordinates[:, node_left[edge]] - nodal_coordinates[:, node_right[edge]]
-        distance = sqrt(edge_length' * edge_length)
-        minimum_edge_length = min(minimum_edge_length, distance)
-    end
-    return minimum_edge_length
-end
 
 function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, elem_type::String)
     if elem_type == "TETRA4"
-        return get_minimum_edge_length_tetra4(nodal_coordinates)
+        edges = [(1,2), (1,3), (1,4), (2,3), (3,4), (2,4)]
+        return get_minimum_edge_length(nodal_coordinates, edges)
     elseif elem_type == "HEX8"
-        return get_minimum_edge_length_hex8(nodal_coordinates)
+        edges = [(1,4), (1,5), (4,8), (5,8), (2,3), (2,6), (3,7), (6,7), (1,2), (3,4), (5,6), (7,8)]
+        return get_minimum_edge_length(nodal_coordinates, edges)
     else
         error("Invalid element type: ", elem_type)
     end
