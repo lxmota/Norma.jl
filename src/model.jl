@@ -540,12 +540,13 @@ function apply_bcs(model::SolidMechanics)
                 ss_node_index = 1
                 for side ∈ ss_num_nodes_per_side
                     side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
+                    side_coordinates = reference[:, side_nodes]
+                    nodal_force_component = get_side_set_nodal_forces(side_coordinates, bc_expr, model.time)
                     ss_node_index += side
+                    side_node_index = 1
                     for node_index ∈ side_nodes
-                        global x = reference[1, node_index]
-                        global y = reference[2, node_index]
-                        global z = reference[3, node_index]
-                        bc_val = eval(bc_expr)
+                        bc_val = nodal_force_component[side_node_index]
+                        side_node_index += 1
                         dof_index = 3 * (node_index - 1) + offset
                         model.boundary_tractions_force[dof_index] += bc_val
                     end
