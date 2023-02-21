@@ -1,13 +1,28 @@
 type: single
-model: dynamic solid
-mesh: cuboid-2.g
-material: cuboid-material-2.yaml 
+input mesh file: cuboid-2.g
+output mesh file: cuboid-2.e
+Exodus output interval: 1
+CSV output interval: 0
+model:
+type: solid mechanics
+  material: cuboid-material-2.yaml
+time integrator:
+  type: Newmark
+  initial time: 0.0
+  final time: 1.0e-03
+  time step: 1.0e-07
+  β: 0.25
+  γ: 0.5
 boundary conditions:
-  Neumann:
-    - side set: ssz+
-      component: z
-      function: "1.0 * t"
-  Schwarz Neumann:
-    - side set: ssz+
+    Dirichlet:
+    - node set: nsx-
+      component: x
+      function: "0.0"
+    - node set: nsy-
+      component: y
+      function: "0.0"
+  Schwarz Dirichlet:
+    - node set: nsz-
       component: z
       source: "cuboid-1.yaml"
+      source_block: domain_1
