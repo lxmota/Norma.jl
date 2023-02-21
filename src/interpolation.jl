@@ -232,22 +232,46 @@ function gradient_operator(dNdX)
     return B
 end
 
-function two_dims_from_three_dims(coordinates3D::Matrix{Float64})
-    O = coordinates3D[:, 1]
-    A = coordinates3D[:, 2]
-    B = coordinates3D[:, 3]
-    OA = A - O
-    Ax = sqrt(OA' * OA)
-    OB = B - O
-    lengthOB2 = OB' * OB
-    n = OA / Ax
-    Bx = OB' * n
-    By = sqrt(lengthOB2 - Bx * Bx)
-    coordinates2D = zeros(2, 3)
-    coordinates2D[1, 2] = Ax
-    coordinates2D[1, 3] = Bx
-    coordinates2D[2, 3] = By
-    return coordinates2D
+function triangle_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64})
+    AB = B - A
+    Bx = norm(AB)
+    AC = C - A
+    AC2 = AC ⋅ AC
+    n = AB / Bx
+    Cx = AC ⋅ n
+    Cy = sqrt(AC2 - Cx * Cx)
+    coordinates = zeros(2, 3)
+    coordinates[1, 2] = Bx
+    coordinates[1, 3] = Cx
+    coordinates[2, 3] = Cy
+    return coordinates
+end
+
+function quadrilateral_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64})
+    AB = A - B
+    AC = A - C
+    AD = A - D
+    V = cross(AB, AC)
+    v = V / norm(V)
+    u = AD ⋅ v
+    if abs(u) / norm(AD) >= 1.0e-04
+        error("Curved quadrilaterals are not supported")
+    end
+    Bx = norm(AB)
+    AC2 = AC ⋅ AC
+    AD2 = AD ⋅ AD
+    n = AB / Bx
+    Cx = AC ⋅ n
+    Cy = sqrt(AC2 - Cx * Cx)
+    Dx = AD ⋅ n
+    Dy = sqrt(AD2 - Dx * Dx)
+    coordinates = zeros(2, 4)
+    coordinates[1, 2] = Bx
+    coordinates[1, 3] = Cx
+    coordinates[1, 4] = Dx
+    coordinates[2, 3] = Cy
+    coordinates[2, 4] = Dy
+    return coordinates
 end
 
 function get_side_set_nodal_forces(coordinates::Matrix{Float64}, expr::Any, time::Float64)
@@ -255,24 +279,18 @@ function get_side_set_nodal_forces(coordinates::Matrix{Float64}, expr::Any, time
     if num_nodes == 3
         return get_triangle_nodal_forces(coordinates, expr, time)
     elseif num_nodes == 4
-        indices1 = [1,2,3]
-        indices2 = [1,3,4]
-        triangle1 = coordinates[:, indices1]
-        forces1 = get_triangle_nodal_forces(triangle1, expr, time)
-        triangle2 = coordinates[:, indices2]
-        forces2 = get_triangle_nodal_forces(triangle2, expr, time)
-        forces = zeros(4)
-        forces[indices1] = forces1
-        forces[indices2] += forces2
-        return forces
+        return get_quadrilateral_nodal_forces(coordinates, expr, time)
     else
         error("Unknown side topology with number of nodes: ", num_nodes)
     end
 end
 
-function get_triangle_nodal_forces(coordinates::Matrix{Float64}, expr::Any, time::Float64)
-    centroid = (coordinates[:, 1] + coordinates[:, 2] + coordinates[:, 3]) / 3.0
-    coordinates2D = two_dims_from_three_dims(coordinates)
+function get_triangle_nodal_forces(coordinates3D::Matrix{Float64}, expr::Any, time::Float64)
+    A = coordinates3D[:, 1]
+    B = coordinates3D[:, 2]
+    C = coordinates3D[:, 3]
+    centroid = (A + B + C) / 3.0
+    coordinates2D = triangle_3D_to_2D(A, B, C)
     Nₚ, dNdξ, elem_weights = barycentricD2N3G1()
     point = 1
     dNdξₚ = dNdξ[:, :, point]
@@ -285,5 +303,32 @@ function get_triangle_nodal_forces(coordinates::Matrix{Float64}, expr::Any, time
     global z = centroid[3]
     traction = eval(expr)
     nodal_force_component = traction * Nₚ * j * w
+    return nodal_force_component
+end
+
+function get_quadrilateral_nodal_forces(coordinates3D::Matrix{Float64}, expr::Any, time::Float64)
+    A = coordinates3D[:, 1]
+    B = coordinates3D[:, 2]
+    C = coordinates3D[:, 3]
+    D = coordinates3D[:, 4]
+    centroid = (A + B + C + D) / 4.0
+    coordinates2D = quadrilateral_3D_to_2D(A, B, C, D)
+    N, dNdξ, elem_weights = lagrangianD2N4G4()
+    g = sqrt(3.0) / 3.0
+    global t = time
+    nodal_force_component = zeros(4)
+    for point ∈ 1:4
+        Nₚ = N[:, point]
+        dNdξₚ = dNdξ[:, :, point]
+        dXdξ = dNdξₚ * coordinates2D'
+        j = det(dXdξ)
+        w = elem_weights[point]
+        point_coordinates3D = g * (coordinates3D[:, point] - centroid)
+        global x = point_coordinates3D[1]
+        global y = point_coordinates3D[2]
+        global z = point_coordinates3D[3]
+        traction = eval(expr)
+        nodal_force_component += traction * Nₚ * j * w
+    end
     return nodal_force_component
 end

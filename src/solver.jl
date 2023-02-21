@@ -199,19 +199,19 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     β = integrator.β
     Δt = integrator.time_step
     inertial_force = mass_matrix * integrator.acceleration
-    kinetic_energy = 0.5 * integrator.velocity' * mass_matrix * integrator.velocity
+    kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
     external_force = body_force + model.boundary_tractions_force
     solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
-    solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
+    solver.value = strain_energy - external_force ⋅ integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
 end
 
 function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     strain_energy, internal_force, body_force, lumped_mass = evaluate(integrator, model)
     inertial_force = lumped_mass .* integrator.acceleration
-    kinetic_energy = 0.5 * lumped_mass' * (integrator.velocity .* integrator.velocity)
+    kinetic_energy = 0.5 * lumped_mass ⋅ (integrator.velocity .* integrator.velocity)
     external_force = body_force + model.boundary_tractions_force
-    solver.value = strain_energy - external_force' * integrator.displacement + kinetic_energy
+    solver.value = strain_energy - external_force ⋅ integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
     solver.lumped_hessian = lumped_mass
 end
