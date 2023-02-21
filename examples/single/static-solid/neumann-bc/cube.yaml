@@ -29,9 +29,10 @@ boundary conditions:
     - node set: nsz-
       component: z
       function: "0.0"
-    - node set: nsz+
+  Neumann:
+    - side set: ssz+
       component: z
-      function: "1.0 * t"
+      function: "1.0e+09 * t"
 solver:
   type: Hessian minimizer
   step: full Newton

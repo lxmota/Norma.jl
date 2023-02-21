@@ -39,6 +39,7 @@ function SolidMechanics(params::Dict{Any,Any})
     end
     time = 0.0
     failed = false
+    boundary_tractions_force = zeros(3*num_nodes)
     nodal_dofs = [free::DOF for _ ∈ 1:3*num_nodes]
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
@@ -57,7 +58,7 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         stress[blk_index] = block_stress
     end
-    SolidMechanics(params, materials, reference, current, velocity, acceleration, stress, nodal_dofs, time, failed)
+    SolidMechanics(params, materials, reference, current, velocity, acceleration, boundary_tractions_force, stress, nodal_dofs, time, failed)
 end
 
 function HeatConduction(params::Dict{Any,Any})
@@ -94,6 +95,7 @@ function HeatConduction(params::Dict{Any,Any})
     time = 0.0
     failed = false
     nodal_dofs = [free::DOF for _ ∈ 1:num_nodes]
+    boundary_heat_flux = zeros(3*num_nodes)
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
@@ -111,7 +113,7 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
-    HeatConduction(params, materials, reference, temperature, rate, flux, nodal_dofs, time, failed)
+    HeatConduction(params, materials, reference, temperature, rate, boundary_heat_flux, flux, nodal_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any,Any})
@@ -171,7 +173,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     num_dof = 3 * num_nodes
     energy = 0.0
     internal_force = zeros(num_dof)
-    external_force = zeros(num_dof)
+    body_force = zeros(num_dof)
     rows = Vector{Int64}()
     cols = Vector{Int64}()
     stiffness = Vector{Float64}()
@@ -229,7 +231,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
         end
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
-    return energy, internal_force, external_force, stiffness_matrix
+    return energy, internal_force, body_force, stiffness_matrix
 end
 
 function evaluate(_::Newmark, model::SolidMechanics)
@@ -241,7 +243,7 @@ function evaluate(_::Newmark, model::SolidMechanics)
     num_dof = 3 * num_nodes
     energy = 0.0
     internal_force = zeros(num_dof)
-    external_force = zeros(num_dof)
+    body_force = zeros(num_dof)
     rows = Vector{Int64}()
     cols = Vector{Int64}()
     stiffness = Vector{Float64}()
@@ -309,39 +311,29 @@ function evaluate(_::Newmark, model::SolidMechanics)
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
     mass_matrix = sparse(rows, cols, mass)
-    return energy, internal_force, external_force, stiffness_matrix, mass_matrix
+    return energy, internal_force, body_force, stiffness_matrix, mass_matrix
 end
 
-function get_minimum_edge_length_tetra4(nodal_coordinates::Matrix{Float64})
-    num_nodes = 4
+function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, edges::Vector{Tuple{Int64,Int64}})
     minimum_edge_length = Inf
-    origin = nodal_coordinates[:, 1]
-    for node = 2:num_nodes
-        edge_length = nodal_coordinates[:, node] - origin
-        distance = sqrt(edge_length' * edge_length)
+    for edge ∈ edges
+        node_a = edge[1]
+        node_b = edge[2]
+        edge_vector = nodal_coordinates[:, node_a] - nodal_coordinates[:, node_b]
+        distance = sqrt(edge_vector' * edge_vector)
         minimum_edge_length = min(minimum_edge_length, distance)
     end
     return minimum_edge_length
 end
 
-function get_minimum_edge_length_hex8(nodal_coordinates::Matrix{Float64})
-    num_edges = 12
-    node_left = [1, 1, 4, 5, 2, 2, 3, 6, 1, 3, 5, 7]
-    node_right = [4, 5, 8, 8, 3, 6, 7, 7, 2, 4, 6, 8]
-    minimum_edge_length = Inf
-    for edge = 1:num_edges
-        edge_length = nodal_coordinates[:, node_left[edge]] - nodal_coordinates[:, node_right[edge]]
-        distance = sqrt(edge_length' * edge_length)
-        minimum_edge_length = min(minimum_edge_length, distance)
-    end
-    return minimum_edge_length
-end
 
 function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, elem_type::String)
     if elem_type == "TETRA4"
-        return get_minimum_edge_length_tetra4(nodal_coordinates)
+        edges = [(1,2), (1,3), (1,4), (2,3), (3,4), (2,4)]
+        return get_minimum_edge_length(nodal_coordinates, edges)
     elseif elem_type == "HEX8"
-        return get_minimum_edge_length_hex8(nodal_coordinates)
+        edges = [(1,4), (1,5), (4,8), (5,8), (2,3), (2,6), (3,7), (6,7), (1,2), (3,4), (5,6), (7,8)]
+        return get_minimum_edge_length(nodal_coordinates, edges)
     else
         error("Invalid element type: ", elem_type)
     end
@@ -389,7 +381,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
     num_dof = 3 * num_nodes
     energy = 0.0
     internal_force = zeros(num_dof)
-    external_force = zeros(num_dof)
+    body_force = zeros(num_dof)
     lumped_mass = zeros(num_dof)
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
@@ -450,7 +442,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             lumped_mass[elem_dofs] += element_lumped_mass
         end
     end
-    return energy, internal_force, external_force, lumped_mass
+    return energy, internal_force, body_force, lumped_mass
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
@@ -469,6 +461,24 @@ function node_set_id_from_name(node_set_name::String, mesh::PyObject)
     node_set_ids = mesh.get_node_set_ids()
     node_set_id = node_set_ids[node_set_index]
     return node_set_id
+end
+
+function side_set_id_from_name(side_set_name::String, mesh::PyObject)
+    side_set_names = mesh.get_side_set_names()
+    num_names = length(side_set_names)
+    side_set_index = 0
+    for index ∈ 1:num_names
+        if (side_set_name == side_set_names[index])
+            side_set_index = index
+            break
+        end
+    end
+    if (side_set_index == 0)
+        error("side set ", side_set_name, " cannot be found in mesh")
+    end
+    side_set_ids = mesh.get_side_set_ids()
+    side_set_id = side_set_ids[side_set_index]
+    return side_set_id
 end
 
 function component_offset_from_string(name::String)
@@ -495,6 +505,7 @@ function apply_bcs(model::SolidMechanics)
     input_mesh = params["input_mesh"]
     global t = model.time
     _, num_nodes = size(reference)
+    model.boundary_tractions_force = zeros(3*num_nodes)
     nodal_dofs = [free::DOF for _ ∈ 1:3*num_nodes]
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
@@ -517,8 +528,31 @@ function apply_bcs(model::SolidMechanics)
                     current[offset, node_index] = reference[offset, node_index] + bc_val
                     nodal_dofs[dof_index] = Dirichlet::DOF
                 end
-            elseif bc_type == "Schwarz"
             elseif bc_type == "Neumann"
+                side_set_name = bc["side set"]
+                function_str = bc["function"]
+                component = bc["component"]
+                offset = component_offset_from_string(component)
+                side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+                ss_num_nodes_per_side, ss_nodes = input_mesh.get_side_set_node_list(side_set_id)
+                # function_str is an arbitrary function of t, x, y, z in the input file
+                bc_expr = Meta.parse(function_str)
+                ss_node_index = 1
+                for side ∈ ss_num_nodes_per_side
+                    side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
+                    side_coordinates = reference[:, side_nodes]
+                    nodal_force_component = get_side_set_nodal_forces(side_coordinates, bc_expr, model.time)
+                    ss_node_index += side
+                    side_node_index = 1
+                    for node_index ∈ side_nodes
+                        bc_val = nodal_force_component[side_node_index]
+                        side_node_index += 1
+                        dof_index = 3 * (node_index - 1) + offset
+                        model.boundary_tractions_force[dof_index] += bc_val
+                    end
+                end
+            elseif bc_type == "Schwarz Dirichlet"
+            elseif bc_type == "Schwarz Neumann"
             end
         end
     end
