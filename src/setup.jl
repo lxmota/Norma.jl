@@ -30,10 +30,9 @@ end
 
 function setup_multi(params::Dict{Any,Any})
     domain_files = params["domains"]
-    num_domains = length(domain_files)
-    for domain ∈ 1:num_domains
-        domain_file = domain_files[domain]
-        println("domain: ", domain, ", domain file: ", domain_file)
-        setup(domain_file)
+    for domain_file ∈ domain_files
+        println("domain file: ", domain_file)
+        domain_params = setup(domain_file)
+        params[domain_file] = domain_params
     end
 end
