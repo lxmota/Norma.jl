@@ -1,8 +1,8 @@
 type: multi
 domains: ["cuboid-1.yaml", "cuboid-2.yaml"]
 initial time: 0.0
-final time: 1.0e-03
-time step: 1.0e-07
+final time: 1.0
+time step: 0.5
 minimum iterations: 1
 maximum iterations: 1024
 relative tolerance: 1.0e-12
