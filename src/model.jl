@@ -568,7 +568,6 @@ function apply_ics(model::SolidMechanics)
     current = model.current
     velocity = model.velocity
     input_mesh = params["input_mesh"]
-    global t = model.time
     ic_params = params["initial conditions"]
     for (ic_type, ic_type_params) ∈ ic_params
         for ic ∈ ic_type_params
@@ -578,7 +577,7 @@ function apply_ics(model::SolidMechanics)
             offset = component_offset_from_string(component)
             node_set_id = node_set_id_from_name(node_set_name, input_mesh)
             node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
-            # function_str is an arbitrary function of t, x, y, z in the input file
+            # function_str is an arbitrary function of x, y, z in the input file
             ic_expr = Meta.parse(function_str)
             for node_index ∈ node_set_node_indices
                 global x = reference[1, node_index]
