@@ -34,8 +34,14 @@ function loop_multi(params::Dict{Any,Any})
     integrators = Vector{TimeIntegrator}()
     solvers = Vector{Solver}()
     domains = params["domains"]
+    initial_time = params["initial time"]
+    final_time = params["final time"]
+    time_step = params["time step"]
     for domain ∈ domains
         domain_params = params[domain]
+        integrator_params = domain_params["time integrator"]
+        integrator_params["initial time"] = initial_time
+        integrator_params["final time"] = final_time
         model = create_model(domain_params)
         solver = create_solver(domain_params)
         integrator = create_time_integrator(domain_params)
@@ -43,5 +49,5 @@ function loop_multi(params::Dict{Any,Any})
         push!(solvers, solver)
         push!(integrators, integrator)
     end
-    return integrator, solver, model
+    return integrators, solvers, models
 end

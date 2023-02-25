@@ -4,10 +4,10 @@ using Formatting
 include("solver_def.jl")
 
 function QuasiStatic(params::Dict{Any,Any})
-    time_integrator_params = params["time integrator"]
-    initial_time = time_integrator_params["initial time"]
-    final_time = time_integrator_params["final time"]
-    time_step = time_integrator_params["time step"]
+    integrator_params = params["time integrator"]
+    initial_time = integrator_params["initial time"]
+    final_time = integrator_params["final time"]
+    time_step = integrator_params["time step"]
     time = initial_time
     stop = 0
     input_mesh = params["input_mesh"]
@@ -19,14 +19,14 @@ function QuasiStatic(params::Dict{Any,Any})
 end
 
 function Newmark(params::Dict{Any,Any})
-    time_integrator_params = params["time integrator"]
-    initial_time = time_integrator_params["initial time"]
-    final_time = time_integrator_params["final time"]
-    time_step = time_integrator_params["time step"]
+    integrator_params = params["time integrator"]
+    initial_time = integrator_params["initial time"]
+    final_time = integrator_params["final time"]
+    time_step = integrator_params["time step"]
     time = initial_time
     stop = 0
-    β = time_integrator_params["β"]
-    γ = time_integrator_params["γ"]
+    β = integrator_params["β"]
+    γ = integrator_params["γ"]
     input_mesh = params["input_mesh"]
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
@@ -40,16 +40,16 @@ function Newmark(params::Dict{Any,Any})
 end
 
 function CentralDifference(params::Dict{Any,Any})
-    time_integrator_params = params["time integrator"]
-    initial_time = time_integrator_params["initial time"]
-    final_time = time_integrator_params["final time"]
+    integrator_params = params["time integrator"]
+    initial_time = integrator_params["initial time"]
+    final_time = integrator_params["final time"]
     time_step = 0.0
     stable_time_step = 0.0
-    user_time_step = time_integrator_params["time step"]
+    user_time_step = integrator_params["time step"]
     time = initial_time
     stop = 0
-    CFL = time_integrator_params["CFL"]
-    γ = time_integrator_params["γ"]
+    CFL = integrator_params["CFL"]
+    γ = integrator_params["γ"]
     input_mesh = params["input_mesh"]
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
@@ -61,16 +61,16 @@ function CentralDifference(params::Dict{Any,Any})
 end
 
 function create_time_integrator(params::Dict{Any,Any})
-    time_integrator_params = params["time integrator"]
-    time_integrator_name = time_integrator_params["type"]
-    if time_integrator_name == "quasi static"
+    integrator_params = params["time integrator"]
+    integrator_name = integrator_params["type"]
+    if integrator_name == "quasi static"
         return QuasiStatic(params)
-    elseif time_integrator_name == "Newmark"
+    elseif integrator_name == "Newmark"
         return Newmark(params)
-    elseif time_integrator_name == "central difference"
+    elseif integrator_name == "central difference"
         return CentralDifference(params)
     else
-        error("Unknown type of time integrator : ", time_integrator_name)
+        error("Unknown type of time integrator : ", integrator_name)
     end
 end
 
