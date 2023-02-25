@@ -84,8 +84,7 @@ end
 
 function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
-    free = solver.free_dofs
-    fixed = solver.free_dofs .== false
+    free = model.free_dofs
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
@@ -99,8 +98,6 @@ function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMech
     a = integrator.acceleration
     uᵖʳᵉ = integrator.disp_pre
     vᵖʳᵉ = integrator.velo_pre
-    uᵖʳᵉ[fixed] = u[fixed]
-    vᵖʳᵉ[fixed] = v[fixed]
     uᵖʳᵉ[free] = u[free] + Δt * v[free] + (0.5 - β) * Δt * Δt * a[free]
     vᵖʳᵉ[free] = v[free] + (1.0 - γ) * Δt * a[free]
     if integrator.stop > 0
@@ -117,7 +114,7 @@ function correct(integrator::Newmark, solver::HessianMinimizer, model::SolidMech
     u = integrator.displacement = solver.solution
     uᵖʳᵉ = integrator.disp_pre
     vᵖʳᵉ = integrator.velo_pre
-    free = solver.free_dofs
+    free = model.free_dofs
     if integrator.stop > 0
         integrator.acceleration[free] = (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
         integrator.velocity[free] = vᵖʳᵉ[free] + γ * Δt * (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
@@ -127,7 +124,7 @@ end
 
 function predict(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
-    free = solver.free_dofs
+    free = model.free_dofs
     set_time_step(integrator, model)
     Δt = integrator.time_step
     γ = integrator.γ
@@ -149,7 +146,7 @@ function correct(integrator::CentralDifference, solver::ExplicitSolver, model::S
     Δt = integrator.time_step
     γ = integrator.γ
     a = integrator.acceleration = solver.solution
-    free = solver.free_dofs
+    free = model.free_dofs
     if integrator.stop > 0
         integrator.velocity[free] += γ * Δt * a[free]
     end

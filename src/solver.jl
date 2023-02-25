@@ -24,7 +24,6 @@ function HessianMinimizer(params::Dict{Any,Any})
     value = 0.0
     gradient = zeros(num_dof)
     hessian = spzeros(num_dof, num_dof)
-    free_dofs = trues(num_dof)
     initial_guess = zeros(num_dof)
     initial_norm = 0.0
     converged = false
@@ -32,7 +31,7 @@ function HessianMinimizer(params::Dict{Any,Any})
     step = create_step(solver_params)
     HessianMinimizer(minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        value, gradient, hessian, initial_guess, free_dofs,
+        value, gradient, hessian, initial_guess,
         initial_norm, converged, failed, step)
 end
 
@@ -45,13 +44,12 @@ function ExplicitSolver(params::Dict{Any,Any})
     value = 0.0
     gradient = zeros(num_dof)
     lumped_hessian = zeros(num_dof)
-    free_dofs = trues(num_dof)
     initial_guess = zeros(num_dof)
     initial_norm = 0.0
     converged = false
     failed = false
     step = create_step(solver_params)
-    ExplicitSolver(value, gradient, lumped_hessian, initial_guess, free_dofs,
+    ExplicitSolver(value, gradient, lumped_hessian, initial_guess,
         initial_norm, converged, failed, step)
 end
 
@@ -216,16 +214,14 @@ function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::
     solver.lumped_hessian = lumped_mass
 end
 
-function compute_step(solver::HessianMinimizer, _::NewtonStep)
+function compute_step(solver::HessianMinimizer, _::NewtonStep, free::BitVector)
     step = zeros(length(solver.gradient))
-    free = solver.free_dofs
     step[free] = -solver.hessian[free, free] \ solver.gradient[free]
     return step
 end
 
-function compute_step(solver::ExplicitSolver, _::ExplicitStep)
+function compute_step(solver::ExplicitSolver, _::ExplicitStep, free::BitVector)
     step = zeros(length(solver.gradient))
-    free = solver.free_dofs
     step[free] = -solver.gradient[free] ./ solver.lumped_hessian[free]
     return step
 end
@@ -266,27 +262,23 @@ function continue_solve(_::ExplicitSolver, _::Int64)
     return false
 end
 
-function update_dofs(model::Any, solver::Any)
-    solver.free_dofs = model.nodal_dofs .== free::DOF
-end
-
 function solve(integrator::Any, model::SolidMechanics, solver::Any)
     predict(integrator, solver, model)
     evaluate(integrator, solver, model)
     residual = solver.gradient
-    norm_residual = norm(residual[solver.free_dofs])
+    norm_residual = norm(residual[model.free_dofs])
     solver.initial_norm = norm_residual
     iteration_number = 0
     solver.failed = solver.failed || model.failed
     step_type = solver.step
     while true
-        step = compute_step(solver, step_type)
+        step = compute_step(solver, step_type, model.free_dofs)
         solver.solution += step
         correct(integrator, solver, model)
         evaluate(integrator, solver, model)
         residual = solver.gradient
         norm_step = norm(step)
-        norm_residual = norm(residual[solver.free_dofs])
+        norm_residual = norm(residual[model.free_dofs])
         if iteration_number == 0
             println("initial |R|=", norm_residual, ", |X|=", norm(solver.solution))
         else

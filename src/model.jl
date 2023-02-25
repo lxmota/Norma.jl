@@ -40,7 +40,7 @@ function SolidMechanics(params::Dict{Any,Any})
     time = 0.0
     failed = false
     boundary_tractions_force = zeros(3*num_nodes)
-    nodal_dofs = [free::DOF for _ ∈ 1:3*num_nodes]
+    free_dofs = trues(3 * num_nodes)
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
@@ -58,7 +58,8 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         stress[blk_index] = block_stress
     end
-    SolidMechanics(params, materials, reference, current, velocity, acceleration, boundary_tractions_force, stress, nodal_dofs, time, failed)
+    SolidMechanics(params, materials, reference, current, velocity, acceleration,
+        boundary_tractions_force, stress, free_dofs, time, failed)
 end
 
 function HeatConduction(params::Dict{Any,Any})
@@ -94,7 +95,7 @@ function HeatConduction(params::Dict{Any,Any})
     end
     time = 0.0
     failed = false
-    nodal_dofs = [free::DOF for _ ∈ 1:num_nodes]
+    free_dofs = trues(num_nodes)
     boundary_heat_flux = zeros(3*num_nodes)
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
@@ -113,7 +114,7 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
-    HeatConduction(params, materials, reference, temperature, rate, boundary_heat_flux, flux, nodal_dofs, time, failed)
+    HeatConduction(params, materials, reference, temperature, rate, boundary_heat_flux, flux, free_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any,Any})
@@ -506,7 +507,7 @@ function apply_bcs(model::SolidMechanics)
     global t = model.time
     _, num_nodes = size(reference)
     model.boundary_tractions_force = zeros(3*num_nodes)
-    nodal_dofs = [free::DOF for _ ∈ 1:3*num_nodes]
+    model.free_dofs = trues(3 * num_nodes)
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
         for bc ∈ bc_type_params
@@ -526,7 +527,7 @@ function apply_bcs(model::SolidMechanics)
                     bc_val = eval(bc_expr)
                     dof_index = 3 * (node_index - 1) + offset
                     current[offset, node_index] = reference[offset, node_index] + bc_val
-                    nodal_dofs[dof_index] = Dirichlet::DOF
+                    model.free_dofs[dof_index] = false
                 end
             elseif bc_type == "Neumann"
                 side_set_name = bc["side set"]
@@ -556,7 +557,6 @@ function apply_bcs(model::SolidMechanics)
             end
         end
     end
-    model.nodal_dofs = nodal_dofs
 end
 
 function apply_ics(model::SolidMechanics)
@@ -604,7 +604,7 @@ function apply_bcs(model::HeatConduction)
     global t = model.time
     xc, yc, zc = input_mesh.get_coords()
     num_nodes = length(xc)
-    nodal_dofs = [free::DOF for _ ∈ 1:num_nodes]
+    model.free_dofs = trues(num_nodes)
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
         for bc ∈ bc_type_params
@@ -621,12 +621,11 @@ function apply_bcs(model::HeatConduction)
                     global z = zc[node_index]
                     bc_val = eval(bc_expr)
                     temperature[node_index] = bc_val
-                    nodal_dofs[node_index] = Dirichlet::DOF
+                    model.free_dofs[node_index] = false
                 end
             elseif bc_type == "Schwarz"
             elseif bc_type == "Neumann"
             end
         end
     end
-    model.nodal_dofs = nodal_dofs
 end

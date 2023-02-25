@@ -19,7 +19,6 @@ function loop_single(params::Dict{Any,Any})
         model.time = integrator.time
         println("Stop ", integrator.stop, ", time: ", integrator.time)
         apply_bcs(model)
-        update_dofs(model, solver)
         solve(integrator, model, solver)
         write_step(integrator, model)
         integrator.time = round(integrator.time + integrator.time_step; digits=10)

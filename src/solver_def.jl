@@ -13,7 +13,6 @@ mutable struct HessianMinimizer <: Minimizer
     gradient::Vector{Float64}
     hessian::SparseMatrixCSC{Float64,Int64}
     solution::Vector{Float64}
-    free_dofs::BitVector
     initial_norm::Float64
     converged::Bool
     failed::Bool
@@ -25,7 +24,6 @@ mutable struct ExplicitSolver <: Solver
     gradient::Vector{Float64}
     lumped_hessian::Vector{Float64}
     solution::Vector{Float64}
-    free_dofs::BitVector
     initial_norm::Float64
     converged::Bool
     failed::Bool

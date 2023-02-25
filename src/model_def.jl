@@ -1,7 +1,5 @@
 abstract type Model end
 
-@enum DOF free Dirichlet Schwarz
-
 mutable struct SolidMechanics <: Model
     params::Dict{Any,Any}
     materials::Vector{Solid}
@@ -11,7 +9,7 @@ mutable struct SolidMechanics <: Model
     acceleration::Matrix{Float64}
     boundary_tractions_force::Vector{Float64}
     stress::Vector{Vector{Vector{Vector{Float64}}}}
-    nodal_dofs::Vector{DOF}
+    free_dofs::BitVector
     time::Float64
     failed::Bool
 end
@@ -24,7 +22,7 @@ mutable struct HeatConduction <: Model
     rate::Vector{Float64}
     boundary_heat_flux::Vector{Float64}
     flux::Vector{Vector{Vector{Vector{Float64}}}}
-    nodal_dofs::Vector{DOF}
+    free_dofs::BitVector
     time::Float64
     failed::Bool
 end
