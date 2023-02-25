@@ -5,8 +5,7 @@ include("loop.jl")
 
 function run(input_file::String)
     params = setup(input_file)
-    integrator, solver, model = loop(params)
-    return integrator, solver, model
+    return loop(params)
 end
 
 for input_file ∈ ARGS

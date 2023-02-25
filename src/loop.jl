@@ -1,7 +1,18 @@
 function loop(params::Dict{Any,Any})
-    integrator = params["time_integrator_struct"]
-    model = params["model_struct"]
-    solver = params["solver_struct"]
+    sim_type = params["type"]
+    if sim_type == "single"
+        return loop_single(params)
+    elseif sim_type == "multi"
+        return loop_multi(params)
+    else
+        error("Unknown type of simulation: ", sim_type)
+    end
+end
+
+function loop_single(params::Dict{Any,Any})
+    model = create_model(params)
+    solver = create_solver(params)
+    integrator = create_time_integrator(params)
     apply_ics(model)
     initialize_writing(integrator, model)
     while integrator.time <= integrator.final_time
@@ -15,5 +26,22 @@ function loop(params::Dict{Any,Any})
         integrator.stop += 1
     end
     finalize_writing(model)
+    return integrator, solver, model
+end
+
+function loop_multi(params::Dict{Any,Any})
+    models = Vector{Model}()
+    integrators = Vector{TimeIntegrator}()
+    solvers = Vector{Solver}()
+    domains = params["domains"]
+    for domain ∈ domains
+        domain_params = params[domain]
+        model = create_model(domain_params)
+        solver = create_solver(domain_params)
+        integrator = create_time_integrator(domain_params)
+        push!(models, model)
+        push!(solvers, solver)
+        push!(integrators, integrator)
+    end
     return integrator, solver, model
 end

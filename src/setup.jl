@@ -30,20 +30,14 @@ function setup_single(params::Dict{Any,Any})
     params["output_mesh"] = output_mesh
     input_mesh = Exodus.exodus(input_mesh_file)
     params["input_mesh"] = input_mesh
-    model = create_model(params)
-    params["model_struct"] = model
-    solver = create_solver(params)
-    params["solver_struct"] = solver
-    time_integrator = create_time_integrator(params)
-    params["time_integrator_struct"] = time_integrator
 end
 
 function setup_multi(params::Dict{Any,Any})
-    domain_files = params["domains"]
-    for domain_file ∈ domain_files
-        println("domain file: ", domain_file)
-        domain_params = setup(domain_file)
-        params[domain_file] = domain_params
+    domains = params["domains"]
+    for domain ∈ domains
+        println("domain file: ", domain)
+        domain_params = setup(domain)
+        params[domain] = domain_params
         domain_params["global_params"] = params
     end
 end
