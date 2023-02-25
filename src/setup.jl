@@ -33,11 +33,11 @@ function setup_single(params::Dict{Any,Any})
 end
 
 function setup_multi(params::Dict{Any,Any})
-    domains = params["domains"]
-    for domain ∈ domains
-        println("domain file: ", domain)
-        domain_params = setup(domain)
-        params[domain] = domain_params
+    domain_names = params["domains"]
+    for domain_name ∈ domain_names
+        println("domain file: ", domain_name)
+        domain_params = setup(domain_name)
+        params[domain_name] = domain_params
         domain_params["global_params"] = params
     end
 end
