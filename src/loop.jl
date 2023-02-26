@@ -28,16 +28,31 @@ end
 
 function loop_multi(params::Dict{Any,Any})
     integrators, solvers, models = create_simulations(params)
-    time_step = params["time step"]
     apply_ics(models)
     initialize_writing(integrators, models)
     time = initial_time
     stop = 0
+    time_step = params["time step"]
     while time <= final_time
+        next_time = time + time_step
+        synchronize(integrators, models, stop, time)
         println("Stop ", stop, ", time: ", time)
+        schwarz(integrators, solvers, models, time, next_time, stop)
+        time = round(next_time; digits=10)
+        stop += 1
     end
     finalize_writing(models)
     return integrators, solvers, models
+end
+
+function schwarz(integrators::Vector{TimeIntegrator}, solvers::Vector{Solver}, models::Vector{Model},
+    initial_time::Float64, final_time::Float64, stop::Int64)
+    apply_bcs(models)
+    if stop == 0
+        solve(integrators, solvers, models)
+        write_step(integrators, models)
+    end
+    write_step(integrators, models)
 end
 
 function create_simulation(params::Dict{Any,Any})
@@ -83,6 +98,19 @@ function apply_ics(models::Vector{Model})
     end
 end
 
+function apply_bcs(models::Vector{Model})
+    for model ∈ models
+        apply_bcs(model)
+    end
+end
+
+function solve(integrators::Vector{TimeIntegrator}, solvers::Vector{Solver}, models::Vector{Model})
+    num_domains = length(models)
+    for domain ∈ 1:num_domains
+        solve(integrators[domains], solvers[domain], model[domain])
+    end
+end
+
 function finalize_writing(models::Vector{Model})
     for model ∈ models
         finalize_writing(model)
@@ -93,5 +121,20 @@ function initialize_writing(integrators::Vector{TimeIntegrator}, models::Vector{
     num_domains = length(models)
     for domain ∈ 1:num_domains
         initialize_writing(integrators[domains], model[domain])
+    end
+end
+
+function write_step(integrators::Vector{TimeIntegrator}, models::Vector{Model})
+    num_domains = length(models)
+    for domain ∈ 1:num_domains
+        write_step(integrators[domains], model[domain])
+    end
+end
+
+function synchronize(integrators::Vector{TimeIntegrator}, models::Vector{Model}, time::Float64, stop::Int64)
+    num_domains = length(models)
+    for domain ∈ 1:num_domains
+        integrators[domain].time = models[domain].time = time
+        integrators[domain].stop = stop
     end
 end
