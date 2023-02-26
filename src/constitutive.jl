@@ -1,12 +1,3 @@
-include("minitensor.jl")
-
-using LinearAlgebra
-using .MiniTensor
-
-abstract type Material end
-abstract type Solid <: Material end
-abstract type Thermal <: Material end
-
 struct SaintVenant_Kirchhoff <: Solid
     E::Float64
     ν::Float64

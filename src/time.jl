@@ -1,8 +1,6 @@
 using DelimitedFiles
 using Formatting
 
-include("solver_def.jl")
-
 function QuasiStatic(params::Dict{Any,Any})
     integrator_params = params["time integrator"]
     initial_time = integrator_params["initial time"]

@@ -1,6 +1,6 @@
 module Norma
 
-include("setup.jl")
+include("simulation.jl")
 include("loop.jl")
 
 function run(input_file::String)

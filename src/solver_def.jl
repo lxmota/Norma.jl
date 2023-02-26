@@ -2,6 +2,8 @@ abstract type Solver end
 abstract type Minimizer <: Solver end
 abstract type Step end
 
+using SparseArrays
+
 mutable struct HessianMinimizer <: Minimizer
     minimum_iterations::Int64
     maximum_iterations::Int64

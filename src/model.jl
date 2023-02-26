@@ -1,8 +1,5 @@
-using SparseArrays
-
 include("constitutive.jl")
-include("model_def.jl")
-include("time_def.jl")
+include("interpolation.jl")
 
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]

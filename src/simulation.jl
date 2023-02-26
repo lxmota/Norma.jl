@@ -1,7 +1,7 @@
 import YAML
 
+include("simulation_def.jl")
 include("exodus.jl")
-include("interpolation.jl")
 include("model.jl")
 include("time.jl")
 include("solver.jl")
