@@ -72,6 +72,18 @@ function create_time_integrator(params::Dict{Any,Any})
     end
 end
 
+function is_static_or_dynamic(integrator_name::String)
+    if integrator_name == "quasi static"
+        return "static"
+    elseif integrator_name == "Newmark"
+        return "dynamic"
+    elseif integrator_name == "central difference"
+        return "dynamic"
+    else
+        error("Unknown type of time integrator : ", integrator_name)
+    end
+end
+
 function predict(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     copy_solution_source_targets(model, integrator, solver)
 end

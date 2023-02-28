@@ -11,6 +11,7 @@ include("schwarz.jl")
 Exodus = exodus_module()
 
 function create_simulation(input_file::String)
+    println("Reading simulation file: ", input_file)
     params = YAML.load_file(input_file)
     sim_type = params["type"]
     if sim_type == "single"
@@ -49,12 +50,21 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     if haskey(params, "CSV output interval") == true
         csv_interval = params["CSV output interval"]
     end
+    multi_type = "none"
     for domain_name ∈ domain_names
-        println("domain file: ", domain_name)
-        domain_params = setup(domain_name)
+        println("Reading subdomain file: ", domain_name)
+        domain_params = YAML.load_file(domain_name)
         params[domain_name] = domain_params
         domain_params["global_params"] = params
         integrator_params = domain_params["time integrator"]
+        single_name = integrator_params["type"]
+        single_type = is_static_or_dynamic(single_name)
+        if multi_type == "none"
+            multi_type = single_type
+        elseif single_type ≠ multi_type
+            error("Multidomain subdomains must be all static or dynamic")
+        end
+        params["subdomains type"] = multi_type
         integrator_params["initial time"] = initial_time
         integrator_params["final time"] = final_time
         simulation = SingleDomainSimulation(domain_params)
@@ -62,5 +72,6 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         simulation.params["CSV output interval"] = csv_interval
         push!(sub_simulations, simulation)
     end
-    MultiDomainSimulation(params, sub_simulations)
+    schwarz_controller = create_schwarz_controller(params)
+    MultiDomainSimulation(params, schwarz_controller, sub_simulations)
 end

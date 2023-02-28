@@ -16,5 +16,6 @@ end
 
 struct MultiDomainSimulation <: Simulation
     params::Dict{Any,Any}
+    schwarz_controller::SchwarzController
     sub_simulations::Vector{SingleDomainSimulation}
 end
