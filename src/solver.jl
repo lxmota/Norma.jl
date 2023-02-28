@@ -262,7 +262,7 @@ function continue_solve(_::ExplicitSolver, _::Int64)
     return false
 end
 
-function solve(integrator::Any, model::SolidMechanics, solver::Any)
+function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
     predict(integrator, solver, model)
     evaluate(integrator, solver, model)
     residual = solver.gradient

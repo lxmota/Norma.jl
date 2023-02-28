@@ -1,6 +1,7 @@
 cp("../examples/single/implicit-dynamic-solid/sho/sho.yaml", "sho.yaml", force=true)
 cp("../examples/single/implicit-dynamic-solid/sho/sho.g", "sho.g", force=true)
-integrator, solver, model = Norma.run("sho.yaml")
+simulation = Norma.run("sho.yaml")
+integrator = simulation.integrator
 rm("sho.yaml")
 rm("sho.g")
 rm("sho.e")

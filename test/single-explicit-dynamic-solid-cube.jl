@@ -1,6 +1,8 @@
 cp("../examples/single/explicit-dynamic-solid/cube/cube.yaml", "cube.yaml", force=true)
 cp("../examples/single/explicit-dynamic-solid/cube/cube.g", "cube.g", force=true)
-integrator, solver, model = Norma.run("cube.yaml")
+simulation = Norma.run("cube.yaml")
+integrator = simulation.integrator
+model = simulation.model
 rm("cube.yaml")
 rm("cube.g")
 rm("cube.e")

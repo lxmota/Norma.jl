@@ -55,7 +55,7 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         stress[blk_index] = block_stress
     end
-    SolidMechanics(params, materials, reference, current, velocity, acceleration,
+    SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
         boundary_tractions_force, stress, free_dofs, time, failed)
 end
 
@@ -111,7 +111,7 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
-    HeatConduction(params, materials, reference, temperature, rate, boundary_heat_flux, flux, free_dofs, time, failed)
+    HeatConduction(input_mesh, materials, reference, temperature, rate, boundary_heat_flux, flux, free_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any,Any})
@@ -163,9 +163,8 @@ function assemble(rows::Vector{Int64}, cols::Vector{Int64}, global_stiffness::Ve
 end
 
 function evaluate(_::QuasiStatic, model::SolidMechanics)
-    params = model.params
     materials = model.materials
-    input_mesh = params["input_mesh"]
+    input_mesh = model.mesh
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
@@ -233,9 +232,8 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
 end
 
 function evaluate(_::Newmark, model::SolidMechanics)
-    params = model.params
     materials = model.materials
-    input_mesh = params["input_mesh"]
+    input_mesh = model.mesh
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
@@ -338,9 +336,8 @@ function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, elem_type::
 end
 
 function set_time_step(integrator::CentralDifference, model::SolidMechanics)
-    params = model.params
     materials = model.materials
-    input_mesh = params["input_mesh"]
+    input_mesh = model.mesh
     elem_blk_ids = input_mesh.get_elem_blk_ids()
     num_blks = length(elem_blk_ids)
     stable_time_step = Inf
@@ -371,9 +368,8 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
 end
 
 function evaluate(_::CentralDifference, model::SolidMechanics)
-    params = model.params
     materials = model.materials
-    input_mesh = params["input_mesh"]
+    input_mesh = model.mesh
     x, _, _ = input_mesh.get_coords()
     num_nodes = length(x)
     num_dof = 3 * num_nodes
@@ -493,8 +489,7 @@ function component_offset_from_string(name::String)
     return offset
 end
 
-function apply_bcs(model::SolidMechanics)
-    params = model.params
+function apply_bcs(params::Dict{Any,Any}, model::SolidMechanics)
     if haskey(params, "boundary conditions") == false
         return
     end
@@ -556,8 +551,7 @@ function apply_bcs(model::SolidMechanics)
     end
 end
 
-function apply_ics(model::SolidMechanics)
-    params = model.params
+function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
     if haskey(params, "initial conditions") == false
         return
     end
@@ -591,8 +585,7 @@ function apply_ics(model::SolidMechanics)
     end
 end
 
-function apply_bcs(model::HeatConduction)
-    params = model.params
+function apply_bcs(params::Dict{Any,Any}, model::HeatConduction)
     if haskey(params, "boundary conditions") == false
         return
     end

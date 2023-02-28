@@ -5,8 +5,6 @@
 # Point to a working Python installation. Normally this is not needed, but on
 # MacOS arm64 the default Conda version seems to be broken.
 # ENV["PYTHON"]="/Applications/Xcode.app/Contents/Developer/usr/bin/python3"
-using PyCall
-
 function exodus_module()
     # Point to a working SEACAS installation that contains exodus.py, the Exodus'
     # Python interface.

@@ -1,6 +1,7 @@
 cp("../examples/single/explicit-dynamic-solid/clamped/clamped.yaml", "clamped.yaml", force=true)
 cp("../examples/single/explicit-dynamic-solid/clamped/clamped.g", "clamped.g", force=true)
-integrator, solver, model = Norma.run("clamped.yaml")
+simulation = Norma.run("clamped.yaml")
+integrator = simulation.integrator
 rm("clamped.yaml")
 rm("clamped.g")
 rm("clamped.e")

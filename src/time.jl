@@ -151,8 +151,8 @@ function correct(integrator::CentralDifference, solver::ExplicitSolver, model::S
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function initialize_writing(_::StaticTimeIntegrator, model::SolidMechanics)
-    output_mesh = model.params["output_mesh"]
+function initialize_writing(params::Dict{Any,Any}, _::StaticTimeIntegrator, model::SolidMechanics)
+    output_mesh = params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
     disp_y_index = num_node_vars + 2
@@ -200,8 +200,8 @@ function initialize_writing(_::StaticTimeIntegrator, model::SolidMechanics)
     end
 end
 
-function initialize_writing(_::DynamicTimeIntegrator, model::SolidMechanics)
-    output_mesh = model.params["output_mesh"]
+function initialize_writing(params::Dict{Any,Any}, _::DynamicTimeIntegrator, model::SolidMechanics)
+    output_mesh = params["output_mesh"]
     num_node_vars = output_mesh.get_node_variable_number()
     disp_x_index = num_node_vars + 1
     disp_y_index = num_node_vars + 2
@@ -263,25 +263,25 @@ function initialize_writing(_::DynamicTimeIntegrator, model::SolidMechanics)
     end
 end
 
-function finalize_writing(model::Any)
-    input_mesh = model.params["input_mesh"]
+function finalize_writing(params::Dict{Any,Any})
+    input_mesh = params["input_mesh"]
     input_mesh.close()
-    output_mesh = model.params["output_mesh"]
+    output_mesh = params["output_mesh"]
     output_mesh.close()
 end
 
-function write_step(integrator::Any, model::Any)
+function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     stop = integrator.stop
     exodus_interval = 1
-    if haskey(model.params, "Exodus output interval") == true
-        exodus_interval = model.params["Exodus output interval"]
+    if haskey(params, "Exodus output interval") == true
+        exodus_interval = params["Exodus output interval"]
     end
     if exodus_interval > 0 && stop % exodus_interval == 0
-        write_step_exodus(integrator, model)
+        write_step_exodus(params, integrator, model)
     end
     csv_interval = 0
-    if haskey(model.params, "CSV output interval") == true
-        csv_interval = model.params["CSV output interval"]
+    if haskey(params, "CSV output interval") == true
+        csv_interval = params["CSV output interval"]
     end
     if csv_interval > 0 && stop % csv_interval == 0
         write_step_csv(integrator)
@@ -306,11 +306,11 @@ function write_step_csv(integrator::DynamicTimeIntegrator)
     writedlm(acce_filename, integrator.acceleration, '\n')
 end
 
-function write_step_exodus(integrator::StaticTimeIntegrator, model::SolidMechanics)
+function write_step_exodus(params::Dict{Any,Any}, integrator::StaticTimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
-    output_mesh = model.params["output_mesh"]
+    output_mesh = params["output_mesh"]
     output_mesh.put_time(time_index, time)
     displacement = model.current - model.reference
     refe_x = model.current[1, :]
@@ -365,11 +365,11 @@ function write_step_exodus(integrator::StaticTimeIntegrator, model::SolidMechani
     end
 end
 
-function write_step_exodus(integrator::DynamicTimeIntegrator, model::SolidMechanics)
+function write_step_exodus(params::Dict{Any,Any}, integrator::DynamicTimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
-    output_mesh = model.params["output_mesh"]
+    output_mesh = params["output_mesh"]
     output_mesh.put_time(time_index, time)
     displacement = model.current - model.reference
     refe_x = model.current[1, :]

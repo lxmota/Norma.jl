@@ -1,10 +1,12 @@
 cp("../examples/single/static-solid/cube/cube.yaml", "cube.yaml", force=true)
 cp("../examples/single/static-solid/cube/cube.g", "cube.g", force=true)
-integrator, solver, model = Norma.run("cube.yaml")
+simulation = Norma.run("cube.yaml")
+integrator = simulation.integrator
+model = simulation.model
 rm("cube.yaml")
 rm("cube.g")
 rm("cube.e")
-avg_disp = average_components(solver.solution)
+avg_disp = average_components(integrator.displacement)
 avg_stress = average_components(model.stress)
 @testset "single-static-solid-cube" begin
     @test avg_disp[1] ≈ -0.125 rtol = 1.0e-06

@@ -4,8 +4,9 @@ include("simulation.jl")
 include("loop.jl")
 
 function run(input_file::String)
-    params = setup(input_file)
-    return loop(params)
+    simulation = create_simulation(input_file)
+    loop(simulation)
+    return simulation
 end
 
 for input_file ∈ ARGS
