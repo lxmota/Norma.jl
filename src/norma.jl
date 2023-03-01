@@ -1,11 +1,11 @@
 module Norma
 
 include("simulation.jl")
-include("loop.jl")
+include("evolve.jl")
 
 function run(input_file::String)
     simulation = create_simulation(input_file)
-    loop(simulation)
+    evolve(simulation)
     return simulation
 end
 

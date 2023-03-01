@@ -31,11 +31,9 @@ function create_schwarz_controller(params::Dict{Any,Any})
     end
 end
 
-function schwarz(simulation::MultiDomainSimulation, initial_time::Float64, final_time::Float64, stop::Int64)
-    apply_bcs(simulation)
-    if stop == 0
+function schwarz(simulation::MultiDomainSimulation)
+    if schwarz_controller.stop == 0
         solve(simulation)
         write_step(simulation)
     end
-    write_step(simulation)
 end

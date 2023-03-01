@@ -284,17 +284,11 @@ end
 
 function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     stop = integrator.stop
-    exodus_interval = 1
-    if haskey(params, "Exodus output interval") == true
-        exodus_interval = params["Exodus output interval"]
-    end
+    exodus_interval = get(params, "Exodus output interval", 1)
     if exodus_interval > 0 && stop % exodus_interval == 0
         write_step_exodus(params, integrator, model)
     end
-    csv_interval = 0
-    if haskey(params, "CSV output interval") == true
-        csv_interval = params["CSV output interval"]
-    end
+    csv_interval = get(params, "CSV output interval", 0)
     if csv_interval > 0 && stop % csv_interval == 0
         write_step_csv(integrator)
     end
