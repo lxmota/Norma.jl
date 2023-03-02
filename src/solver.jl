@@ -228,7 +228,7 @@ end
 
 function update_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
     solver.absolute_error = absolute_error
-    solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : 0.0
+    solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
     converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
     converged_relative = solver.relative_error ≤ solver.relative_tolerance
     solver.converged = converged_absolute || converged_relative
