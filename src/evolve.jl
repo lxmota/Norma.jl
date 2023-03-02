@@ -1,115 +1,115 @@
-function evolve(simulation::Simulation)
-    apply_ics(simulation)
-    initialize_writing(simulation)
-    while continue_evolve(simulation)
-        synchronize(simulation)
-        apply_bcs(simulation)
-        advance(simulation)
-        write_step(simulation)
-        advance_time(simulation)
+function evolve(sim::Simulation)
+    apply_ics(sim)
+    initialize_writing(sim)
+    while continue_evolve(sim)
+        synchronize(sim)
+        apply_bcs(sim)
+        advance(sim)
+        write_step(sim)
+        advance_time(sim)
     end
-    finalize_writing(simulation)
+    finalize_writing(sim)
 end
 
-function continue_evolve(simulation::SingleDomainSimulation)
-    return simulation.integrator.time ≤ simulation.integrator.final_time
+function continue_evolve(sim::SingleDomainSimulation)
+    return sim.integrator.time ≤ sim.integrator.final_time
 end
 
-function continue_evolve(simulation::MultiDomainSimulation)
-    return simulation.schwarz_controller.time ≤ simulation.schwarz_controller.final_time
+function continue_evolve(sim::MultiDomainSimulation)
+    return sim.schwarz_controller.time ≤ sim.schwarz_controller.final_time
 end
 
-function advance(simulation::SingleDomainSimulation)
-    solve(simulation)
+function advance(sim::SingleDomainSimulation)
+    solve(sim)
 end
 
-function advance(simulation::MultiDomainSimulation)
-    schwarz(simulation)
+function advance(sim::MultiDomainSimulation)
+    schwarz(sim)
 end
 
-function apply_ics(simulation::SingleDomainSimulation)
-    apply_ics(simulation.params, simulation.model)
+function apply_ics(sim::SingleDomainSimulation)
+    apply_ics(sim.params, sim.model)
 end
 
-function apply_ics(simulation::MultiDomainSimulation)
-    for sub_simulation ∈ simulation.sub_simulations
-        apply_ics(sub_simulation)
-    end
-end
-
-function apply_bcs(simulation::SingleDomainSimulation)
-    apply_bcs(simulation.params, simulation.model)
-end
-
-function apply_bcs(simulation::MultiDomainSimulation)
-    for sub_simulation ∈ simulation.sub_simulations
-        apply_bcs(sub_simulation)
+function apply_ics(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        apply_ics(subsim)
     end
 end
 
-function solve(simulation::SingleDomainSimulation)
-    solve(simulation.integrator, simulation.solver, simulation.model)
+function apply_bcs(sim::SingleDomainSimulation)
+    apply_bcs(sim.params, sim.model)
 end
 
-function solve(simulation::MultiDomainSimulation)
-    for sub_simulation ∈ simulation.sub_simulations
-        solve(sub_simulation)
+function apply_bcs(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        apply_bcs(subsim)
     end
 end
 
-function initialize_writing(simulation::SingleDomainSimulation)
-    initialize_writing(simulation.params, simulation.integrator, simulation.model)
+function solve(sim::SingleDomainSimulation)
+    solve(sim.integrator, sim.solver, sim.model)
 end
 
-function initialize_writing(simulation::MultiDomainSimulation)
-    for sub_simulation ∈ simulation.sub_simulations
-        initialize_writing(sub_simulation)
+function solve(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        solve(subsim)
     end
 end
 
-function write_step(simulation::SingleDomainSimulation)
-    println("Stop ", simulation.integrator.stop, ", time: ", simulation.integrator.time)
-    write_step(simulation.params, simulation.integrator, simulation.model)
+function initialize_writing(sim::SingleDomainSimulation)
+    initialize_writing(sim.params, sim.integrator, sim.model)
 end
 
-function write_step(simulation::MultiDomainSimulation)
-    println("Stop ", simulation.schwarz_controller.stop, ", time: ", simulation.schwarz_controller.time)
-    for sub_simulation ∈ simulation.sub_simulations
-        write_step(sub_simulation)
+function initialize_writing(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        initialize_writing(subsim)
     end
 end
 
-function finalize_writing(simulation::SingleDomainSimulation)
-    finalize_writing(simulation.params)
+function write_step(sim::SingleDomainSimulation)
+    println("Stop ", sim.integrator.stop, ", time: ", sim.integrator.time)
+    write_step(sim.params, sim.integrator, sim.model)
 end
 
-function finalize_writing(simulation::MultiDomainSimulation)
-    for sub_simulation ∈ simulation.sub_simulations
-        finalize_writing(sub_simulation)
+function write_step(sim::MultiDomainSimulation)
+    println("Stop ", sim.schwarz_controller.stop, ", time: ", sim.schwarz_controller.time)
+    for subsim ∈ sim.subsims
+        write_step(subsim)
     end
 end
 
-function synchronize(simulation::SingleDomainSimulation)
-    simulation.model.time = simulation.integrator.time
+function finalize_writing(sim::SingleDomainSimulation)
+    finalize_writing(sim.params)
 end
 
-function synchronize(simulation::MultiDomainSimulation)
-    time = simulation.schwarz_controller.time
-    stop = simulation.schwarz_controller.stop
-    for sub_simulation ∈ simulation.sub_simulations
-        sub_simulation.integrator.time = sub_simulation.model.time = time
-        sub_simulation.integrator.stop = stop
+function finalize_writing(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        finalize_writing(subsim)
     end
 end
 
-function advance_time(simulation::SingleDomainSimulation)
-    next_time = round(simulation.integrator.time + simulation.integrator.time_step; digits=10)
-    simulation.integrator.time = next_time
-    simulation.integrator.stop += 1
+function synchronize(sim::SingleDomainSimulation)
+    sim.model.time = sim.integrator.time
 end
 
-function advance_time(simulation::MultiDomainSimulation)
-    next_time = round(simulation.schwarz_controller.time + simulation.schwarz_controller.time_step, digits=10)
-    simulation.schwarz_controller.time = next_time
-    simulation.schwarz_controller.stop += 1
+function synchronize(sim::MultiDomainSimulation)
+    time = sim.schwarz_controller.time
+    stop = sim.schwarz_controller.stop
+    for subsim ∈ sim.subsims
+        subsim.integrator.time = subsim.model.time = time
+        subsim.integrator.stop = stop
+    end
+end
+
+function advance_time(sim::SingleDomainSimulation)
+    next_time = round(sim.integrator.time + sim.integrator.time_step; digits=10)
+    sim.integrator.time = next_time
+    sim.integrator.stop += 1
+end
+
+function advance_time(sim::MultiDomainSimulation)
+    next_time = round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=10)
+    sim.schwarz_controller.time = next_time
+    sim.schwarz_controller.stop += 1
 end

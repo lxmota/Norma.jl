@@ -39,7 +39,7 @@ end
 
 function MultiDomainSimulation(params::Dict{Any,Any})
     domain_names = params["domains"]
-    sub_simulations = Vector{SingleDomainSimulation}()
+    subsims = Vector{SingleDomainSimulation}()
     initial_time = params["initial time"]
     final_time = params["final time"]
     exodus_interval = 1
@@ -67,11 +67,11 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         params["subdomains type"] = multi_type
         integrator_params["initial time"] = initial_time
         integrator_params["final time"] = final_time
-        simulation = SingleDomainSimulation(domain_params)
-        simulation.params["Exodus output interval"] = exodus_interval
-        simulation.params["CSV output interval"] = csv_interval
-        push!(sub_simulations, simulation)
+        sim = SingleDomainSimulation(domain_params)
+        sim.params["Exodus output interval"] = exodus_interval
+        sim.params["CSV output interval"] = csv_interval
+        push!(subsims, sim)
     end
     schwarz_controller = create_schwarz_controller(params)
-    MultiDomainSimulation(params, schwarz_controller, sub_simulations)
+    MultiDomainSimulation(params, schwarz_controller, subsims)
 end

@@ -4,9 +4,9 @@ include("simulation.jl")
 include("evolve.jl")
 
 function run(input_file::String)
-    simulation = create_simulation(input_file)
-    evolve(simulation)
-    return simulation
+    sim = create_simulation(input_file)
+    evolve(sim)
+    return sim
 end
 
 for input_file ∈ ARGS

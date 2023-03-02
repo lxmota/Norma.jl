@@ -41,47 +41,47 @@ function create_schwarz_controller(params::Dict{Any,Any})
     end
 end
 
-function schwarz(simulation::MultiDomainSimulation)
-    if simulation.schwarz_controller.stop == 0
-        solve(simulation)
-        write_step(simulation)
+function schwarz(sim::MultiDomainSimulation)
+    if sim.schwarz_controller.stop == 0
+        solve(sim)
+        write_step(sim)
     end
-    set_subcycle_times(simulation.schwarz_controller, simulation.sub_simulations)
+    set_subcycle_times(sim.schwarz_controller, sim.subsims)
     while true
-        save_previous_solution(simulation.schwarz_controller, simulation.sub_simulations)
-        subcycle(simulation.sub_simulations)
+        save_previous_solution(sim.schwarz_controller, sim.subsims)
+        subcycle(sim.subsims)
     end
 end
 
-function save_previous_solution(schwarz_controller::SolidStaticSchwarzController, simulations::Vector{SingleDomainSimulation})
-    for simulation ∈ simulations
-        push!(schwarz_controller.prev_disp, simulation.integrator.displacement)
+function save_previous_solution(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
+    for sim ∈ sims
+        push!(schwarz_controller.prev_disp, sim.integrator.displacement)
     end
 end
 
-function save_previous_solution(schwarz_controller::SolidDynamicSchwarzController, simulations::Vector{SingleDomainSimulation})
-    for simulation ∈ simulations
-        push!(schwarz_controller.prev_disp, simulation.integrator.displacement)
-        push!(schwarz_controller.prev_velo, simulation.integrator.velocity)
-        push!(schwarz_controller.prev_acce, simulation.integrator.acceleration)
+function save_previous_solution(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
+    for sim ∈ sims
+        push!(schwarz_controller.prev_disp, sim.integrator.displacement)
+        push!(schwarz_controller.prev_velo, sim.integrator.velocity)
+        push!(schwarz_controller.prev_acce, sim.integrator.acceleration)
     end
 end
 
-function set_subcycle_times(schwarz_controller::SchwarzController, simulations::Vector{SingleDomainSimulation})
+function set_subcycle_times(schwarz_controller::SchwarzController, sims::Vector{SingleDomainSimulation})
     initial_time = schwarz_controller.time
     final_time = round(schwarz_controller.time + schwarz_controller.time_step, digits=10)
-    for simulation ∈ simulations
-        simulation.integrator.initial_time = initial_time
-        simulation.integrator.final_time = final_time
+    for sim ∈ sims
+        sim.integrator.initial_time = initial_time
+        sim.integrator.final_time = final_time
     end
 end
 
-function subcycle(simulations::Vector{SingleDomainSimulation})
-    for simulation ∈ simulations
-        while continue_evolve(simulation)
-            apply_bcs(simulation)
-            advance(simulation)
-            advance_time(simulation)
+function subcycle(sims::Vector{SingleDomainSimulation})
+    for sim ∈ sims
+        while continue_evolve(sim)
+            apply_bcs(sim)
+            advance(sim)
+            advance_time(sim)
         end
     end
 end
