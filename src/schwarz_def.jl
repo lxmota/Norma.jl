@@ -1,6 +1,7 @@
 abstract type SchwarzController end
 
 mutable struct SolidStaticSchwarzController <: SchwarzController
+    num_domains::Int64
     minimum_iterations::Int64
     maximum_iterations::Int64
     absolute_tolerance::Float64
@@ -13,10 +14,12 @@ mutable struct SolidStaticSchwarzController <: SchwarzController
     time::Float64
     stop::Int64
     converged::Bool
-    prev_disp::Vector{Vector{Float64}}
+    prev_stop_disp::Vector{Vector{Float64}}
+    prev_schwarz_disp::Vector{Vector{Float64}}
 end
 
 mutable struct SolidDynamicSchwarzController <: SchwarzController
+    num_domains::Int64
     minimum_iterations::Int64
     maximum_iterations::Int64
     absolute_tolerance::Float64
@@ -29,7 +32,10 @@ mutable struct SolidDynamicSchwarzController <: SchwarzController
     time::Float64
     stop::Int64
     converged::Bool
-    prev_disp::Vector{Vector{Float64}}
-    prev_velo::Vector{Vector{Float64}}
-    prev_acce::Vector{Vector{Float64}}
+    prev_stop_disp::Vector{Vector{Float64}}
+    prev_stop_velo::Vector{Vector{Float64}}
+    prev_stop_acce::Vector{Vector{Float64}}
+    prev_schwarz_disp::Vector{Vector{Float64}}
+    prev_schwarz_velo::Vector{Vector{Float64}}
+    prev_schwarz_acce::Vector{Vector{Float64}}
 end

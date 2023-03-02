@@ -226,7 +226,7 @@ function compute_step(solver::ExplicitSolver, _::ExplicitStep, free::BitVector)
     return step
 end
 
-function update_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
+function update_solver_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
     solver.absolute_error = absolute_error
     solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
     converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
@@ -234,7 +234,7 @@ function update_convergence_criterion(solver::HessianMinimizer, absolute_error::
     solver.converged = converged_absolute || converged_relative
 end
 
-function update_convergence_criterion(solver::ExplicitSolver, _::Float64)
+function update_solver_convergence_criterion(solver::ExplicitSolver, _::Float64)
     solver.converged = true
 end
 
@@ -284,7 +284,7 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
         else
             println("iter=", iteration_number, ", |R|=", norm_residual, ", |X|=", norm(solver.solution), ", |ΔX|=", norm_step)
         end
-        update_convergence_criterion(solver, norm_residual)
+        update_solver_convergence_criterion(solver, norm_residual)
         iteration_number += 1
         if continue_solve(solver, iteration_number) == false
             break
