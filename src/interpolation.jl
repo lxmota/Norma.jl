@@ -331,19 +331,17 @@ function get_quadrilateral_nodal_forces(coordinates3D::Matrix{Float64}, expr::An
     return nodal_force_component
 end
 
-function map_to_reference(element_type::String, vertices::Matrix{Float64}, point::Vector{Float64})
+function map_to_parametric(element_type::String, vertices::Matrix{Float64}, point::Vector{Float64})
     tol = 1.0e-08
-    iterate = true
     dim = length(point)
     ξ = zeros(dim)
-    f = zeros(dim)
-    H = zeros(dim, dim)
-    while iterate == true
+    hessian = zeros(dim, dim)
+    while true
         N, dN = interpolate(element_type, ξ)
-        f = vertices * N
-        f = f - point
-        H = vertices * dN'
-        δ = - H \ f
+        trial_point = vertices * N
+        residual = trial_point - point
+        hessian = vertices * dN'
+        δ = - hessian \ residual
         ξ = ξ + δ
         error = norm(δ)
         if error <= tol
@@ -367,4 +365,28 @@ function interpolate(element_type::String, ξ::Vector{Float64})
     else
         error("Invalid element type: ", element_type)
     end
+end
+
+function is_inside_parametric(element_type::String, ξ::Vector{Float64})
+    tol = 1.0e-06
+    # Shrink slightly so that if ξ is nearly inside it still counts as inside
+    ξ *= (1.0 - tol)
+    if element_type == "BAR2"
+        return -1.0 ≤ ξ ≤ 1.0
+    elseif element_type == "TRI3"
+        return reduce(*, zeros(2) .≤ ξ .≤ ones(2))
+    elseif element_type == "QUAD4"
+        return reduce(*, -ones(2) .≤ ξ .≤ ones(2))
+    elseif element_type == "TETRA4"
+        return reduce(*, zeros(3) .≤ ξ .≤ ones(3))
+    elseif element_type == "HEX8"
+        return reduce(*, -ones(3) .≤ ξ .≤ ones(3))
+    else
+        error("Invalid element type: ", element_type)
+    end
+end
+
+function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vector{Float64})
+    ξ = map_to_parametric(element_type, vertices, point)
+    return is_inside_parametric(element_type, ξ)
 end
