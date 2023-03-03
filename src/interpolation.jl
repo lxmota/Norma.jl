@@ -6,7 +6,7 @@ function barycentricD2N3(ξ::Vector{Float64})
 end
 
 function barycentricD2N3G1()
-    w = 0.5 * ones(1, 1)
+    w = 0.5 * ones(1)
     N = zeros(3, 1)
     dN = zeros(2, 3, 1)
     ξ = ones(2) / 3.0
@@ -15,7 +15,7 @@ function barycentricD2N3G1()
 end
 
 function barycentricD2N3G3()
-    w = ones(1, 3) / 6.0
+    w = ones(3) / 6.0
     N = zeros(3, 3)
     dN = zeros(2, 3, 3)
     ξ = [4 1 1 1
@@ -39,7 +39,7 @@ function barycentricD3N4(ξ::Vector{Float64})
 end
 
 function barycentricD3N4G1()
-    w = ones(1, 1) / 6.0
+    w = ones(1) / 6.0
     N = zeros(4, 1)
     dN = zeros(3, 4, 1)
     ξ = 0.25 * ones(3, 1)
@@ -48,7 +48,7 @@ function barycentricD3N4G1()
 end
 
 function barycentricD3N4G4()
-    w = ones(1, 4) / 24.0
+    w = ones(4) / 24.0
     N = zeros(4, 4)
     dN = zeros(3, 4, 4)
     s = sqrt(5.0)
@@ -70,7 +70,7 @@ function lagrangianD1N2(ξ::Float64)
 end
 
 function lagrangianD1N2G1()
-    w = 2.0 * ones(1, 1)
+    w = 2.0 * ones(1)
     N = zeros(2, 1)
     dN = zeros(1, 2, 1)
     N, dN[:, :, 1] = lagrangianD1N2(0.0)
@@ -78,7 +78,7 @@ function lagrangianD1N2G1()
 end
 
 function lagrangianD1N2G2()
-    w = ones(1, 2)
+    w = ones(2)
     N = zeros(2, 2)
     dN = zeros(1, 2, 2)
     g = sqrt(3.0) / 3.0
@@ -105,7 +105,7 @@ function lagrangianD2N4(ξ::Vector{Float64})
 end
 
 function lagrangianD2N4G4()
-    w = ones(1, 4)
+    w = ones(4)
     N = zeros(4, 4)
     dN = zeros(2, 4, 4)
     g = sqrt(3.0) / 3.0
@@ -136,7 +136,7 @@ function lagrangianD3N8(ξ::Vector{Float64})
 end
 
 function lagrangianD3N8G8()
-    w = ones(1, 8)
+    w = ones(8)
     N = zeros(8, 8)
     dN = zeros(3, 8, 8)
     g = sqrt(3.0) / 3.0
@@ -172,7 +172,6 @@ end
 function isoparametric(element_type::String, num_int::Int64)
     msg1 = "Invalid number of integration points: "
     msg2 = " for element type: "
-    str_int = string(num_int)
     if element_type == "BAR2"
         if num_int == 1
             return lagrangianD1N2G1()
