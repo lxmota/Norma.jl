@@ -169,53 +169,52 @@ end
 # Compute isoparametric interpolation functions, their parametric
 # derivatives and integration weights.
 #
-function isoparametric(element_type, num_int)
+function isoparametric(element_type::String, num_int::Int64)
     msg1 = "Invalid number of integration points: "
     msg2 = " for element type: "
     str_int = string(num_int)
     if element_type == "BAR2"
         if num_int == 1
-            N, dN, w = lagrangianD1N2G1()
+            return lagrangianD1N2G1()
         elseif num_int == 2
-            N, dN, w = lagrangianD1N2G2()
+            return lagrangianD1N2G2()
         else
             error(msg1, num_int, msg2, element_type)
         end
     elseif element_type == "TRI3"
         if num_int == 1
-            N, dN, w = barycentricD2N3G1()
+            return barycentricD2N3G1()
         elseif num_int == 3
-            N, dN, w = barycentricD2N3G3()
+            return barycentricD2N3G3()
         else
             error(msg1, num_int, msg2, element_type)
         end
     elseif element_type == "QUAD4"
         if num_int == 4
-            N, dN, w = lagrangianD2N4G4()
+            return lagrangianD2N4G4()
         else
             error(msg1, num_int, msg2, element_type)
         end
     elseif element_type == "TETRA4"
         if num_int == 1
-            N, dN, w = barycentricD3N4G1()
+            return barycentricD3N4G1()
         elseif num_int == 4
-            N, dN, w = barycentricD4N4G4()
+            return barycentricD4N4G4()
         else
             error(msg1, num_int, msg2, element_type)
         end
     elseif element_type == "HEX8"
         if num_int == 8
-            N, dN, w = lagrangianD3N8G8()
+            return lagrangianD3N8G8()
         else
             error(msg1, num_int, msg2, element_type)
         end
     else
         error("Invalid element type: ", element_type)
     end
-    return N, dN, w
 end
 
-function gradient_operator(dNdX)
+function gradient_operator(dNdX::Matrix{Float64})
     dim, nen = size(dNdX)
     B = zeros(dim * dim, nen * dim)
     for i ∈ 1:dim
@@ -331,4 +330,42 @@ function get_quadrilateral_nodal_forces(coordinates3D::Matrix{Float64}, expr::An
         nodal_force_component += traction * Nₚ * j * w
     end
     return nodal_force_component
+end
+
+function map_to_reference(element_type::String, vertices::Matrix{Float64}, node_coordinates::Vector{Float64})
+    tol = 1.0e-08
+    iterate = true
+    dim = length(node_coordinates)
+    ξ = zeros(dim)
+    f = zeros(dim)
+    H = zeros(dim, dim)
+    while iterate == true
+        N, dN = interpolate(element_type, ξ)
+        f = vertices * N'
+        f = f - node_coordinates
+        H = vertices * dN'
+        δ = - H \ f
+        ξ = ξ + δ
+        error = norm(δ)
+        if error <= tol
+          break
+        end
+    end
+    return ξ
+end
+
+function interpolate(element_type::String, ξ::Vector{Float64})
+    if element_type == "BAR2"
+        return lagrangianD1N2(ξ)
+    elseif element_type == "TRI3"
+        return barycentricD2N3(ξ)
+    elseif element_type == "QUAD4"
+        return lagrangianD2N4(ξ)
+    elseif element_type == "TETRA4"
+        return barycentricD3N4(ξ)
+    elseif element_type == "HEX8"
+        return lagrangianD3N8(ξ)
+    else
+        error("Invalid element type: ", element_type)
+    end
 end
