@@ -331,17 +331,17 @@ function get_quadrilateral_nodal_forces(coordinates3D::Matrix{Float64}, expr::An
     return nodal_force_component
 end
 
-function map_to_reference(element_type::String, vertices::Matrix{Float64}, node_coordinates::Vector{Float64})
+function map_to_reference(element_type::String, vertices::Matrix{Float64}, point::Vector{Float64})
     tol = 1.0e-08
     iterate = true
-    dim = length(node_coordinates)
+    dim = length(point)
     ξ = zeros(dim)
     f = zeros(dim)
     H = zeros(dim, dim)
     while iterate == true
         N, dN = interpolate(element_type, ξ)
-        f = vertices * N'
-        f = f - node_coordinates
+        f = vertices * N
+        f = f - point
         H = vertices * dN'
         δ = - H \ f
         ξ = ξ + δ

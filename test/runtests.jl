@@ -5,6 +5,7 @@ include("../src/norma.jl")
 include("helpers.jl")
 
 @testset "Norma" begin
+    include("map_to_reference.jl")
     include("single-static-solid-cube.jl")
     include("single-static-solid-neumann-bc.jl")
     include("single-implicit-dynamic-solid-cube.jl")
