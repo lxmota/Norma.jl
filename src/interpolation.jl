@@ -94,7 +94,7 @@ function lagrangianD2N4(ξ::Vector{Float64})
     s = ξ[2]
     ra = [-1 1 1 -1] / 1.0
     sa = [-1 -1 1 1] / 1.0
-    N = zeros(1, 4)
+    N = zeros(4)
     dN = zeros(2, 4)
     for i ∈ 1:4
         N[i] = 0.25 * (1.0 + ra[i] * r) * (1.0 + sa[i] * s)
@@ -124,7 +124,7 @@ function lagrangianD3N8(ξ::Vector{Float64})
     ra = [-1 1 1 -1 -1 1 1 -1] / 1.0
     sa = [-1 -1 1 1 -1 -1 1 1] / 1.0
     ta = [-1 -1 -1 -1 1 1 1 1] / 1.0
-    N = zeros(1, 8)
+    N = zeros(8)
     dN = zeros(3, 8)
     for i ∈ 1:8
         N[i] = 0.125 * (1.0 + ra[i] * r) * (1.0 + sa[i] * s) * (1.0 + ta[i] * t)
