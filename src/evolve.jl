@@ -1,22 +1,29 @@
 function evolve(sim::Simulation)
+    synchronize(sim)
     apply_ics(sim)
+    apply_bcs(sim)
+    initialize(sim)
     initialize_writing(sim)
-    while continue_evolve(sim)
+    write_step(sim)
+    while true
+        advance_time(sim)
+        if stop_evolve(sim) == true
+            break
+        end
         synchronize(sim)
         apply_bcs(sim)
         advance(sim)
         write_step(sim)
-        advance_time(sim)
     end
     finalize_writing(sim)
 end
 
-function continue_evolve(sim::SingleDomainSimulation)
-    return sim.integrator.time ≤ sim.integrator.final_time
+function stop_evolve(sim::SingleDomainSimulation)
+    return sim.integrator.time > sim.integrator.final_time
 end
 
-function continue_evolve(sim::MultiDomainSimulation)
-    return sim.schwarz_controller.time ≤ sim.schwarz_controller.final_time
+function stop_evolve(sim::MultiDomainSimulation)
+    return sim.schwarz_controller.time > sim.schwarz_controller.final_time
 end
 
 function advance(sim::SingleDomainSimulation)
@@ -44,6 +51,16 @@ end
 function apply_bcs(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         apply_bcs(subsim)
+    end
+end
+
+function initialize(sim::SingleDomainSimulation)
+    initialize(sim.integrator, sim.solver, sim.model)
+end
+
+function initialize(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        initialize(subsim)
     end
 end
 

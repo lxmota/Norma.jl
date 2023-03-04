@@ -238,28 +238,27 @@ function update_solver_convergence_criterion(solver::ExplicitSolver, _::Float64)
     solver.converged = true
 end
 
-function continue_solve(solver::HessianMinimizer, iteration_number::Int64)
+function stop_solve(solver::HessianMinimizer, iteration_number::Int64)
     if solver.failed == true
-        return false
+        return true
     end
     zero_residual = solver.absolute_error == 0.0
     if zero_residual == true
-        return false
+        return true
     end
     exceeds_minimum_iterations = iteration_number > solver.minimum_iterations
     if exceeds_minimum_iterations == false
-        return true
+        return false
     end
     exceeds_maximum_iterations = iteration_number > solver.maximum_iterations
     if exceeds_maximum_iterations == true
-        return false
+        return true
     end
-    continue_solving = solver.converged == false
-    return continue_solving
+    return solver.converged
 end
 
-function continue_solve(_::ExplicitSolver, _::Int64)
-    return false
+function stop_solve(_::ExplicitSolver, _::Int64)
+    return true
 end
 
 function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
@@ -285,7 +284,7 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
         end
         update_solver_convergence_criterion(solver, norm_residual)
         iteration_number += 1
-        if continue_solve(solver, iteration_number) == false
+        if stop_solve(solver, iteration_number) == true
             break
         end
     end

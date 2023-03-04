@@ -144,7 +144,7 @@ end
 function subcycle(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
-        while continue_evolve(subsim)
+        while stop_evolve(subsim)
             apply_bcs(subsim)
             advance(subsim)
             advance_time(subsim)
