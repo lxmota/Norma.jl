@@ -56,10 +56,6 @@ function create_schwarz_controller(params::Dict{Any,Any})
 end
 
 function schwarz(sim::MultiDomainSimulation)
-    if sim.schwarz_controller.stop == 0
-        solve(sim)
-        write_step(sim)
-    end
     set_subcycle_times(sim)
     iteration_number = 1
     save_previous_stop_solutions(sim)
@@ -70,7 +66,7 @@ function schwarz(sim::MultiDomainSimulation)
         iteration_number += 1
         ΔX = update_schwarz_convergence_criterion(sim)
         println("Schwarz criterion |ΔX|=", ΔX)
-        if continue_schwarz(sim, iteration_number) == false
+        if stop_schwarz(sim, iteration_number) == true
             break
         end
         restore_previous_stop_solutions(sim)
@@ -197,23 +193,22 @@ function is_schwarz_converged(schwarz_controller::SolidDynamicSchwarzController,
     return norm_diff
 end
 
-function continue_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
+function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
     for subsim ∈ sim.subsims
         if subsim.solver.failed == true
-            return false
+            return true
         end
     end
     if sim.schwarz_controller.absolute_error == 0.0
-        return false
+        return true
     end
     exceeds_minimum_iterations = iteration_number > sim.schwarz_controller.minimum_iterations
     if exceeds_minimum_iterations == false
-        return true
+        return false
     end
     exceeds_maximum_iterations = iteration_number > sim.schwarz_controller.maximum_iterations
     if exceeds_maximum_iterations == true
-        return false
+        return true
     end
-    unconverged = sim.schwarz_controller.converged == false
-    return unconverged
+    return sim.schwarz_controller.converged
 end

@@ -62,6 +62,15 @@ function initialize(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         initialize(subsim)
     end
+    initialize(sim, sim.schwarz_controller)
+end
+
+function initialize(sim::MultiDomainSimulation, _::SolidStaticSchwarzController)
+    schwarz(sim)
+end
+
+function initialize(_::MultiDomainSimulation, _::SolidDynamicSchwarzController)
+    return
 end
 
 function solve(sim::SingleDomainSimulation)
