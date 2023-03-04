@@ -1,17 +1,17 @@
-cp("../examples/single/explicit-dynamic-solid/clamped/clamped.yaml", "clamped.yaml", force=true)
-cp("../examples/single/explicit-dynamic-solid/clamped/clamped.g", "clamped.g", force=true)
-simulation = Norma.run("clamped.yaml")
-integrator = simulation.integrator
-rm("clamped.yaml")
-rm("clamped.g")
-rm("clamped.e")
-max_disp = maximum_components(integrator.displacement)
-max_velo = maximum_components(integrator.velocity)
-max_acce = maximum_components(integrator.acceleration)
-min_disp = minimum_components(integrator.displacement)
-min_velo = minimum_components(integrator.velocity)
-min_acce = minimum_components(integrator.acceleration)
 @testset "single-explicit-dynamic-solid-clamped" begin
+    cp("../examples/single/explicit-dynamic-solid/clamped/clamped.yaml", "clamped.yaml", force=true)
+    cp("../examples/single/explicit-dynamic-solid/clamped/clamped.g", "clamped.g", force=true)
+    simulation = Norma.run("clamped.yaml")
+    integrator = simulation.integrator
+    rm("clamped.yaml")
+    rm("clamped.g")
+    rm("clamped.e")
+    max_disp = maximum_components(integrator.displacement)
+    max_velo = maximum_components(integrator.velocity)
+    max_acce = maximum_components(integrator.acceleration)
+    min_disp = minimum_components(integrator.displacement)
+    min_velo = minimum_components(integrator.velocity)
+    min_acce = minimum_components(integrator.acceleration)
     @test max_disp[1] ≈ 0.0 atol = 1.0e-06
     @test max_disp[2] ≈ 0.0 atol = 1.0e-06
     @test max_disp[3] ≈ 0.00882497 rtol = 1.0e-04
