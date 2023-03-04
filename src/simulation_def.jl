@@ -8,6 +8,7 @@ include("schwarz_def.jl")
 abstract type Simulation end
 
 struct SingleDomainSimulation <: Simulation
+    name::String
     params::Dict{Any,Any}
     integrator::TimeIntegrator
     solver::Solver
@@ -15,6 +16,7 @@ struct SingleDomainSimulation <: Simulation
 end
 
 struct MultiDomainSimulation <: Simulation
+    name::String
     params::Dict{Any,Any}
     schwarz_controller::SchwarzController
     subsims::Vector{SingleDomainSimulation}

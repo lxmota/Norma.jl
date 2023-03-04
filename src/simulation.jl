@@ -13,6 +13,7 @@ Exodus = exodus_module()
 function create_simulation(input_file::String)
     println("Reading simulation file: ", input_file)
     params = YAML.load_file(input_file)
+    params["name"] = input_file
     sim_type = params["type"]
     if sim_type == "single"
         return SingleDomainSimulation(params)
@@ -24,6 +25,7 @@ function create_simulation(input_file::String)
 end
 
 function SingleDomainSimulation(params::Dict{Any,Any})
+    name = params["name"]
     input_mesh_file = params["input mesh file"]
     output_mesh_file = params["output mesh file"]
     rm(output_mesh_file, force=true)
@@ -34,44 +36,39 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     integrator = create_time_integrator(params)
     solver = create_solver(params)
     model = create_model(params)
-    SingleDomainSimulation(params, integrator, solver, model)
+    SingleDomainSimulation(name, params, integrator, solver, model)
 end
 
 function MultiDomainSimulation(params::Dict{Any,Any})
+    name = params["name"]
     domain_names = params["domains"]
     subsims = Vector{SingleDomainSimulation}()
     initial_time = params["initial time"]
     final_time = params["final time"]
-    exodus_interval = 1
-    if haskey(params, "Exodus output interval") == true
-        exodus_interval = params["Exodus output interval"]
-    end
-    csv_interval = 0
-    if haskey(params, "CSV output interval") == true
-        csv_interval = params["CSV output interval"]
-    end
-    multi_type = "none"
+    exodus_interval = get(params, "Exodus output interval", 1)
+    csv_interval = get(params, "CSV output interval", 0)
+    sim_type = "none"
     for domain_name ∈ domain_names
-        println("Reading subdomain file: ", domain_name)
-        domain_params = YAML.load_file(domain_name)
-        params[domain_name] = domain_params
-        domain_params["global_params"] = params
-        integrator_params = domain_params["time integrator"]
-        single_name = integrator_params["type"]
-        single_type = is_static_or_dynamic(single_name)
-        if multi_type == "none"
-            multi_type = single_type
-        elseif single_type ≠ multi_type
+        println("Reading subsimulation file: ", domain_name)
+        subparams = YAML.load_file(domain_name)
+        subparams["name"] = domain_name
+        subparams["time integrator"]["initial time"] = initial_time
+        subparams["time integrator"]["final time"] = final_time
+        subparams["Exodus output interval"] = exodus_interval
+        subparams["CSV output interval"] = csv_interval
+        subsim = SingleDomainSimulation(subparams)
+        params[domain_name] = subsim.params
+        subsim.params["global_params"] = params
+        integrator_name = subsim.params["time integrator"]["type"]
+        subsim_type = is_static_or_dynamic(integrator_name)
+        if sim_type == "none"
+            sim_type = subsim_type
+        elseif subsim_type ≠ sim_type
             error("Multidomain subdomains must be all static or dynamic")
         end
-        params["subdomains type"] = multi_type
-        integrator_params["initial time"] = initial_time
-        integrator_params["final time"] = final_time
-        sim = SingleDomainSimulation(domain_params)
-        sim.params["Exodus output interval"] = exodus_interval
-        sim.params["CSV output interval"] = csv_interval
-        push!(subsims, sim)
+        params["subdomains type"] = sim_type
+        push!(subsims, subsim)
     end
     schwarz_controller = create_schwarz_controller(params)
-    MultiDomainSimulation(params, schwarz_controller, subsims)
+    MultiDomainSimulation(name, params, schwarz_controller, subsims)
 end

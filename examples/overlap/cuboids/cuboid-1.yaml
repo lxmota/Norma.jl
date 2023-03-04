@@ -29,7 +29,7 @@ boundary conditions:
     - node set: nsz+
       component: z
       source: "cuboid-2.yaml"
-      source_block: domain_2
+      source block: domain_2
 solver:
   type: Hessian minimizer
   step: full Newton

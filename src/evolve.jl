@@ -68,12 +68,10 @@ function initialize_writing(sim::MultiDomainSimulation)
 end
 
 function write_step(sim::SingleDomainSimulation)
-    println("Stop ", sim.integrator.stop, ", time: ", sim.integrator.time)
     write_step(sim.params, sim.integrator, sim.model)
 end
 
 function write_step(sim::MultiDomainSimulation)
-    println("Stop ", sim.schwarz_controller.stop, ", time: ", sim.schwarz_controller.time)
     for subsim ∈ sim.subsims
         write_step(subsim)
     end
@@ -91,6 +89,7 @@ end
 
 function synchronize(sim::SingleDomainSimulation)
     sim.model.time = sim.integrator.time
+    println("stop ", sim.integrator.stop, ", t=", sim.integrator.time)
 end
 
 function synchronize(sim::MultiDomainSimulation)
@@ -100,6 +99,7 @@ function synchronize(sim::MultiDomainSimulation)
         subsim.integrator.time = subsim.model.time = time
         subsim.integrator.stop = stop
     end
+    println("stop ", sim.schwarz_controller.stop, ", t=", sim.schwarz_controller.time)
 end
 
 function advance_time(sim::SingleDomainSimulation)

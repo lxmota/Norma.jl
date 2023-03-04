@@ -64,10 +64,12 @@ function schwarz(sim::MultiDomainSimulation)
     iteration_number = 1
     save_previous_stop_solutions(sim)
     while true
+        println("Schwarz iteration=", iteration_number)
         save_previous_schwarz_solutions(sim)
         subcycle(sim)
         iteration_number += 1
-        update_schwarz_convergence_criterion(sim)
+        ΔX = update_schwarz_convergence_criterion(sim)
+        println("Schwarz criterion |ΔX|=", ΔX)
         if continue_schwarz(sim, iteration_number) == false
             break
         end
@@ -139,6 +141,7 @@ end
 
 function subcycle(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
+        println("subcycle ", subsim.name)
         while continue_evolve(subsim)
             apply_bcs(subsim)
             advance(subsim)
@@ -148,7 +151,7 @@ function subcycle(sim::MultiDomainSimulation)
 end
 
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)
-    sim.schwarz_controller.converged = is_schwarz_converged(sim.schwarz_controller, sim.subsims)
+    return is_schwarz_converged(sim.schwarz_controller, sim.subsims)
 end
 
 function is_schwarz_converged(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
@@ -167,7 +170,8 @@ function is_schwarz_converged(schwarz_controller::SolidStaticSchwarzController, 
     schwarz_controller.relative_error = norm_disp > 0.0 ? norm_diff / norm_disp : norm_diff
     conv_abs = schwarz_controller.absolute_error ≤ schwarz_controller.absolute_tolerance
     conv_rel = schwarz_controller.relative_error ≤ schwarz_controller.relative_tolerance
-    return conv_abs || conv_rel
+    schwarz_controller.converged = conv_abs || conv_rel
+    return norm_diff
 end
 
 function is_schwarz_converged(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
@@ -187,7 +191,8 @@ function is_schwarz_converged(schwarz_controller::SolidDynamicSchwarzController,
     schwarz_controller.relative_error = norm_disp > 0.0 ? norm_diff / norm_disp : norm_diff
     conv_abs = schwarz_controller.absolute_error ≤ schwarz_controller.absolute_tolerance
     conv_rel = schwarz_controller.relative_error ≤ schwarz_controller.relative_tolerance
-    return conv_abs || conv_rel
+    schwarz_controller.converged = conv_abs || conv_rel
+    return norm_diff
 end
 
 function continue_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)

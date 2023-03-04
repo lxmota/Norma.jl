@@ -277,12 +277,11 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
         correct(integrator, solver, model)
         evaluate(integrator, solver, model)
         residual = solver.gradient
-        norm_step = norm(step)
         norm_residual = norm(residual[model.free_dofs])
         if iteration_number == 0
-            println("initial |R|=", norm_residual, ", |X|=", norm(solver.solution))
+            println("|R|=", norm_residual)
         else
-            println("iter=", iteration_number, ", |R|=", norm_residual, ", |X|=", norm(solver.solution), ", |ΔX|=", norm_step)
+            println("|R|=", norm_residual, ", solver iteration=", iteration_number)
         end
         update_solver_convergence_criterion(solver, norm_residual)
         iteration_number += 1
