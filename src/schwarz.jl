@@ -73,6 +73,7 @@ function schwarz(sim::MultiDomainSimulation)
         if continue_schwarz(sim, iteration_number) == false
             break
         end
+        restore_previous_stop_solutions(sim)
     end
 end
 
@@ -135,6 +136,7 @@ function set_subcycle_times(sim::MultiDomainSimulation)
     final_time = round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=10)
     for subsim ∈ sim.subsims
         subsim.integrator.initial_time = initial_time
+        subsim.integrator.time = initial_time
         subsim.integrator.final_time = final_time
     end
 end
