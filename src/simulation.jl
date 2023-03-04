@@ -9,6 +9,7 @@ include("schwarz.jl")
 
 
 Exodus = exodus_module()
+Exodus.SHOW_BANNER = false
 
 function create_simulation(input_file::String)
     println("Reading simulation file: ", input_file)
