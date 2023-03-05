@@ -11,12 +11,12 @@ function SolidStaticSchwarzController(params::Dict{Any,Any})
     time = prev_time = initial_time
     stop = 0
     converged = false
-    prev_stop_disp = Vector{Vector{Float64}}(undef, num_domains)
-    prev_schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
+    stop_disp = Vector{Vector{Float64}}(undef, num_domains)
+    schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
     SolidStaticSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, stop, converged,
-        prev_stop_disp, prev_schwarz_disp)
+        stop_disp, schwarz_disp)
 end
 
 function SolidDynamicSchwarzController(params::Dict{Any,Any})
@@ -32,16 +32,16 @@ function SolidDynamicSchwarzController(params::Dict{Any,Any})
     time = prev_time = initial_time
     stop = 0
     converged = false
-    prev_stop_disp = Vector{Vector{Float64}}(undef, num_domains)
-    prev_stop_velo = Vector{Vector{Float64}}(undef, num_domains)
-    prev_stop_acce = Vector{Vector{Float64}}(undef, num_domains)
-    prev_schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
-    prev_schwarz_velo = Vector{Vector{Float64}}(undef, num_domains)
-    prev_schwarz_acce = Vector{Vector{Float64}}(undef, num_domains)
+    stop_disp = Vector{Vector{Float64}}(undef, num_domains)
+    stop_velo = Vector{Vector{Float64}}(undef, num_domains)
+    stop_acce = Vector{Vector{Float64}}(undef, num_domains)
+    schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
+    schwarz_velo = Vector{Vector{Float64}}(undef, num_domains)
+    schwarz_acce = Vector{Vector{Float64}}(undef, num_domains)
     SolidDynamicSchwarzController(num_domains, minimum_iterations, maximum_iterations,
     absolute_tolerance, relative_tolerance, absolute_error, relative_error,
     initial_time, final_time, time_step, time, prev_time, stop, converged,
-    prev_stop_disp, prev_stop_velo, prev_stop_acce, prev_schwarz_disp, prev_schwarz_velo, prev_schwarz_acce)
+    stop_disp, stop_velo, stop_acce, schwarz_disp, schwarz_velo, schwarz_acce)
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
@@ -58,10 +58,10 @@ end
 function schwarz(sim::MultiDomainSimulation)
     set_subcycle_times(sim)
     iteration_number = 1
-    save_previous_stop_solutions(sim)
+    save_stop_solutions(sim)
     while true
         println("Schwarz iteration=", iteration_number)
-        save_previous_schwarz_solutions(sim)
+        save_schwarz_solutions(sim)
         subcycle(sim)
         iteration_number += 1
         ΔX = update_schwarz_convergence_criterion(sim)
@@ -69,61 +69,61 @@ function schwarz(sim::MultiDomainSimulation)
         if stop_schwarz(sim, iteration_number) == true
             break
         end
-        restore_previous_stop_solutions(sim)
+        restore_stop_solutions(sim)
     end
 end
 
-function save_previous_stop_solutions(sim::MultiDomainSimulation)
-    save_previous_stop_solutions(sim.schwarz_controller, sim.subsims)
+function save_stop_solutions(sim::MultiDomainSimulation)
+    save_stop_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function save_previous_stop_solutions(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_stop_solutions(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        schwarz_controller.prev_stop_disp[i] = sims[i].integrator.displacement
+        schwarz_controller.stop_disp[i] = sims[i].integrator.displacement
     end
 end
 
-function save_previous_stop_solutions(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_stop_solutions(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        schwarz_controller.prev_stop_disp[i] = sims[i].integrator.displacement
-        schwarz_controller.prev_stop_velo[i] = sims[i].integrator.velocity
-        schwarz_controller.prev_stop_acce[i] = sims[i].integrator.acceleration
+        schwarz_controller.stop_disp[i] = sims[i].integrator.displacement
+        schwarz_controller.stop_velo[i] = sims[i].integrator.velocity
+        schwarz_controller.stop_acce[i] = sims[i].integrator.acceleration
     end
 end
 
-function restore_previous_stop_solutions(sim::MultiDomainSimulation)
-    restore_previous_stop_solutions(sim.schwarz_controller, sim.subsims)
+function restore_stop_solutions(sim::MultiDomainSimulation)
+    restore_stop_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function restore_previous_stop_solutions(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
+function restore_stop_solutions(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        sims[i].integrator.displacement = schwarz_controller.prev_stop_disp[i]
+        sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
     end
 end
 
-function restore_previous_stop_solutions(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
+function restore_stop_solutions(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        sims[i].integrator.displacement = schwarz_controller.prev_stop_disp[i]
-        sims[i].integrator.velocity = schwarz_controller.prev_stop_velo[i]
-        sims[i].integrator.acceleration = schwarz_controller.prev_stop_acce[i]
+        sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
+        sims[i].integrator.velocity = schwarz_controller.stop_velo[i]
+        sims[i].integrator.acceleration = schwarz_controller.stop_acce[i]
     end
 end
 
-function save_previous_schwarz_solutions(sim::MultiDomainSimulation)
-    save_previous_schwarz_solutions(sim.schwarz_controller, sim.subsims)
+function save_schwarz_solutions(sim::MultiDomainSimulation)
+    save_schwarz_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function save_previous_schwarz_solutions(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_schwarz_solutions(schwarz_controller::SolidStaticSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        schwarz_controller.prev_schwarz_disp[i] = sims[i].integrator.displacement
+        schwarz_controller.schwarz_disp[i] = sims[i].integrator.displacement
     end
 end
 
-function save_previous_schwarz_solutions(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_schwarz_solutions(schwarz_controller::SolidDynamicSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        schwarz_controller.prev_schwarz_disp[i] = sims[i].integrator.displacement
-        schwarz_controller.prev_schwarz_velo[i] = sims[i].integrator.velocity
-        schwarz_controller.prev_schwarz_acce[i] = sims[i].integrator.acceleration
+        schwarz_controller.schwarz_disp[i] = sims[i].integrator.displacement
+        schwarz_controller.schwarz_velo[i] = sims[i].integrator.velocity
+        schwarz_controller.schwarz_acce[i] = sims[i].integrator.acceleration
     end
 end
 
@@ -157,7 +157,7 @@ function is_schwarz_converged(schwarz_controller::SolidStaticSchwarzController, 
     norms_disp = zeros(num_sims)
     norms_diff = zeros(num_sims)
     for i ∈ 1:num_sims
-        xᵖʳᵉᵛ = schwarz_controller.prev_schwarz_disp[i]
+        xᵖʳᵉᵛ = schwarz_controller.schwarz_disp[i]
         xᶜᵘʳʳ = sims[i].integrator.displacement
         norms_disp[i] = norm(xᵖʳᵉᵛ)
         norms_diff[i] = norm(xᶜᵘʳʳ - xᵖʳᵉᵛ)
@@ -178,7 +178,7 @@ function is_schwarz_converged(schwarz_controller::SolidDynamicSchwarzController,
     norms_diff = zeros(num_sims)
     for i ∈ 1:num_sims
         Δt = schwarz_controller.time_step
-        xᵖʳᵉᵛ = schwarz_controller.prev_schwarz_disp[i] + Δt * schwarz_controller.prev_schwarz_velo[i]
+        xᵖʳᵉᵛ = schwarz_controller.schwarz_disp[i] + Δt * schwarz_controller.schwarz_velo[i]
         xᶜᵘʳʳ = sims[i].integrator.displacement + Δt * sims[i].integrator.velocity
         norms_disp[i] = norm(xᵖʳᵉᵛ)
         norms_diff[i] = norm(xᶜᵘʳʳ - xᵖʳᵉᵛ)

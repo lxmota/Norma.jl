@@ -15,8 +15,8 @@ mutable struct SolidStaticSchwarzController <: SchwarzController
     prev_time::Float64
     stop::Int64
     converged::Bool
-    prev_stop_disp::Vector{Vector{Float64}}
-    prev_schwarz_disp::Vector{Vector{Float64}}
+    stop_disp::Vector{Vector{Float64}}
+    schwarz_disp::Vector{Vector{Float64}}
 end
 
 mutable struct SolidDynamicSchwarzController <: SchwarzController
@@ -34,10 +34,10 @@ mutable struct SolidDynamicSchwarzController <: SchwarzController
     prev_time::Float64
     stop::Int64
     converged::Bool
-    prev_stop_disp::Vector{Vector{Float64}}
-    prev_stop_velo::Vector{Vector{Float64}}
-    prev_stop_acce::Vector{Vector{Float64}}
-    prev_schwarz_disp::Vector{Vector{Float64}}
-    prev_schwarz_velo::Vector{Vector{Float64}}
-    prev_schwarz_acce::Vector{Vector{Float64}}
+    stop_disp::Vector{Vector{Float64}}
+    stop_velo::Vector{Vector{Float64}}
+    stop_acce::Vector{Vector{Float64}}
+    schwarz_disp::Vector{Vector{Float64}}
+    schwarz_velo::Vector{Vector{Float64}}
+    schwarz_acce::Vector{Vector{Float64}}
 end
