@@ -7,15 +7,15 @@ function SolidStaticSchwarzController(params::Dict{Any,Any})
     initial_time = params["initial time"]
     final_time = params["final time"]
     time_step = params["time step"]
-    absolute_error = 0.0
-    relative_error = 0.0
-    time = initial_time
+    absolute_error = relative_error = 0.0
+    time = prev_time = initial_time
     stop = 0
     converged = false
     prev_stop_disp = Vector{Vector{Float64}}(undef, num_domains)
     prev_schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
-    SolidStaticSchwarzController(num_domains, minimum_iterations, maximum_iterations, absolute_tolerance, relative_tolerance,
-        absolute_error, relative_error, initial_time, final_time, time_step, time, stop, converged,
+    SolidStaticSchwarzController(num_domains, minimum_iterations, maximum_iterations,
+        absolute_tolerance, relative_tolerance, absolute_error, relative_error,
+        initial_time, final_time, time_step, time, prev_time, stop, converged,
         prev_stop_disp, prev_schwarz_disp)
 end
 
@@ -28,9 +28,8 @@ function SolidDynamicSchwarzController(params::Dict{Any,Any})
     initial_time = params["initial time"]
     final_time = params["final time"]
     time_step = params["time step"]
-    absolute_error = 0.0
-    relative_error = 0.0
-    time = initial_time
+    absolute_error = relative_error = 0.0
+    time = prev_time = initial_time
     stop = 0
     converged = false
     prev_stop_disp = Vector{Vector{Float64}}(undef, num_domains)
@@ -39,8 +38,9 @@ function SolidDynamicSchwarzController(params::Dict{Any,Any})
     prev_schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
     prev_schwarz_velo = Vector{Vector{Float64}}(undef, num_domains)
     prev_schwarz_acce = Vector{Vector{Float64}}(undef, num_domains)
-    SolidDynamicSchwarzController(num_domains, minimum_iterations, maximum_iterations, absolute_tolerance, relative_tolerance,
-    absolute_error, relative_error, initial_time, final_time, time_step, time, stop, converged,
+    SolidDynamicSchwarzController(num_domains, minimum_iterations, maximum_iterations,
+    absolute_tolerance, relative_tolerance, absolute_error, relative_error,
+    initial_time, final_time, time_step, time, prev_time, stop, converged,
     prev_stop_disp, prev_stop_velo, prev_stop_acce, prev_schwarz_disp, prev_schwarz_velo, prev_schwarz_acce)
 end
 
@@ -128,8 +128,8 @@ function save_previous_schwarz_solutions(schwarz_controller::SolidDynamicSchwarz
 end
 
 function set_subcycle_times(sim::MultiDomainSimulation)
-    initial_time = sim.schwarz_controller.time
-    final_time = round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=10)
+    initial_time = sim.schwarz_controller.prev_time
+    final_time = sim.schwarz_controller.time
     for subsim ∈ sim.subsims
         subsim.integrator.initial_time = initial_time
         subsim.integrator.time = initial_time

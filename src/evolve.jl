@@ -135,6 +135,7 @@ function advance_time(sim::SingleDomainSimulation)
 end
 
 function advance_time(sim::MultiDomainSimulation)
+    sim.schwarz_controller.prev_time = sim.schwarz_controller.time
     next_time = round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=10)
     sim.schwarz_controller.time = next_time
     sim.schwarz_controller.stop += 1
