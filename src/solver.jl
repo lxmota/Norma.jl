@@ -24,14 +24,14 @@ function HessianMinimizer(params::Dict{Any,Any})
     value = 0.0
     gradient = zeros(num_dof)
     hessian = spzeros(num_dof, num_dof)
-    initial_guess = zeros(num_dof)
+    solution = zeros(num_dof)
     initial_norm = 0.0
     converged = false
     failed = false
     step = create_step(solver_params)
     HessianMinimizer(minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        value, gradient, hessian, initial_guess,
+        value, gradient, hessian, solution,
         initial_norm, converged, failed, step)
 end
 
