@@ -140,10 +140,14 @@ end
 function subcycle(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
-        while stop_evolve(subsim)
+        while true
+            advance_time(subsim)
+            if stop_evolve(subsim) == true
+                break
+            end
+            subsim.model.time = subsim.integrator.time
             apply_bcs(subsim)
             advance(subsim)
-            advance_time(subsim)
         end
     end
 end

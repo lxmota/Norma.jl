@@ -98,7 +98,11 @@ function write_step(sim::SingleDomainSimulation)
 end
 
 function write_step(sim::MultiDomainSimulation)
+    time = sim.schwarz_controller.time
+    stop = sim.schwarz_controller.stop
     for subsim ∈ sim.subsims
+        subsim.integrator.time = subsim.model.time = time
+        subsim.integrator.stop = stop
         write_step(subsim)
     end
 end
