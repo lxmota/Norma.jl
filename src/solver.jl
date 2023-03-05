@@ -43,13 +43,13 @@ function ExplicitSolver(params::Dict{Any,Any})
     num_dof = 3 * num_nodes
     value = 0.0
     gradient = zeros(num_dof)
-    lumped_hessian = zeros(num_dof)
+    solution = zeros(num_dof)
     initial_guess = zeros(num_dof)
     initial_norm = 0.0
     converged = false
     failed = false
     step = create_step(solver_params)
-    ExplicitSolver(value, gradient, lumped_hessian, initial_guess,
+    ExplicitSolver(value, gradient, solution, initial_guess,
         initial_norm, converged, failed, step)
 end
 
