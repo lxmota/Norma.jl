@@ -61,15 +61,15 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         params[domain_name] = subsim.params
         subsim.params["global_params"] = params
         integrator_name = subsim.params["time integrator"]["type"]
-        subsim_type = is_static_or_dynamic(integrator_name)
+        subsim_type = is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
         if sim_type == "none"
             sim_type = subsim_type
         elseif subsim_type ≠ sim_type
-            error("Multidomain subdomains must be all static or dynamic")
+            error("Multidomain subdomains must be all have the same physics")
         end
-        params["subdomains type"] = sim_type
         push!(subsims, subsim)
     end
+    params["subdomains type"] = sim_type
     schwarz_controller = create_schwarz_controller(params)
     MultiDomainSimulation(name, params, schwarz_controller, subsims)
 end

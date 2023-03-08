@@ -65,11 +65,11 @@ function initialize(sim::MultiDomainSimulation)
     initialize(sim, sim.schwarz_controller)
 end
 
-function initialize(sim::MultiDomainSimulation, _::SolidStaticSchwarzController)
+function initialize(sim::MultiDomainSimulation, _::StaticSolidSchwarzController)
     schwarz(sim)
 end
 
-function initialize(_::MultiDomainSimulation, _::SolidDynamicSchwarzController)
+function initialize(_::MultiDomainSimulation, _::DynamicSolidSchwarzController)
     return
 end
 
