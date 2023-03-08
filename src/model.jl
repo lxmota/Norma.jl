@@ -316,12 +316,11 @@ function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, edges::Vect
         node_a = edge[1]
         node_b = edge[2]
         edge_vector = nodal_coordinates[:, node_a] - nodal_coordinates[:, node_b]
-        distance = sqrt(edge_vector' * edge_vector)
+        distance = norm(edge_vector)
         minimum_edge_length = min(minimum_edge_length, distance)
     end
     return minimum_edge_length
 end
-
 
 function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, elem_type::String)
     if elem_type == "TETRA4"
