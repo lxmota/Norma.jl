@@ -135,7 +135,7 @@ function correct(integrator::Newmark, solver::HessianMinimizer, model::SolidMech
     vᵖʳᵉ = integrator.velo_pre
     free = model.free_dofs
     integrator.acceleration[free] = (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
-    integrator.velocity[free] = vᵖʳᵉ[free] + γ * Δt * (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
+    integrator.velocity[free] = vᵖʳᵉ[free] + γ * Δt * integrator.acceleration[free]
     copy_solution_source_targets(integrator, solver, model)
 end
 
