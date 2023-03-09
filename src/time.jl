@@ -120,22 +120,23 @@ function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMech
     a = integrator.acceleration
     uᵖʳᵉ = integrator.disp_pre
     vᵖʳᵉ = integrator.velo_pre
-    uᵖʳᵉ[free] = u[free] = u[free] + Δt * v[free] + (0.5 - β) * Δt * Δt * a[free]
-    vᵖʳᵉ[free] = v[free] = v[free] + (1.0 - γ) * Δt * a[free]
+    uᵖʳᵉ[free] = u[free] += Δt * v[free] + (0.5 - β) * Δt * Δt * a[free]
+    vᵖʳᵉ[free] = v[free] += (1.0 - γ) * Δt * a[free]
     uᵖʳᵉ[fixed] = u[fixed]
     vᵖʳᵉ[fixed] = v[fixed]
     copy_solution_source_targets(integrator, solver, model)
 end
 
 function correct(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
+    free = model.free_dofs
     Δt = integrator.time_step
     β = integrator.β
     γ = integrator.γ
     u = integrator.displacement = solver.solution
     uᵖʳᵉ = integrator.disp_pre
     vᵖʳᵉ = integrator.velo_pre
-    integrator.acceleration = (u - uᵖʳᵉ) / β / Δt / Δt
-    integrator.velocity = vᵖʳᵉ + γ * Δt * integrator.acceleration
+    integrator.acceleration[free] = (u[free] - uᵖʳᵉ[free]) / β / Δt / Δt
+    integrator.velocity[free] = vᵖʳᵉ[free] + γ * Δt * integrator.acceleration[free]
     copy_solution_source_targets(integrator, solver, model)
 end
 
