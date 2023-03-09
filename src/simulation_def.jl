@@ -20,4 +20,5 @@ struct MultiDomainSimulation <: Simulation
     params::Dict{Any,Any}
     schwarz_controller::SchwarzController
     subsims::Vector{SingleDomainSimulation}
+    subsim_name_index_map::Dict{String,Int64}
 end

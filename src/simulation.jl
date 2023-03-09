@@ -49,6 +49,8 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     exodus_interval = get(params, "Exodus output interval", 1)
     csv_interval = get(params, "CSV output interval", 0)
     sim_type = "none"
+    subsim_name_index_map = Dict{String,Int64}()
+    subsim_index = 1
     for domain_name ∈ domain_names
         println("Reading subsimulation file: ", domain_name)
         subparams = YAML.load_file(domain_name)
@@ -59,7 +61,7 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subparams["CSV output interval"] = csv_interval
         subsim = SingleDomainSimulation(subparams)
         params[domain_name] = subsim.params
-        subsim.params["global_params"] = params
+        subsim.params["global_simulation"] = sim
         integrator_name = subsim.params["time integrator"]["type"]
         subsim_type = is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
         if sim_type == "none"
@@ -68,8 +70,10 @@ function MultiDomainSimulation(params::Dict{Any,Any})
             error("Multidomain subdomains must be all have the same physics")
         end
         push!(subsims, subsim)
+        subsim_name_index_map[domain_name] = subsim_index
+        subsim_index += 1
     end
     params["subdomains type"] = sim_type
     schwarz_controller = create_schwarz_controller(params)
-    MultiDomainSimulation(name, params, schwarz_controller, subsims)
+    MultiDomainSimulation(name, params, schwarz_controller, subsims, subsim_name_index_map)
 end
