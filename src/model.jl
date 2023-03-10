@@ -474,6 +474,24 @@ function side_set_id_from_name(side_set_name::String, mesh::PyObject)
     return side_set_id
 end
 
+function block_id_from_name(block_name::String, mesh::PyObject)
+    block_names = mesh.get_elem_blk_names()
+    num_names = length(block_names)
+    block_index = 0
+    for index ∈ 1:num_names
+        if (block_name == block_names[index])
+            block_index = index
+            break
+        end
+    end
+    if (block_index == 0)
+        error("block ", block_name, " cannot be found in mesh")
+    end
+    block_ids = mesh.get_elem_blk_ids()
+    block_id = block_ids[block_index]
+    return block_id
+end
+
 function component_offset_from_string(name::String)
     offset = 0
     if name == "x"
@@ -543,8 +561,29 @@ function apply_bcs(params::Dict{Any,Any}, model::SolidMechanics)
                         model.boundary_tractions_force[dof_index] += bc_val
                     end
                 end
-            elseif bc_type == "Schwarz Dirichlet"
-            elseif bc_type == "Schwarz Neumann"
+            elseif bc_type == "Schwarz contact Dirichlet"
+                side_set_name = bc["side set"]
+                component = bc["component"]
+                side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+                ss_num_nodes_per_side, ss_nodes = input_mesh.get_side_set_node_list(side_set_id)
+                #getting the coupled mesh
+                coupled_cubsim_name = bc["source"]
+                sim = params["global_simulation"]
+                coupled_subdomain_index = sim.subsim_name_index_map[coupled_cubsim_name]
+                coupled_subsim = sim.subsims[coupled_subdomain_index]
+                coupled_mesh = coupled_subsim.params["input_mesh"]
+                coupled_block_name = bc["source block"]
+                coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
+                coupled_side_set = bc["source side set"]
+                #loop over nodes on the contact side set to get Schwarz displacements
+                for side ∈ ss_num_nodes_per_side
+                    side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
+                    for node_index ∈ side_nodes
+                        point = current[:, node_index]
+                        find_element_for_transfer(point, coupled_mesh, coupled_block_id, coupled_side_set, model)
+                    end
+                end    
+            elseif bc_type == "Schwarz contact Neumann"
             end
         end
     end

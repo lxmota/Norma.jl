@@ -390,3 +390,53 @@ function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vecto
     ξ = map_to_parametric(element_type, vertices, point)
     return is_inside_parametric(element_type, ξ)
 end
+
+function find_element_for_transfer(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set::String, model::SolidMechanics)
+    elem_blk_ids = coupled_mesh.get_elem_blk_ids()
+    num_blks = length(elem_blk_ids)
+    elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
+    elem_type = coupled_mesh.elem_type(blk_id)
+    for blk_elem_index ∈ 1:num_blk_elems
+        conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
+        node_indices = elem_blk_conn[conn_indices]
+        vertices = model.current[:, node_indices]
+        inside = is_inside(elem_type, vertices, point)
+        #if a point is inside an element, we will move it on the contact side
+        if inside == true
+            #call a function wich projects the point onto the contact boundary
+            point_new = project_onto_contact_surface(vertices, point, contact_side, model)
+        else
+            #return the point's initial position 
+            point_new = point
+        end        
+    end       
+end
+
+function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set::String, coupled_mesh::PyObject, model::SolidMechanics)
+    #we assume that we know the contact surfaces in advance 
+    coupled_side_set_id = side_set_id_from_name(coupled_side_set, coupled_mesh)
+    coupled_ss_num_nodes_per_side, coupled_ss_nodes = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
+    coupled_ss_node_index = 1
+    minimum_distance = Inf
+    point_new = point
+    for coupled_side ∈ coupled_ss_num_nodes_per_side
+        coupled_side_nodes = coupled_ss_nodes[coupled_ss_node_index:coupled_ss_node_index+coupled_side-1]
+        coupled_side_coordinates = model.current[:, coupled_side_nodes]
+        #plane 
+        coordinates_A = coupled_side_coordinates[:, 1]
+        coordinates_B = coupled_side_coordinates[:, 2]
+        coordinates_C = coupled_side_coordinates[:, 3]
+        BA = coordinates_B - coordinates_A
+        CA = coordinates_C - coordinates_A
+        N = cross(BA, CA)
+        n = N / norm(N)
+        distance = (point - coordinates_A) ⋅ n
+        #store the new point if the distance is min
+        if distance < minimum_distance
+            point_new = point - distance * n   
+        end    
+        minimum_distance = min(minimum_distance, distance)
+    end
+    #point_new: new points position
+    return point_new
+end

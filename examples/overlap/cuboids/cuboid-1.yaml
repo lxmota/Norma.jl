@@ -25,11 +25,12 @@ boundary conditions:
     - node set: nsz-
       component: z
       function: "0.0"
-  Schwarz Dirichlet:
-    - node set: nsz+
+  Schwarz contact Dirichlet:
+    - side set: ssz+
       component: z
       source: "cuboid-2.yaml"
       source block: domain_2
+      source side set: ssz-
 solver:
   type: Hessian minimizer
   step: full Newton
