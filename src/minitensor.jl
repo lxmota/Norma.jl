@@ -10,8 +10,6 @@ const MTTensor = SMatrix{3,3,Float64}
 # Lie groups and Lie algebra utilities, mostly algebra of rotations
 # SO(3) and so(3).
 #
-using LinearAlgebra
-
 #
 # Skew symmetric part of matrix
 #

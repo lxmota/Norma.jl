@@ -283,50 +283,51 @@ function get_side_set_nodal_forces(coordinates::Matrix{Float64}, expr::Any, time
     end
 end
 
-function get_triangle_nodal_forces(coordinates3D::Matrix{Float64}, expr::Any, time::Float64)
-    A = coordinates3D[:, 1]
-    B = coordinates3D[:, 2]
-    C = coordinates3D[:, 3]
+using Symbolics
+@variables t, x, y, z
+
+function get_triangle_nodal_forces(nodal_coord::Matrix{Float64}, expr::Any, time::Float64)
+    A = nodal_coord[:, 1]
+    B = nodal_coord[:, 2]
+    C = nodal_coord[:, 3]
     centroid = (A + B + C) / 3.0
-    coordinates2D = triangle_3D_to_2D(A, B, C)
+    two_dim_coord = triangle_3D_to_2D(A, B, C)
     Nₚ, dNdξ, elem_weights = barycentricD2N3G1()
     point = 1
     dNdξₚ = dNdξ[:, :, point]
-    dXdξ = dNdξₚ * coordinates2D'
+    dXdξ = dNdξₚ * two_dim_coord'
     j = det(dXdξ)
     w = elem_weights[point]
-    global t = time
-    global x = centroid[1]
-    global y = centroid[2]
-    global z = centroid[3]
-    traction = eval(expr)
-    nodal_force_component = traction * Nₚ * j * w
+    traction_eval = eval(expr)
+    values = Dict(t=>time, x=>centroid[1], y=>centroid[2], z=>centroid[3])
+    traction_sym = substitute(traction_eval, values)
+    traction_val = extract_value(traction_sym)
+    nodal_force_component = traction_val * Nₚ * j * w
     return nodal_force_component
 end
 
-function get_quadrilateral_nodal_forces(coordinates3D::Matrix{Float64}, expr::Any, time::Float64)
-    A = coordinates3D[:, 1]
-    B = coordinates3D[:, 2]
-    C = coordinates3D[:, 3]
-    D = coordinates3D[:, 4]
+function get_quadrilateral_nodal_forces(nodal_coord::Matrix{Float64}, expr::Any, time::Float64)
+    A = nodal_coord[:, 1]
+    B = nodal_coord[:, 2]
+    C = nodal_coord[:, 3]
+    D = nodal_coord[:, 4]
     centroid = (A + B + C + D) / 4.0
-    coordinates2D = quadrilateral_3D_to_2D(A, B, C, D)
+    two_dim_coord = quadrilateral_3D_to_2D(A, B, C, D)
     N, dNdξ, elem_weights = lagrangianD2N4G4()
     g = sqrt(3.0) / 3.0
-    global t = time
     nodal_force_component = zeros(4)
     for point ∈ 1:4
         Nₚ = N[:, point]
         dNdξₚ = dNdξ[:, :, point]
-        dXdξ = dNdξₚ * coordinates2D'
+        dXdξ = dNdξₚ * two_dim_coord'
         j = det(dXdξ)
         w = elem_weights[point]
-        point_coordinates3D = g * (coordinates3D[:, point] - centroid)
-        global x = point_coordinates3D[1]
-        global y = point_coordinates3D[2]
-        global z = point_coordinates3D[3]
-        traction = eval(expr)
-        nodal_force_component += traction * Nₚ * j * w
+        point_coord = g * nodal_coord[:, point] + (1.0 - g) * centroid
+        traction_eval = eval(expr)
+        values = Dict(t=>time, x=>point_coord[1], y=>point_coord[2], z=>point_coord[3])
+        traction_sym = substitute(traction_eval, values)
+        traction_val = extract_value(traction_sym)
+        nodal_force_component += traction_val * Nₚ * j * w
     end
     return nodal_force_component
 end
@@ -392,8 +393,6 @@ function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vecto
 end
 
 function find_element_for_transfer(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set::String, model::SolidMechanics)
-    elem_blk_ids = coupled_mesh.get_elem_blk_ids()
-    num_blks = length(elem_blk_ids)
     elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
     elem_type = coupled_mesh.elem_type(blk_id)
     for blk_elem_index ∈ 1:num_blk_elems

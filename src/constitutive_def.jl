@@ -1,6 +1,7 @@
+using LinearAlgebra
+
 include("minitensor.jl")
 
-using LinearAlgebra
 using .MiniTensor
 
 abstract type Material end

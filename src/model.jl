@@ -506,15 +506,24 @@ function component_offset_from_string(name::String)
     return offset
 end
 
+using Symbolics
+@variables t, x, y, z
+D = Differential(t)
+
+function extract_value(value::Real)
+    return value
+end
+
+function extract_value(symbol::Num)
+    return symbol.val
+end
+
 function apply_bcs(params::Dict{Any,Any}, model::SolidMechanics)
     if haskey(params, "boundary conditions") == false
         return
     end
-    reference = model.reference
-    current = model.current
     input_mesh = params["input_mesh"]
-    global t = model.time
-    _, num_nodes = size(reference)
+    _, num_nodes = size(model.reference)
     model.boundary_tractions_force = zeros(3*num_nodes)
     model.free_dofs = trues(3 * num_nodes)
     bc_params = params["boundary conditions"]
@@ -522,35 +531,43 @@ function apply_bcs(params::Dict{Any,Any}, model::SolidMechanics)
         for bc ∈ bc_type_params
             if bc_type == "Dirichlet"
                 node_set_name = bc["node set"]
-                function_str = bc["function"]
+                expr_str = bc["function"]
                 component = bc["component"]
                 offset = component_offset_from_string(component)
                 node_set_id = node_set_id_from_name(node_set_name, input_mesh)
                 node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
-                # function_str is an arbitrary function of t, x, y, z in the input file
-                bc_expr = Meta.parse(function_str)
+                # expr_str is an arbitrary function of t, x, y, z in the input file
+                bc_expr = Meta.parse(expr_str)
+                disp_eval = eval(bc_expr)
+                velo_eval = expand_derivatives(D(disp_eval))
+                acce_eval = expand_derivatives(D(velo_eval))
                 for node_index ∈ node_set_node_indices
-                    global x = reference[1, node_index]
-                    global y = reference[2, node_index]
-                    global z = reference[3, node_index]
-                    bc_val = eval(bc_expr)
+                    values = Dict(t=>model.time, x=>model.reference[1, node_index], y=>model.reference[2, node_index], z=>model.reference[3, node_index])
+                    disp_sym = substitute(disp_eval, values)
+                    velo_sym = substitute(velo_eval, values)
+                    acce_sym = substitute(acce_eval, values)
+                    disp_val = extract_value(disp_sym)
+                    velo_val = extract_value(velo_sym)
+                    acce_val = extract_value(acce_sym)
                     dof_index = 3 * (node_index - 1) + offset
-                    current[offset, node_index] = reference[offset, node_index] + bc_val
+                    model.current[offset, node_index] = model.reference[offset, node_index] + disp_val
+                    model.velocity[offset, node_index] = velo_val
+                    model.acceleration[offset, node_index] = acce_val
                     model.free_dofs[dof_index] = false
                 end
             elseif bc_type == "Neumann"
                 side_set_name = bc["side set"]
-                function_str = bc["function"]
+                expr_str = bc["function"]
                 component = bc["component"]
                 offset = component_offset_from_string(component)
                 side_set_id = side_set_id_from_name(side_set_name, input_mesh)
                 ss_num_nodes_per_side, ss_nodes = input_mesh.get_side_set_node_list(side_set_id)
-                # function_str is an arbitrary function of t, x, y, z in the input file
-                bc_expr = Meta.parse(function_str)
+                # expr_str is an arbitrary function of t, x, y, z in the input file
+                bc_expr = Meta.parse(expr_str)
                 ss_node_index = 1
                 for side ∈ ss_num_nodes_per_side
                     side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
-                    side_coordinates = reference[:, side_nodes]
+                    side_coordinates = model.reference[:, side_nodes]
                     nodal_force_component = get_side_set_nodal_forces(side_coordinates, bc_expr, model.time)
                     ss_node_index += side
                     side_node_index = 1
@@ -593,66 +610,28 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
     if haskey(params, "initial conditions") == false
         return
     end
-    reference = model.reference
-    current = model.current
-    velocity = model.velocity
     input_mesh = params["input_mesh"]
     ic_params = params["initial conditions"]
     for (ic_type, ic_type_params) ∈ ic_params
         for ic ∈ ic_type_params
             node_set_name = ic["node set"]
-            function_str = ic["function"]
+            expr_str = ic["function"]
             component = ic["component"]
             offset = component_offset_from_string(component)
             node_set_id = node_set_id_from_name(node_set_name, input_mesh)
             node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
-            # function_str is an arbitrary function of x, y, z in the input file
-            ic_expr = Meta.parse(function_str)
+            # expr_str is an arbitrary function of x, y, z in the input file
+            ic_expr = Meta.parse(expr_str)
+            ic_eval = eval(ic_expr)
             for node_index ∈ node_set_node_indices
-                global x = reference[1, node_index]
-                global y = reference[2, node_index]
-                global z = reference[3, node_index]
-                ic_val = eval(ic_expr)
+                values = Dict(x=>model.reference[1, node_index], y=>model.reference[2, node_index], z=>model.reference[3, node_index])
+                ic_sym = substitute(ic_eval, values)
+                ic_val = extract_value(ic_sym)
                 if ic_type == "displacement"
-                    current[offset, node_index] = reference[offset, node_index] + ic_val
+                    model.current[offset, node_index] = model.reference[offset, node_index] + ic_val
                 elseif ic_type == "velocity"
-                    velocity[offset, node_index] = ic_val
+                    model.velocity[offset, node_index] = ic_val
                 end
-            end
-        end
-    end
-end
-
-function apply_bcs(params::Dict{Any,Any}, model::HeatConduction)
-    if haskey(params, "boundary conditions") == false
-        return
-    end
-    temperature = model.temperature
-    input_mesh = params["input_mesh"]
-    global t = model.time
-    xc, yc, zc = input_mesh.get_coords()
-    num_nodes = length(xc)
-    model.free_dofs = trues(num_nodes)
-    bc_params = params["boundary conditions"]
-    for (bc_type, bc_type_params) ∈ bc_params
-        for bc ∈ bc_type_params
-            if bc_type == "Dirichlet"
-                node_set_name = bc["node set"]
-                function_str = bc["function"]
-                node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-                node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
-                # function_str is an arbitrary function of t, x, y, z in the input file
-                bc_expr = Meta.parse(function_str)
-                for node_index ∈ node_set_node_indices
-                    global x = xc[node_index]
-                    global y = yc[node_index]
-                    global z = zc[node_index]
-                    bc_val = eval(bc_expr)
-                    temperature[node_index] = bc_val
-                    model.free_dofs[node_index] = false
-                end
-            elseif bc_type == "Schwarz"
-            elseif bc_type == "Neumann"
             end
         end
     end
