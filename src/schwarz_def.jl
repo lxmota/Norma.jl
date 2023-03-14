@@ -1,27 +1,6 @@
 abstract type SchwarzController end
 
-mutable struct StaticSolidSchwarzController <: SchwarzController
-    num_domains::Int64
-    minimum_iterations::Int64
-    maximum_iterations::Int64
-    absolute_tolerance::Float64
-    relative_tolerance::Float64
-    absolute_error::Float64
-    relative_error::Float64
-    initial_time::Float64
-    final_time::Float64
-    time_step::Float64
-    time::Float64
-    prev_time::Float64
-    stop::Int64
-    converged::Bool
-    stop_disp::Vector{Vector{Float64}}
-    schwarz_disp::Vector{Vector{Float64}}
-    time_hist::Vector{Float64}
-    disp_hist::Vector{Vector{Vector{Float64}}}
-end
-
-mutable struct DynamicSolidSchwarzController <: SchwarzController
+mutable struct SolidSchwarzController <: SchwarzController
     num_domains::Int64
     minimum_iterations::Int64
     maximum_iterations::Int64

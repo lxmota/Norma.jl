@@ -62,15 +62,15 @@ function initialize(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         initialize(subsim)
     end
-    initialize(sim, sim.schwarz_controller)
-end
-
-function initialize(sim::MultiDomainSimulation, _::StaticSolidSchwarzController)
-    schwarz(sim)
-end
-
-function initialize(_::MultiDomainSimulation, _::DynamicSolidSchwarzController)
-    return
+    type = sim.params["subdomains type"]
+    if type == "dynamic solid mechanics"
+        return
+    elseif type == "static solid mechanics"
+        schwarz(sim)
+        return
+    else
+        error("Unknown type of Schwarz controller : ", type)
+    end
 end
 
 function solve(sim::SingleDomainSimulation)

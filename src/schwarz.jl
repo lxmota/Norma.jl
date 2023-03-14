@@ -1,27 +1,4 @@
-function StaticSolidSchwarzController(params::Dict{Any,Any})
-    num_domains = length(params["domains"])
-    minimum_iterations = params["minimum iterations"]
-    maximum_iterations = params["maximum iterations"]
-    absolute_tolerance = params["relative tolerance"]
-    relative_tolerance = params["absolute tolerance"]
-    initial_time = params["initial time"]
-    final_time = params["final time"]
-    time_step = params["time step"]
-    absolute_error = relative_error = 0.0
-    time = prev_time = initial_time
-    stop = 0
-    converged = false
-    stop_disp = Vector{Vector{Float64}}(undef, num_domains)
-    schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
-    time_hist = Vector{Float64}(undef, num_domains)
-    disp_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
-    StaticSolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
-        absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        initial_time, final_time, time_step, time, prev_time, stop, converged,
-        time_hist, stop_disp, schwarz_disp, disp_hist)
-end
-
-function DynamicSolidSchwarzController(params::Dict{Any,Any})
+function SolidSchwarzController(params::Dict{Any,Any})
     num_domains = length(params["domains"])
     minimum_iterations = params["minimum iterations"]
     maximum_iterations = params["maximum iterations"]
@@ -44,7 +21,7 @@ function DynamicSolidSchwarzController(params::Dict{Any,Any})
     disp_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     velo_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     acce_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
-    DynamicSolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
+    SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, stop, converged,
         stop_disp, stop_velo, stop_acce, schwarz_disp, schwarz_velo, schwarz_acce,
@@ -53,10 +30,8 @@ end
 
 function create_schwarz_controller(params::Dict{Any,Any})
     type = params["subdomains type"]
-    if type == "static solid mechanics"
-        return StaticSolidSchwarzController(params)
-    elseif type == "dynamic solid mechanics"
-        return DynamicSolidSchwarzController(params)
+    if type == "static solid mechanics" || type == "dynamic solid mechanics"
+        return SolidSchwarzController(params)
     else
         error("Unknown type of Schwarz controller : ", type)
     end
@@ -84,13 +59,7 @@ function save_stop_solutions(sim::MultiDomainSimulation)
     save_stop_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function save_stop_solutions(schwarz_controller::StaticSolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    for i ∈ 1:schwarz_controller.num_domains
-        schwarz_controller.stop_disp[i] = sims[i].integrator.displacement
-    end
-end
-
-function save_stop_solutions(schwarz_controller::DynamicSolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_stop_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
         schwarz_controller.stop_disp[i] = sims[i].integrator.displacement
         schwarz_controller.stop_velo[i] = sims[i].integrator.velocity
@@ -102,13 +71,7 @@ function restore_stop_solutions(sim::MultiDomainSimulation)
     restore_stop_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function restore_stop_solutions(schwarz_controller::StaticSolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    for i ∈ 1:schwarz_controller.num_domains
-        sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
-    end
-end
-
-function restore_stop_solutions(schwarz_controller::DynamicSolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function restore_stop_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
         sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
         sims[i].integrator.velocity = schwarz_controller.stop_velo[i]
@@ -120,13 +83,7 @@ function save_schwarz_solutions(sim::MultiDomainSimulation)
     save_schwarz_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function save_schwarz_solutions(schwarz_controller::StaticSolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    for i ∈ 1:schwarz_controller.num_domains
-        schwarz_controller.schwarz_disp[i] = sims[i].integrator.displacement
-    end
-end
-
-function save_schwarz_solutions(schwarz_controller::DynamicSolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_schwarz_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
         schwarz_controller.schwarz_disp[i] = sims[i].integrator.displacement
         schwarz_controller.schwarz_velo[i] = sims[i].integrator.velocity
@@ -159,31 +116,30 @@ function subcycle(sim::MultiDomainSimulation)
     end
 end
 
+function setup_subcycle(sim::MultiDomainSimulation)
+    resize_histories(sim.schwarz_controller, sim.subsims)
+end
+
+function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+    for i ∈ 1:schwarz_controller.num_domains
+        num_steps = round(Int64, sims[i].integrator.time_step / schwarz_controller.time_step)
+        sims[i].integrator.time_step = schwarz_controller.time_step / num_steps
+        resize!(schwarz_controller.disp_hist[i], num_steps)
+        resize!(schwarz_controller.velo_hist[i], num_steps)
+        resize!(schwarz_controller.acce_hist[i], num_steps)
+        for j ∈ 1:num_steps
+            schwarz_controller.disp_hist[i][j] = schwarz_controller.stop_disp[i]
+            schwarz_controller.velo_hist[i][j] = schwarz_controller.stop_velo[i]
+            schwarz_controller.acce_hist[i][j] = schwarz_controller.stop_acce[i]
+        end
+    end
+end
+
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)
     return is_schwarz_converged(sim.schwarz_controller, sim.subsims)
 end
 
-function is_schwarz_converged(schwarz_controller::StaticSolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    num_sims = length(sims)
-    norms_disp = zeros(num_sims)
-    norms_diff = zeros(num_sims)
-    for i ∈ 1:num_sims
-        xᵖʳᵉᵛ = schwarz_controller.schwarz_disp[i]
-        xᶜᵘʳʳ = sims[i].integrator.displacement
-        norms_disp[i] = norm(xᵖʳᵉᵛ)
-        norms_diff[i] = norm(xᶜᵘʳʳ - xᵖʳᵉᵛ)
-    end
-    norm_disp = norm(norms_disp)
-    norm_diff = norm(norms_diff)
-    schwarz_controller.absolute_error = norm_diff
-    schwarz_controller.relative_error = norm_disp > 0.0 ? norm_diff / norm_disp : norm_diff
-    conv_abs = schwarz_controller.absolute_error ≤ schwarz_controller.absolute_tolerance
-    conv_rel = schwarz_controller.relative_error ≤ schwarz_controller.relative_tolerance
-    schwarz_controller.converged = conv_abs || conv_rel
-    return norm_diff
-end
-
-function is_schwarz_converged(schwarz_controller::DynamicSolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function is_schwarz_converged(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     num_sims = length(sims)
     norms_disp = zeros(num_sims)
     norms_diff = zeros(num_sims)
