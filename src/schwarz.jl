@@ -102,6 +102,7 @@ function set_subcycle_times(sim::MultiDomainSimulation)
 end
 
 function subcycle(sim::MultiDomainSimulation)
+    setup_subcycle(sim)
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
         while true

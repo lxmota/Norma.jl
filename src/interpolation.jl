@@ -439,3 +439,13 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set::
     #point_new: new points position
     return point_new
 end
+
+function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
+    Δt = tᵇ - tᵃ
+    if Δt == 0.0
+        return 0.5 * (xᵃ + xᵇ)
+    end
+    p = (tᵇ - t) / Δt
+    q = 1.0 - p
+    return p * xᵃ + q * xᵇ
+end
