@@ -601,6 +601,26 @@ function apply_bcs(params::Dict{Any,Any}, model::SolidMechanics)
                     end
                 end    
             elseif bc_type == "Schwarz contact Neumann"
+                side_set_name = bc["side set"]
+                component = bc["component"]
+                side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+                ss_num_nodes_per_side, ss_nodes = input_mesh.get_side_set_node_list(side_set_id)
+                #getting the coupled mesh
+                coupled_cubsim_name = bc["source"]
+                sim = params["global_simulation"]
+                coupled_subdomain_index = sim.subsim_name_index_map[coupled_cubsim_name]
+                coupled_subsim = sim.subsims[coupled_subdomain_index]
+                coupled_mesh = coupled_subsim.params["input_mesh"]
+                coupled_block_name = bc["source block"]
+                coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
+                coupled_side_set = bc["source side set"]
+                #loop over nodes on the contact side set to get Schwarz traction
+                for side ∈ ss_num_nodes_per_side
+                    side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
+                    for node_index ∈ side_nodes
+                        point = current[:, node_index]
+                    end
+                end    
             end
         end
     end

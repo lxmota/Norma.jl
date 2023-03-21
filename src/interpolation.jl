@@ -431,10 +431,10 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set::
         n = N / norm(N)
         distance = (point - coordinates_A) ⋅ n
         #store the new point if the distance is min
-        if distance < minimum_distance
+        if abs(distance) < minimum_distance
             point_new = point - distance * n   
         end    
-        minimum_distance = min(minimum_distance, distance)
+        minimum_distance = min(minimum_distance, abs(distance))
     end
     #point_new: new points position
     return point_new
