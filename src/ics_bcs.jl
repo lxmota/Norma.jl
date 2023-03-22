@@ -156,7 +156,7 @@ function create_bcs(params::Dict{Any,Any})
             elseif bc_type == "Schwarz Dirichlet"
             elseif bc_type == "Schwarz Neumann"
             else
-                error("Unknown BC type ", bc_type)
+                error("Unknown boundary condition type : ", bc_type)
             end
         end
     end
@@ -184,54 +184,7 @@ function apply_bcs_orig(params::Dict{Any,Any}, model::SolidMechanics)
     for (bc_type, bc_type_params) ∈ bc_params
         for bc ∈ bc_type_params
             if bc_type == "Dirichlet"
-                node_set_name = bc["node set"]
-                expr_str = bc["function"]
-                component = bc["component"]
-                offset = component_offset_from_string(component)
-                node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-                node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
-                # expr_str is an arbitrary function of t, x, y, z in the input file
-                bc_expr = Meta.parse(expr_str)
-                disp_eval = eval(bc_expr)
-                velo_eval = expand_derivatives(D(disp_eval))
-                acce_eval = expand_derivatives(D(velo_eval))
-                for node_index ∈ node_set_node_indices
-                    values = Dict(t=>model.time, x=>model.reference[1, node_index], y=>model.reference[2, node_index], z=>model.reference[3, node_index])
-                    disp_sym = substitute(disp_eval, values)
-                    velo_sym = substitute(velo_eval, values)
-                    acce_sym = substitute(acce_eval, values)
-                    disp_val = extract_value(disp_sym)
-                    velo_val = extract_value(velo_sym)
-                    acce_val = extract_value(acce_sym)
-                    dof_index = 3 * (node_index - 1) + offset
-                    model.current[offset, node_index] = model.reference[offset, node_index] + disp_val
-                    model.velocity[offset, node_index] = velo_val
-                    model.acceleration[offset, node_index] = acce_val
-                    model.free_dofs[dof_index] = false
-                end
             elseif bc_type == "Neumann"
-                side_set_name = bc["side set"]
-                expr_str = bc["function"]
-                component = bc["component"]
-                offset = component_offset_from_string(component)
-                side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-                ss_num_nodes_per_side, ss_nodes = input_mesh.get_side_set_node_list(side_set_id)
-                # expr_str is an arbitrary function of t, x, y, z in the input file
-                bc_expr = Meta.parse(expr_str)
-                ss_node_index = 1
-                for side ∈ ss_num_nodes_per_side
-                    side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
-                    side_coordinates = model.reference[:, side_nodes]
-                    nodal_force_component = get_side_set_nodal_forces(side_coordinates, bc_expr, model.time)
-                    ss_node_index += side
-                    side_node_index = 1
-                    for node_index ∈ side_nodes
-                        bc_val = nodal_force_component[side_node_index]
-                        side_node_index += 1
-                        dof_index = 3 * (node_index - 1) + offset
-                        model.boundary_tractions_force[dof_index] += bc_val
-                    end
-                end
             elseif bc_type == "Schwarz contact Dirichlet"
                 side_set_name = bc["side set"]
                 component = bc["component"]
