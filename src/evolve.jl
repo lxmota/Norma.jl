@@ -45,7 +45,7 @@ function apply_ics(sim::MultiDomainSimulation)
 end
 
 function apply_bcs(sim::SingleDomainSimulation)
-    apply_bcs(sim.params, sim.model)
+    apply_bcs(sim.model)
 end
 
 function apply_bcs(sim::MultiDomainSimulation)

@@ -272,12 +272,12 @@ function quadrilateral_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vecto
     return coordinates
 end
 
-function get_side_set_nodal_forces(coordinates::Matrix{Float64}, expr::Any, time::Float64)
+function get_side_set_nodal_forces(coordinates::Matrix{Float64}, traction_num::Num, time::Float64)
     _, num_nodes = size(coordinates)
     if num_nodes == 3
-        return get_triangle_nodal_forces(coordinates, expr, time)
+        return get_triangle_nodal_forces(coordinates, traction_num, time)
     elseif num_nodes == 4
-        return get_quadrilateral_nodal_forces(coordinates, expr, time)
+        return get_quadrilateral_nodal_forces(coordinates, traction_num, time)
     else
         error("Unknown side topology with number of nodes: ", num_nodes)
     end
@@ -286,7 +286,7 @@ end
 using Symbolics
 @variables t, x, y, z
 
-function get_triangle_nodal_forces(nodal_coord::Matrix{Float64}, expr::Any, time::Float64)
+function get_triangle_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
     A = nodal_coord[:, 1]
     B = nodal_coord[:, 2]
     C = nodal_coord[:, 3]
@@ -298,15 +298,14 @@ function get_triangle_nodal_forces(nodal_coord::Matrix{Float64}, expr::Any, time
     dXdξ = dNdξₚ * two_dim_coord'
     j = det(dXdξ)
     w = elem_weights[point]
-    traction_eval = eval(expr)
     values = Dict(t=>time, x=>centroid[1], y=>centroid[2], z=>centroid[3])
-    traction_sym = substitute(traction_eval, values)
+    traction_sym = substitute(traction_num, values)
     traction_val = extract_value(traction_sym)
     nodal_force_component = traction_val * Nₚ * j * w
     return nodal_force_component
 end
 
-function get_quadrilateral_nodal_forces(nodal_coord::Matrix{Float64}, expr::Any, time::Float64)
+function get_quadrilateral_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
     A = nodal_coord[:, 1]
     B = nodal_coord[:, 2]
     C = nodal_coord[:, 3]
@@ -323,9 +322,8 @@ function get_quadrilateral_nodal_forces(nodal_coord::Matrix{Float64}, expr::Any,
         j = det(dXdξ)
         w = elem_weights[point]
         point_coord = g * nodal_coord[:, point] + (1.0 - g) * centroid
-        traction_eval = eval(expr)
         values = Dict(t=>time, x=>point_coord[1], y=>point_coord[2], z=>point_coord[3])
-        traction_sym = substitute(traction_eval, values)
+        traction_sym = substitute(traction_num, values)
         traction_val = extract_value(traction_sym)
         nodal_force_component += traction_val * Nₚ * j * w
     end

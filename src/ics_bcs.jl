@@ -1,4 +1,64 @@
-include("bcs_def.jl")
+@variables t, x, y, z
+D = Differential(t)
+
+function SMDirichletBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
+    node_set_name = bc_params["node set"]
+    expression = bc_params["function"]
+    offset = component_offset_from_string(bc_params["component"])
+    node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+    node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+    # expression is an arbitrary function of t, x, y, z in the input file
+    disp_num = eval(Meta.parse(expression))
+    velo_num = expand_derivatives(D(disp_num))
+    acce_num = expand_derivatives(D(velo_num))
+    SMDirichletBC(node_set_name, offset, node_set_id, node_set_node_indices,
+        disp_num, velo_num, acce_num)
+end
+
+function SMNeumannBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
+    side_set_name = bc_params["side set"]
+    expression = bc_params["function"]
+    offset = component_offset_from_string(bc_params["component"])
+    side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+    num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
+    # expression is an arbitrary function of t, x, y, z in the input file
+    traction_num = eval(Meta.parse(expression))
+    SMNeumannBC(side_set_name, offset, side_set_id, num_nodes_per_side, side_set_node_indices, traction_num)
+end
+
+function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
+    for node_index ∈ bc.node_set_node_indices
+        values = Dict(t=>model.time, x=>model.reference[1, node_index], y=>model.reference[2, node_index], z=>model.reference[3, node_index])
+        disp_sym = substitute(bc.disp_num, values)
+        velo_sym = substitute(bc.velo_num, values)
+        acce_sym = substitute(bc.acce_num, values)
+        disp_val = extract_value(disp_sym)
+        velo_val = extract_value(velo_sym)
+        acce_val = extract_value(acce_sym)
+        dof_index = 3 * (node_index - 1) + bc.offset
+        model.current[bc.offset, node_index] = model.reference[bc.offset, node_index] + disp_val
+        model.velocity[bc.offset, node_index] = velo_val
+        model.acceleration[bc.offset, node_index] = acce_val
+        model.free_dofs[dof_index] = false
+    end
+end
+
+function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
+    ss_node_index = 1
+    for side ∈ bc.num_nodes_per_side
+        side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
+        side_coordinates = model.reference[:, side_nodes]
+        nodal_force_component = get_side_set_nodal_forces(side_coordinates, bc.traction_num, model.time)
+        ss_node_index += side
+        side_node_index = 1
+        for node_index ∈ side_nodes
+            bc_val = nodal_force_component[side_node_index]
+            side_node_index += 1
+            dof_index = 3 * (node_index - 1) + bc.offset
+            model.boundary_tractions_force[dof_index] += bc_val
+        end
+    end
+end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
     node_set_names = mesh.get_node_set_names()
@@ -68,10 +128,6 @@ function component_offset_from_string(name::String)
     return offset
 end
 
-using Symbolics
-@variables t, x, y, z
-D = Differential(t)
-
 function extract_value(value::Real)
     return value
 end
@@ -80,7 +136,43 @@ function extract_value(symbol::Num)
     return symbol.val
 end
 
-function apply_bcs(params::Dict{Any,Any}, model::SolidMechanics)
+function create_bcs(params::Dict{Any,Any})
+    boundary_conditions = Vector{BoundaryCondition}()
+    if haskey(params, "boundary conditions") == false
+        return boundary_conditions
+    end
+    input_mesh = params["input_mesh"]
+    bc_params = params["boundary conditions"]
+    for (bc_type, bc_type_params) ∈ bc_params
+        for bc_setting_params ∈ bc_type_params
+            if bc_type == "Dirichlet"
+                boundary_condition = SMDirichletBC(input_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)
+            elseif bc_type == "Neumann"
+                boundary_condition = SMNeumannBC(input_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)
+            elseif bc_type == "Schwarz contact Dirichlet"
+            elseif bc_type == "Schwarz contact Neumann"
+            elseif bc_type == "Schwarz Dirichlet"
+            elseif bc_type == "Schwarz Neumann"
+            else
+                error("Unknown BC type ", bc_type)
+            end
+        end
+    end
+    return boundary_conditions
+end
+
+function apply_bcs(model::SolidMechanics)
+    _, num_nodes = size(model.reference)
+    model.boundary_tractions_force = zeros(3*num_nodes)
+    model.free_dofs = trues(3 * num_nodes)
+    for boundary_condition ∈ model.boundary_conditions
+        apply_bc(model, boundary_condition)
+    end
+end
+
+function apply_bcs_orig(params::Dict{Any,Any}, model::SolidMechanics)
     if haskey(params, "boundary conditions") == false
         return
     end

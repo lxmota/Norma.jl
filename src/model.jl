@@ -1,6 +1,6 @@
 include("constitutive.jl")
 include("interpolation.jl")
-include("bcs.jl")
+include("ics_bcs.jl")
 
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
@@ -38,6 +38,7 @@ function SolidMechanics(params::Dict{Any,Any})
     time = 0.0
     failed = false
     boundary_tractions_force = zeros(3*num_nodes)
+    boundary_conditions = create_bcs(params)
     free_dofs = trues(3 * num_nodes)
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
@@ -57,7 +58,7 @@ function SolidMechanics(params::Dict{Any,Any})
         stress[blk_index] = block_stress
     end
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
-        boundary_tractions_force, stress, free_dofs, time, failed)
+        boundary_tractions_force, boundary_conditions, stress, free_dofs, time, failed)
 end
 
 function HeatConduction(params::Dict{Any,Any})
@@ -93,8 +94,9 @@ function HeatConduction(params::Dict{Any,Any})
     end
     time = 0.0
     failed = false
-    free_dofs = trues(num_nodes)
     boundary_heat_flux = zeros(3*num_nodes)
+    boundary_conditions = create_bcs(params)
+    free_dofs = trues(num_nodes)
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
@@ -112,7 +114,8 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
-    HeatConduction(input_mesh, materials, reference, temperature, rate, boundary_heat_flux, flux, free_dofs, time, failed)
+    HeatConduction(input_mesh, materials, reference, temperature, rate, boundary_heat_flux,
+    boundary_conditions, flux, free_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any,Any})
