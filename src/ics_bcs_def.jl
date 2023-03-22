@@ -21,3 +21,23 @@ mutable struct SMNeumannBC <: BoundaryCondition
     side_set_node_indices::Vector{Int64}
     traction_num::Num
 end
+
+mutable struct SMSchwarzContactDirichletBC <: BoundaryCondition
+    side_set_name::String
+    offset::Int64
+    side_set_id::Int64
+    num_nodes_per_side::Vector{Int64}
+    side_set_node_indices::Vector{Int64}
+    coupled_block_id::Int64
+    coupled_side_set_id::Int64
+end
+
+mutable struct SMSchwarzContactNeumannBC <: BoundaryCondition
+    side_set_name::String
+    offset::Int64
+    side_set_id::Int64
+    num_nodes_per_side::Vector{Int64}
+    side_set_node_indices::Vector{Int64}
+    coupled_block_id::Int64
+    coupled_side_set_id::Int64
+end

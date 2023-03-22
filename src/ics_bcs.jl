@@ -26,6 +26,32 @@ function SMNeumannBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
     SMNeumannBC(side_set_name, offset, side_set_id, num_nodes_per_side, side_set_node_indices, traction_num)
 end
 
+function SMSchwarzContactDirichletBC(input_mesh::PyObject, coupled_mesh::PyObject, bc_params::Dict{Any,Any})
+    side_set_name = bc_params["side set"]
+    offset = component_offset_from_string(bc_params["component"])
+    side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+    num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
+    coupled_block_name = bc_params["source block"]
+    coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
+    coupled_side_set_name = bc_params["source side set"]
+    coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
+    SMSchwarzContactDirichletBC(side_set_name, offset, side_set_id, num_nodes_per_side, 
+        side_set_node_indices, coupled_block_id, coupled_side_set_id)
+end
+
+function SMSchwarzContactNeumannBC(input_mesh::PyObject, coupled_mesh::PyObject, bc_params::Dict{Any,Any})
+    side_set_name = bc_params["side set"]
+    offset = component_offset_from_string(bc_params["component"])
+    side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+    num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
+    coupled_block_name = bc_params["source block"]
+    coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
+    coupled_side_set_name = bc_params["source side set"]
+    coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
+    SMSchwarzContactNeumannBC(side_set_name, offset, side_set_id, num_nodes_per_side, 
+        side_set_node_indices, coupled_block_id, coupled_side_set_id)
+end
+
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
     for node_index ∈ bc.node_set_node_indices
         values = Dict(t=>model.time, x=>model.reference[1, node_index], y=>model.reference[2, node_index], z=>model.reference[3, node_index])
@@ -58,6 +84,49 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
             model.boundary_tractions_force[dof_index] += bc_val
         end
     end
+end
+
+function apply_bc(model::SolidMechanics, bc::SMSchwarzContactDirichletBC)
+    ss_node_index = 1
+    for side ∈ num_nodes_per_side
+        side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
+        ss_node_index += side
+        side_node_index = 1
+        for node_index ∈ side_nodes
+            point = model.current[:, node_index]
+            model.current[:, node_index] = find_element_for_transfer(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set_id, model)
+            #velocity and acceleration 
+            #do we set these to fixed?
+            side_node_index += 1
+        end
+    end  
+end
+
+function apply_bc(model::SolidMechanics, bc::SMSchwarzContactNeumannBC)
+    ss_node_index = 1
+    for side ∈ num_nodes_per_side
+        side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
+        ss_node_index += side
+        side_node_index = 1
+        for node_index ∈ side_nodes
+            #get nodal forces
+            side_node_index += 1
+        end
+    end  
+end
+
+function apply_bc(model::SolidMechanics, bc::SMSchwarzContactNeumannBC)
+    ss_node_index = 1
+    for side ∈ num_nodes_per_side
+        side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
+        side_node_index = 1
+        for node_index ∈ side_nodes
+            point = model.current[:, node_index]
+            model.current[:, node_index] = find_element_for_transfer(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set, model)
+            side_node_index += 1
+        end
+        ss_node_index += side
+    end  
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
@@ -152,7 +221,21 @@ function create_bcs(params::Dict{Any,Any})
                 boundary_condition = SMNeumannBC(input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz contact Dirichlet"
+                coupled_cubsim_name = bc_setting_params["source"]
+                sim = params["global_simulation"]
+                coupled_subdomain_index = sim.subsim_name_index_map[coupled_cubsim_name]
+                coupled_subsim = sim.subsims[coupled_subdomain_index]
+                coupled_mesh = coupled_subsim.params["input_mesh"]
+                boundary_condition = SMSchwarzContactDirichletBC(input_mesh, coupled_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)                
             elseif bc_type == "Schwarz contact Neumann"
+                coupled_cubsim_name = bc_setting_params["source"]
+                sim = params["global_simulation"]
+                coupled_subdomain_index = sim.subsim_name_index_map[coupled_cubsim_name]
+                coupled_subsim = sim.subsims[coupled_subdomain_index]
+                coupled_mesh = coupled_subsim.params["input_mesh"]                
+                boundary_condition = SMSchwarzContactNeumannBC(input_mesh, coupled_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz Dirichlet"
             elseif bc_type == "Schwarz Neumann"
             else
@@ -245,14 +328,17 @@ function apply_bcs_orig(params::Dict{Any,Any}, model::SolidMechanics)
                 coupled_mesh = coupled_subsim.params["input_mesh"]
                 coupled_block_name = bc["source block"]
                 coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
-                coupled_side_set = bc["source side set"]
+                coupled_side_set_name = bc["source side set"]
+                coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
                 #loop over nodes on the contact side set to get Schwarz displacements
+                ss_node_index = 1
                 for side ∈ ss_num_nodes_per_side
                     side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
                     for node_index ∈ side_nodes
                         point = current[:, node_index]
                         find_element_for_transfer(point, coupled_mesh, coupled_block_id, coupled_side_set, model)
                     end
+                    ss_node_index += side
                 end    
             elseif bc_type == "Schwarz contact Neumann"
                 side_set_name = bc["side set"]
@@ -268,12 +354,17 @@ function apply_bcs_orig(params::Dict{Any,Any}, model::SolidMechanics)
                 coupled_block_name = bc["source block"]
                 coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
                 coupled_side_set = bc["source side set"]
+                coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
+                ss_node_index = 1
                 #loop over nodes on the contact side set to get Schwarz traction
                 for side ∈ ss_num_nodes_per_side
                     side_nodes = ss_nodes[ss_node_index:ss_node_index+side-1]
+                    side_node_index = 1
                     for node_index ∈ side_nodes
                         point = current[:, node_index]
+                        side_node_index += 1
                     end
+                    ss_node_index += side
                 end    
             end
         end
