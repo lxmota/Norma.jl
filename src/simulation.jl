@@ -3,7 +3,7 @@ import YAML
 include("simulation_def.jl")
 include("exodus.jl")
 include("model.jl")
-include("time.jl")
+include("time_integrator.jl")
 include("solver.jl")
 include("schwarz.jl")
 
