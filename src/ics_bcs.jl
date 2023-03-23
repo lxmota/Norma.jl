@@ -216,7 +216,7 @@ function create_bcs(params::Dict{Any,Any})
             elseif bc_type == "Schwarz Dirichlet"
             elseif bc_type == "Schwarz Neumann"
             else
-                error("Unknown BC type ", bc_type)
+                error("Unknown boundary condition type : ", bc_type)
             end
         end
     end
