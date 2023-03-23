@@ -37,6 +37,7 @@ function SolidMechanics(params::Dict{Any,Any})
     end
     time = 0.0
     failed = false
+    internal_force = zeros(3*num_nodes)
     boundary_tractions_force = zeros(3*num_nodes)
     boundary_conditions = create_bcs(params)
     free_dofs = trues(3 * num_nodes)
@@ -58,7 +59,7 @@ function SolidMechanics(params::Dict{Any,Any})
         stress[blk_index] = block_stress
     end
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
-        boundary_tractions_force, boundary_conditions, stress, free_dofs, time, failed)
+        internal_force, boundary_tractions_force, boundary_conditions, stress, free_dofs, time, failed)
 end
 
 function HeatConduction(params::Dict{Any,Any})
@@ -94,7 +95,8 @@ function HeatConduction(params::Dict{Any,Any})
     end
     time = 0.0
     failed = false
-    boundary_heat_flux = zeros(3*num_nodes)
+    internal_heat_flux = zeros(num_nodes)
+    boundary_heat_flux = zeros(num_nodes)
     boundary_conditions = create_bcs(params)
     free_dofs = trues(num_nodes)
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
@@ -114,8 +116,8 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
-    HeatConduction(input_mesh, materials, reference, temperature, rate, boundary_heat_flux,
-    boundary_conditions, flux, free_dofs, time, failed)
+    HeatConduction(input_mesh, materials, reference, temperature, rate, internal_heat_flux,
+    boundary_heat_flux, boundary_conditions, flux, free_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any,Any})
@@ -232,6 +234,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
         end
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
+    model.internal_force = internal_force
     return energy, internal_force, body_force, stiffness_matrix
 end
 
@@ -311,6 +314,7 @@ function evaluate(_::Newmark, model::SolidMechanics)
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
     mass_matrix = sparse(rows, cols, mass)
+    model.internal_force = internal_force
     return energy, internal_force, body_force, stiffness_matrix, mass_matrix
 end
 
@@ -439,6 +443,6 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             lumped_mass[elem_dofs] += element_lumped_mass
         end
     end
+    model.internal_force = internal_force
     return energy, internal_force, body_force, lumped_mass
 end
-

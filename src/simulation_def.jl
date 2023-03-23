@@ -1,3 +1,5 @@
+abstract type Simulation end
+
 include("constitutive_def.jl")
 include("exodus_def.jl")
 include("ics_bcs_def.jl")
@@ -5,8 +7,6 @@ include("model_def.jl")
 include("time_def.jl")
 include("solver_def.jl")
 include("schwarz_def.jl")
-
-abstract type Simulation end
 
 struct SingleDomainSimulation <: Simulation
     name::String

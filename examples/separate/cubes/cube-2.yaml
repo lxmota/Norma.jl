@@ -30,15 +30,8 @@ boundary conditions:
     - node set: nsz+
       component: z
       function: "1.0 * t"
-  Schwarz contact Dirichlet:
+  Schwarz contact:
     - side set: ssz-
-      component: z
-      source: "cuboid-1.yaml"
-      source block: domain_1
-      source side set: ssz+
-  Schwarz contact Neumann:
-    - side set: ssz-
-      component: z
       source: "cuboid-1.yaml"
       source block: domain_1
       source side set: ssz+

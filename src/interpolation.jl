@@ -165,6 +165,22 @@ function default_num_int_pts(element_type)
     end
 end
 
+function get_element_type(dim::Int64, num_nodes::Int64)
+    if dim == 1 && num_nodes == 2
+        return "BAR2"
+    elseif dim == 2 && num_nodes == 3
+        return "TRI3"
+    elseif dim == 2 && num_nodes == 4
+        return "QUAD4"
+    elseif dim == 3 && num_nodes == 4
+        return "TETRA4"
+    elseif dim == 3 && num_nodes == 8
+        return "HEX8"
+    else
+        error("Invalid dimension : ", dim, " and number of nodes : ", num_nodes)
+    end
+end
+
 #
 # Compute isoparametric interpolation functions, their parametric
 # derivatives and integration weights.
@@ -228,6 +244,17 @@ function gradient_operator(dNdX::Matrix{Float64})
         end
     end
     return B
+end
+
+function surface_3D_to_2D(vertices::Matrix{Float64})
+    _, num_nodes = size(vertices)
+    if num_nodes == 3
+        return triangle_3D_to_2D(vertices[:, 1], vertices[:, 2], vertices[:, 3])
+    elseif num_nodes == 4
+        return quadrilateral_3D_to_2D(vertices[:, 1], vertices[:, 2], vertices[:, 3], vertices[:, 4])
+    else
+        error("Unknown surface type with number of nodes : ", num_nodes)
+    end
 end
 
 function triangle_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64})
@@ -390,9 +417,10 @@ function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vecto
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_element_for_transfer(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set_id::Int64, model::SolidMechanics)
+function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set_id::Int64, model::SolidMechanics)
     elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
     elem_type = coupled_mesh.elem_type(blk_id)
+    point_new = point
     for blk_elem_index ∈ 1:num_blk_elems
         conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
         node_indices = elem_blk_conn[conn_indices]
@@ -401,22 +429,24 @@ function find_element_for_transfer(point::Vector{Float64}, coupled_mesh::PyObjec
         #if a point is inside an element, we will move it on the contact side
         if inside == true
             #call a function wich projects the point onto the contact boundary
-            point_new = project_onto_contact_surface(vertices, point, contact_side, model)
-        else
-            #return the point's initial position 
-            point_new = point
+            point_new = project_onto_contact_surface(point, coupled_side_set_id, coupled_mesh, model)
+            break
         end        
-    end       
+    end
+    if inside == false
+        error("Point : ", point, " not in contact")
+    end
+    return point_new, node_indices
 end
 
 function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_id::Int64, coupled_mesh::PyObject, model::SolidMechanics)
     #we assume that we know the contact surfaces in advance 
-    coupled_ss_num_nodes_per_side, coupled_ss_nodes = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
+    num_nodes_per_side, side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
     coupled_ss_node_index = 1
     minimum_distance = Inf
     point_new = point
-    for coupled_side ∈ coupled_ss_num_nodes_per_side
-        coupled_side_nodes = coupled_ss_nodes[coupled_ss_node_index:coupled_ss_node_index+coupled_side-1]
+    for coupled_side ∈ num_nodes_per_side
+        coupled_side_nodes = side_set_node_indices[coupled_ss_node_index:coupled_ss_node_index+coupled_side-1]
         coupled_side_coordinates = model.current[:, coupled_side_nodes]
         #plane 
         coordinates_A = coupled_side_coordinates[:, 1]
@@ -432,9 +462,36 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_i
             point_new = point - distance * n   
         end    
         minimum_distance = min(minimum_distance, abs(distance))
+        coupled_ss_node_index += coupled_side
     end
     #point_new: new points position
     return point_new
+end
+
+function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
+    num_nodes_per_side, side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
+    num_nodes = length(side_set_node_indices)
+    projection_square_matrix = zeros(num_nodes, num_nodes)
+    coupled_ss_node_index = 1
+    for side ∈ num_nodes_per_side
+        side_nodes = side_set_node_indices[coupled_ss_node_index:coupled_ss_node_index+side-1]
+        side_coordinates = model.reference[:, side_nodes]
+        plane_coordinates = surface_3D_to_2D(side_coordinates)
+        num_side_nodes = length(side)
+        element_type = get_element_type(2, num_side_nodes)
+        num_int_points = default_num_int_pts(element_type)
+        N, dNdξ, w = isoparametric(element_type, num_int_points)
+        side_matrix = zeros(num_side_nodes, num_side_nodes)
+        for point ∈ 1:num_int_points
+            Nₚ = N[:, point]
+            dNdξₚ = dNdξ[:, :, point]
+            dXdξ = dNdξₚ * plane_coordinates'
+            j = det(dXdξ)
+            wₚ = w[point]
+            side_matrix += Nₚ * Nₚ' * j * wₚ
+        end
+        coupled_ss_node_index += coupled_side
+    end
 end
 
 function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
