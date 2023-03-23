@@ -299,60 +299,44 @@ function quadrilateral_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vecto
     return coordinates
 end
 
-function get_side_set_nodal_forces(coordinates::Matrix{Float64}, traction_num::Num, time::Float64)
-    _, num_nodes = size(coordinates)
-    if num_nodes == 3
-        return get_triangle_nodal_forces(coordinates, traction_num, time)
-    elseif num_nodes == 4
-        return get_quadrilateral_nodal_forces(coordinates, traction_num, time)
-    else
-        error("Unknown side topology with number of nodes: ", num_nodes)
-    end
-end
-
 using Symbolics
 @variables t, x, y, z
 
-function get_triangle_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
-    A = nodal_coord[:, 1]
-    B = nodal_coord[:, 2]
-    C = nodal_coord[:, 3]
-    centroid = (A + B + C) / 3.0
-    two_dim_coord = triangle_3D_to_2D(A, B, C)
-    Nₚ, dNdξ, elem_weights = barycentricD2N3G1()
-    point = 1
-    dNdξₚ = dNdξ[:, :, point]
-    dXdξ = dNdξₚ * two_dim_coord'
-    j = det(dXdξ)
-    w = elem_weights[point]
-    values = Dict(t=>time, x=>centroid[1], y=>centroid[2], z=>centroid[3])
-    traction_sym = substitute(traction_num, values)
-    traction_val = extract_value(traction_sym)
-    nodal_force_component = traction_val * Nₚ * j * w
-    return nodal_force_component
-end
-
-function get_quadrilateral_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
-    A = nodal_coord[:, 1]
-    B = nodal_coord[:, 2]
-    C = nodal_coord[:, 3]
-    D = nodal_coord[:, 4]
-    centroid = (A + B + C + D) / 4.0
-    two_dim_coord = quadrilateral_3D_to_2D(A, B, C, D)
-    N, dNdξ, elem_weights = lagrangianD2N4G4()
-    g = sqrt(3.0) / 3.0
-    nodal_force_component = zeros(4)
-    for point ∈ 1:4
+function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
+    _, num_side_nodes = size(nodal_coord)
+    if num_side_nodes == 3
+        A = nodal_coord[:, 1]
+        B = nodal_coord[:, 2]
+        C = nodal_coord[:, 3]
+        centroid = (A + B + C) / 3.0
+        two_dim_coord = triangle_3D_to_2D(A, B, C)
+        g = 0.0
+    elseif num_side_nodes == 4
+        A = nodal_coord[:, 1]
+        B = nodal_coord[:, 2]
+        C = nodal_coord[:, 3]
+        D = nodal_coord[:, 4]
+        centroid = (A + B + C + D) / 4.0
+        two_dim_coord = quadrilateral_3D_to_2D(A, B, C, D)
+        g = sqrt(3.0) / 3.0
+    else
+        error("Unknown side topology with number of nodes: ", num_side_nodes)
+    end
+    element_type = get_element_type(2, num_side_nodes)
+    num_int_points = default_num_int_pts(element_type)
+    N, dNdξ, w = isoparametric(element_type, num_int_points)
+    nodal_force_component = zeros(num_side_nodes)
+    for point ∈ 1:num_int_points
         Nₚ = N[:, point]
         dNdξₚ = dNdξ[:, :, point]
         dXdξ = dNdξₚ * two_dim_coord'
         j = det(dXdξ)
-        w = elem_weights[point]
+        wₚ = w[point]
         point_coord = g * nodal_coord[:, point] + (1.0 - g) * centroid
         values = Dict(t=>time, x=>point_coord[1], y=>point_coord[2], z=>point_coord[3])
         traction_sym = substitute(traction_num, values)
         traction_val = extract_value(traction_sym)
-        nodal_force_component += traction_val * Nₚ * j * w
+        nodal_force_component += traction_val * Nₚ * j * wₚ
     end
     return nodal_force_component
 end
@@ -476,7 +460,7 @@ function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
     for side ∈ num_nodes_per_side
         side_nodes = side_set_node_indices[coupled_ss_node_index:coupled_ss_node_index+side-1]
         side_coordinates = model.reference[:, side_nodes]
-        plane_coordinates = surface_3D_to_2D(side_coordinates)
+        two_dim_coord = surface_3D_to_2D(side_coordinates)
         num_side_nodes = length(side)
         element_type = get_element_type(2, num_side_nodes)
         num_int_points = default_num_int_pts(element_type)
@@ -485,7 +469,7 @@ function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
         for point ∈ 1:num_int_points
             Nₚ = N[:, point]
             dNdξₚ = dNdξ[:, :, point]
-            dXdξ = dNdξₚ * plane_coordinates'
+            dXdξ = dNdξₚ * two_dim_coord'
             j = det(dXdξ)
             wₚ = w[point]
             side_matrix += Nₚ * Nₚ' * j * wₚ
