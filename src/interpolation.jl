@@ -378,7 +378,7 @@ function interpolate(element_type::String, ξ::Vector{Float64})
 end
 
 function is_inside_parametric(element_type::String, ξ::Vector{Float64})
-    tol = 1.0e-06
+    tol = 0.0
     # Shrink slightly so that if ξ is nearly inside it still counts as inside
     ξ *= (1.0 - tol)
     if element_type == "BAR2"
@@ -452,16 +452,22 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_i
     return point_new
 end
 
-function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
+function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Int64)
     num_nodes_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    map_global_to_local = Dict{Int64,Int64}()
-    coords = mesh.get_coords()
+    global_to_local_map = Dict{Int64,Int64}()
     for i ∈ 1:num_nodes
-        map_global_to_local[Int64(unique_node_indices[i])] = i
+        global_to_local_map[Int64(unique_node_indices[i])] = i
     end
-    projection_square_matrix = zeros(num_nodes, num_nodes)
+    return global_to_local_map, num_nodes_sides, side_set_node_indices
+end
+
+function get_square_projection_matrix(mesh::PyObject, side_set_id::Int64)
+    global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
+    num_nodes = length(global_to_local_map)
+    coords = mesh.get_coords()
+    square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
         side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
@@ -479,11 +485,43 @@ function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
             wₚ = w[point]
             side_matrix += Nₚ * Nₚ' * j * wₚ
         end
-        local_indices = get.(Ref(map_global_to_local), side_nodes, 0)
-        projection_square_matrix[local_indices, local_indices] += side_matrix
+        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        square_projection_matrix[local_indices, local_indices] += side_matrix
         side_set_node_index += num_nodes_side
     end
-    return projection_square_matrix
+    return square_projection_matrix
+end
+
+function get_rectangular_projection_matrix(src_mesh::PyObject, src_side_set_id::Int64, dst_mesh::PyObject, dst_side_set_id::Int64)
+    src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_global_to_local_map)
+    src_coords = src_mesh.get_coords()
+    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
+    dst_num_nodes = length(dst_global_to_local_map)
+    dst_coords = dst_mesh.get_coords()
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
+    side_set_node_index = 1
+    for num_nodes_side ∈ num_nodes_sides
+        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        side_coordinates = [coords[1][side_nodes]'; coords[2][side_nodes]'; coords[3][side_nodes]']
+        two_dim_coord = surface_3D_to_2D(side_coordinates)
+        element_type = get_element_type(2, Int64(num_nodes_side))
+        num_int_points = default_num_int_pts(element_type)
+        N, dNdξ, w = isoparametric(element_type, num_int_points)
+        side_matrix = zeros(num_nodes_side, num_nodes_side)
+        for point ∈ 1:num_int_points
+            Nₚ = N[:, point]
+            dNdξₚ = dNdξ[:, :, point]
+            dXdξ = dNdξₚ * two_dim_coord'
+            j = det(dXdξ)
+            wₚ = w[point]
+            side_matrix += Nₚ * Nₚ' * j * wₚ
+        end
+        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        rectangular_projection_matrix[local_indices, local_indices] += side_matrix
+        side_set_node_index += num_nodes_side
+    end
+    return rectangular_projection_matrix
 end
 
 function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
