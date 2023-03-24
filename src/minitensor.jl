@@ -1,10 +1,12 @@
 module MiniTensor
-export MTVector, MTTensor
+export MTVector, MTTensor, MTTensor3, MTTensor4
 
 using StaticArrays
 
 const MTVector = SVector{3,Float64}
 const MTTensor = SMatrix{3,3,Float64}
+const MTTensor3 = MArray{Tuple{3,3,3},Float64}
+const MTTensor4 = MArray{Tuple{3,3,3,3},Float64}
 
 #
 # Lie groups and Lie algebra utilities, mostly algebra of rotations
@@ -13,14 +15,14 @@ const MTTensor = SMatrix{3,3,Float64}
 #
 # Skew symmetric part of matrix
 #
-function skew(A)
+function skew(A::AbstractMatrix{Float64})
     return 0.5 * (A - A')
 end
 
 #
 # Convert rotation vector to skew symmetric tensor
 #
-function check(w)
+function check(w::AbstractVector{Float64})
     W = [0 -w[3] w[2]; w[3] 0 -w[1]; -w[2] w[1] 0]
     return W
 end
@@ -28,7 +30,7 @@ end
 #
 # Convert skew symmetric tensor to rotation vector
 #
-function uncheck(W)
+function uncheck(W::AbstractMatrix{Float64})
     W = skew(W)
     w = [W[3, 2], W[1, 3], W[2, 1]]
     return w
@@ -37,7 +39,7 @@ end
 #
 # Symmetric part of matrix
 #
-function symm(A)
+function symm(A::AbstractMatrix{Float64})
     return 0.5 * (A + A')
 end
 
@@ -64,7 +66,7 @@ end
 # product, Weyrauch, Michael and Scholz, Daniel, COMPUTER PHYSICS
 # COMMUNICATIONS, 2009, 180:9,1558-1565.
 #
-function BCH(x, y)
+function BCH(x::AbstractMatrix{Float64}, y::AbstractMatrix{Float64})
 
     z1 = x + y
 
@@ -213,7 +215,7 @@ end
 # quaternion.  After that, only divisions are needed and the divisor
 # should be bounded as far from zero as possible.
 #
-function QofRT(R)
+function QofRT(R::AbstractMatrix{Float64})
     trR = tr(R)
     maxm = trR
     maxi = 4
@@ -291,9 +293,9 @@ end
 #    |aa| = 2 * asin(|qv|)
 #    aa  = (|aa| / |qv|) qv
 #
-# whenever qs  is close to 1.
+# whenever qs is close to 1.
 #
-function RVofQ(qq)
+function RVofQ(qq::AbstractVector{Float64})
     if qq[1] >= 0
         q = qq
     else
@@ -323,7 +325,7 @@ end
 # Ψ     sin(x)/x           0    1.0(-x^2/6)     (6*EPS)^.5      (120*EPS)^.25
 #
 # ΨΧΤ
-function Ψ(x)
+function Ψ(x::Float64)
     y = abs(x)
     e2 = sqrt(eps())
     e4 = sqrt(e2)
@@ -346,7 +348,7 @@ end
 #   qv = sin(|aa| / 2) * aa / |aa|
 #   qs = cos(|aa| / 2)
 #
-function QofRV(aa)
+function QofRV(aa::AbstractVector{Float64})
     halfnorm = 0.5 * norm(aa)
     temp = 0.5 * Ψ(halfnorm)
     qq = zeros(4)
@@ -365,7 +367,7 @@ end
 #      + 2 * qs * check(qv)
 #      + (2 * qs^2 - 1) * I
 #
-function RTofQ(qq)
+function RTofQ(qq::AbstractVector{Float64})
     qs = qq[1]
     qv = [qq[2], qq[3], qq[4]]
     I = [1 0 0; 0 1 0; 0 0 1]
@@ -376,7 +378,7 @@ end
 #
 # Rotation pseudo-vector of rotation tensor
 #
-function RVofRT(R)
+function RVofRT(R::AbstractMatrix{Float64})
     q = QofRT(R)
     w = RVofQ(q)
     return w
@@ -385,7 +387,7 @@ end
 #
 # Rotation tensor of rotation pseudo-vector
 #
-function RTofRV(w)
+function RTofRV(w::AbstractVector{Float64})
     q = QofRV(w)
     R = RTofQ(q)
     return R
@@ -418,7 +420,7 @@ end
 # continuation vector should be the closest multiple of 2 π along
 # "prev"; hence "proj" and "unit" must satisfy "prev == proj * unit".
 #
-function RVcontin(old, prev)
+function RVcontin(old::AbstractVector{Float64}, prev::AbstractVector{Float64})
     norm_old = norm(old)
     if norm_old > 0.0
         unit = normalize(old)
