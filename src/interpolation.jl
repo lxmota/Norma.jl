@@ -453,19 +453,24 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_i
 end
 
 function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
-    num_nodes_per_side, side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
-    num_nodes = length(side_set_node_indices)
+    num_nodes_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+    unique_node_indices = unique(side_set_node_indices)
+    num_nodes = length(unique_node_indices)
+    map_global_to_local = Dict{Int64,Int64}()
+    coords = mesh.get_coords()
+    for i ∈ 1:num_nodes
+        map_global_to_local[Int64(unique_node_indices[i])] = i
+    end
     projection_square_matrix = zeros(num_nodes, num_nodes)
-    coupled_ss_node_index = 1
-    for side ∈ num_nodes_per_side
-        side_nodes = side_set_node_indices[coupled_ss_node_index:coupled_ss_node_index+side-1]
-        side_coordinates = model.reference[:, side_nodes]
+    side_set_node_index = 1
+    for num_nodes_side ∈ num_nodes_sides
+        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        side_coordinates = [coords[1][side_nodes]'; coords[2][side_nodes]'; coords[3][side_nodes]']
         two_dim_coord = surface_3D_to_2D(side_coordinates)
-        num_side_nodes = length(side)
-        element_type = get_element_type(2, num_side_nodes)
+        element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
         N, dNdξ, w = isoparametric(element_type, num_int_points)
-        side_matrix = zeros(num_side_nodes, num_side_nodes)
+        side_matrix = zeros(num_nodes_side, num_nodes_side)
         for point ∈ 1:num_int_points
             Nₚ = N[:, point]
             dNdξₚ = dNdξ[:, :, point]
@@ -474,8 +479,11 @@ function get_projection_square_matrix(mesh::PyObject, side_set_id::Int64)
             wₚ = w[point]
             side_matrix += Nₚ * Nₚ' * j * wₚ
         end
-        coupled_ss_node_index += coupled_side
+        local_indices = get.(Ref(map_global_to_local), side_nodes, 0)
+        projection_square_matrix[local_indices, local_indices] += side_matrix
+        side_set_node_index += num_nodes_side
     end
+    return projection_square_matrix
 end
 
 function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
