@@ -130,7 +130,7 @@ function node_set_id_from_name(node_set_name::String, mesh::PyObject)
     end
     node_set_ids = mesh.get_node_set_ids()
     node_set_id = node_set_ids[node_set_index]
-    return node_set_id
+    return Int64(node_set_id)
 end
 
 function side_set_id_from_name(side_set_name::String, mesh::PyObject)
@@ -148,7 +148,7 @@ function side_set_id_from_name(side_set_name::String, mesh::PyObject)
     end
     side_set_ids = mesh.get_side_set_ids()
     side_set_id = side_set_ids[side_set_index]
-    return side_set_id
+    return Int64(side_set_id)
 end
 
 function block_id_from_name(block_name::String, mesh::PyObject)
@@ -166,7 +166,7 @@ function block_id_from_name(block_name::String, mesh::PyObject)
     end
     block_ids = mesh.get_elem_blk_ids()
     block_id = block_ids[block_index]
-    return block_id
+    return Int64(block_id)
 end
 
 function component_offset_from_string(name::String)

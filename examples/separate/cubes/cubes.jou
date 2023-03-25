@@ -1,7 +1,7 @@
 ${side = 1.0}
 ${height = 1.0}
-${separation = 0.001}
-${h_fine = 0.25}
+${separation = 0.0}
+${h_fine = 0.5}
 ${h_coarse = 1.0}
 
 ${area = side * side}

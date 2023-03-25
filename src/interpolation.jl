@@ -405,6 +405,7 @@ function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, couple
     elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
     elem_type = coupled_mesh.elem_type(blk_id)
     point_new = point
+    inside = false
     for blk_elem_index ∈ 1:num_blk_elems
         conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
         node_indices = elem_blk_conn[conn_indices]
@@ -499,27 +500,136 @@ function get_rectangular_projection_matrix(src_mesh::PyObject, src_side_set_id::
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_mesh.get_coords()
+    dst_side_set_elems, _ = dst_mesh.get_side_set(dst_side_set_id)
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
-    side_set_node_index = 1
-    for num_nodes_side ∈ num_nodes_sides
-        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
-        side_coordinates = [coords[1][side_nodes]'; coords[2][side_nodes]'; coords[3][side_nodes]']
-        two_dim_coord = surface_3D_to_2D(side_coordinates)
-        element_type = get_element_type(2, Int64(num_nodes_side))
-        num_int_points = default_num_int_pts(element_type)
-        N, dNdξ, w = isoparametric(element_type, num_int_points)
-        side_matrix = zeros(num_nodes_side, num_nodes_side)
-        for point ∈ 1:num_int_points
-            Nₚ = N[:, point]
-            dNdξₚ = dNdξ[:, :, point]
-            dXdξ = dNdξₚ * two_dim_coord'
-            j = det(dXdξ)
-            wₚ = w[point]
-            side_matrix += Nₚ * Nₚ' * j * wₚ
+    src_side_set_node_index = 1
+    for src_num_nodes_side ∈ src_num_nodes_sides
+        src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
+        src_side_coordinates = [src_coords[1][src_side_nodes]'; src_coords[2][src_side_nodes]'; src_coords[3][src_side_nodes]']
+        src_two_dim_coord = surface_3D_to_2D(src_side_coordinates)
+        src_element_type = get_element_type(2, Int64(src_num_nodes_side))
+        src_num_int_points = default_num_int_pts(src_element_type)
+        src_N, src_dNdξ, src_w = isoparametric(src_element_type, src_num_int_points)
+        side_matrix = zeros(src_num_nodes_side, src_num_nodes_side)
+        for src_point ∈ 1:src_num_int_points
+            src_Nₚ = src_N[:, src_point]
+            src_dNdξₚ = src_dNdξ[:, :, src_point]
+            src_dXdξ = src_dNdξₚ * src_two_dim_coord'
+            src_j = det(src_dXdξ)
+            src_wₚ = src_w[src_point]
+            # find the physical coordinates of the integration point of the source sides
+            if src_num_nodes_side == 3
+                A = src_side_coordinates[:, 1]
+                B = src_side_coordinates[:, 2]
+                C = src_side_coordinates[:, 3]
+                centroid = (A + B + C) / 3.0
+                g = 0.0
+            elseif src_num_nodes_side == 4
+                A = src_side_coordinates[:, 1]
+                B = src_side_coordinates[:, 2]
+                C = src_side_coordinates[:, 3]
+                D = src_side_coordinates[:, 4]
+                centroid = (A + B + C + D) / 4.0
+                g = sqrt(3.0) / 3.0
+            end
+            src_int_point_coord = g * src_side_coordinates[:, src_point] + (1.0 - g) * centroid
+            #loop over the sides of the destination side set
+            dst_side_set_node_index = 1
+            dst_side_set_index = 1
+            inside = false
+            for dst_num_nodes_side ∈ dst_num_nodes_sides
+                dst_side_set_elem_index = dst_side_set_elems[dst_side_set_index]
+                dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
+                dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
+                dst_side_coordinates = [dst_coords[1][dst_side_nodes]'; dst_coords[2][dst_side_nodes]'; dst_coords[3][dst_side_nodes]']
+                dst_two_dim_coord = surface_3D_to_2D(dst_side_coordinates)
+                inside = is_inside(dst_element_type, dst_two_dim_coord, src_int_point_coord)
+                if inside == true
+                    dst_num_int_points = default_num_int_pts(dst_element_type)
+                    dst_N, dst_Na, dst_w = isoparametric(dst_element_type, dst_num_int_points)
+                    break
+                end
+                dst_side_set_node_index += dst_num_nodes_side
+                dst_side_set_index += 1
+            end
+            if inside == false
+                error("Point : ", src_point, " not in contact")
+            end
+            side_matrix += src_Nₚ * src_Nₚ' * src_j * src_wₚ
         end
-        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
-        rectangular_projection_matrix[local_indices, local_indices] += side_matrix
-        side_set_node_index += num_nodes_side
+        src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
+        dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
+        rectangular_projection_matrix[dst_local_indices, src_local_indices] += side_matrix
+        src_side_set_node_index += src_num_nodes_side
+    end
+    return rectangular_projection_matrix
+end
+
+function get_rectangular_projection_matrix_orig(src_mesh::PyObject, src_side_set_id::Int64, dst_mesh::PyObject, dst_side_set_id::Int64)
+    src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_global_to_local_map)
+    src_coords = src_mesh.get_coords()
+    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
+    dst_num_nodes = length(dst_global_to_local_map)
+    dst_coords = dst_mesh.get_coords()
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
+    src_side_set_node_index = 1
+    for src_num_nodes_side ∈ src_num_nodes_sides
+        src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
+        src_side_coordinates = [src_coords[1][src_side_nodes]'; src_coords[2][src_side_nodes]'; src_coords[3][src_side_nodes]']
+        src_two_dim_coord = surface_3D_to_2D(src_side_coordinates)
+        src_element_type = get_element_type(2, Int64(src_num_nodes_side))
+        src_num_int_points = default_num_int_pts(src_element_type)
+        src_N, src_dNdξ, src_w = isoparametric(src_element_type, src_num_int_points)
+        side_matrix = zeros(src_num_nodes_side, src_num_nodes_side)
+        for src_point ∈ 1:src_num_int_points
+            src_Nₚ = src_N[:, src_point]
+            src_dNdξₚ = src_dNdξ[:, :, src_point]
+            src_dXdξ = src_dNdξₚ * src_two_dim_coord'
+            src_j = det(src_dXdξ)
+            src_wₚ = src_w[src_point]
+            #find the reql coordinqtes of the integration point of the source sides
+            if src_num_nodes_side == 3
+                A = src_two_dim_coord[:, 1]
+                B = src_two_dim_coord[:, 2]
+                C = src_two_dim_coord[:, 3]
+                centroid = (A + B + C) / 3.0
+                g = 0.0
+            elseif src_num_nodes_side == 4
+                A = src_two_dim_coord[:, 1]
+                B = src_two_dim_coord[:, 2]
+                C = src_two_dim_coord[:, 3]
+                D = src_two_dim_coord[:, 4]
+                centroid = (A + B + C + D) / 4.0
+                g = sqrt(3.0) / 3.0
+            end
+            #from get_side_set_nodal_forces
+            src_point_coord = g * src_two_dim_coord[:, src_point] + (1.0 - g) * centroid
+            #loop over the sides of the destination side set
+            dst_side_set_node_index = 1
+            inside = false
+            for dst_num_nodes_side ∈ dst_num_nodes_sides
+                dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
+                dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
+                dst_side_coordinates = [dst_coords[1][dst_side_nodes]'; dst_coords[2][dst_side_nodes]'; dst_coords[3][dst_side_nodes]']
+                dst_two_dim_coord = surface_3D_to_2D(dst_side_coordinates)
+                inside = is_inside(dst_element_type, dst_two_dim_coord, src_point_coord)
+                if inside == true
+                    dst_num_int_points = default_num_int_pts(dst_element_type)
+                    dst_N, dst_Na, dst_w = isoparametric(dst_element_type, dst_num_int_points)
+                    break
+                end
+                dst_side_set_node_index += dst_num_nodes_side    
+            end
+            if inside == false
+                error("Point : ", src_point, " not in contact")
+            end
+            side_matrix += src_Nₚ * src_Nₚ' * src_j * src_wₚ
+        end
+        src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
+        dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
+        rectangular_projection_matrix[dst_local_indices, src_local_indices] += side_matrix
+        src_side_set_node_index += src_num_nodes_side
     end
     return rectangular_projection_matrix
 end
