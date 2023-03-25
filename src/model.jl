@@ -351,7 +351,7 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
-        M = estimate_p_wave_modulus(material)
+        M = get_p_wave_modulus(material)
         wave_speed = sqrt(M / ρ)
         minimum_blk_edge_length = Inf
         blk_id = elem_blk_ids[blk_index]
