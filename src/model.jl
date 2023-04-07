@@ -2,6 +2,19 @@ include("constitutive.jl")
 include("interpolation.jl")
 include("ics_bcs.jl")
 
+function create_elem_to_blk_map(mesh::PyObject)
+    num_blks = mesh.num_blks()
+    num_elem = mesh.num_elems()
+    elem_to_blk_map = zeros(Int64,num_elem)
+    for blk_id ∈ 1:num_blks
+        blk_elem_to_blk_map = mesh.get_block_id_map("EX_ELEM_BLOCK", blk_id)
+        for elem_id ∈ blk_elem_to_blk_map
+            elem_to_blk_map[elem_id] = blk_id
+        end
+    end
+    mesh.elem_to_blk_map = elem_to_blk_map
+end
+
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
@@ -58,6 +71,7 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         stress[blk_index] = block_stress
     end
+    create_elem_to_blk_map(input_mesh)
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
         internal_force, boundary_tractions_force, boundary_conditions, stress, free_dofs, time, failed)
 end
@@ -116,6 +130,7 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
+    create_elem_to_blk_map(input_mesh)
     HeatConduction(input_mesh, materials, reference, temperature, rate, internal_heat_flux,
     boundary_heat_flux, boundary_conditions, flux, free_dofs, time, failed)
 end
