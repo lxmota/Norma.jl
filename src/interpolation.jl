@@ -63,6 +63,67 @@ function barycentricD3N4G4()
     return N, dN, w
 end
 
+# Computes the nodes x and weights w
+# for n-point Gauss-Legendre quadrature.
+# Reference:
+# G. H. Golub and J. H. Welsch, Calculation of Gauss quadrature
+# rules, Math. Comp., 23(106):221-230, 1969.
+function gauss_legendre(n::Int64)
+    if n == 1
+        return zeros(1), 2.0 * ones(1)
+    elseif n == 2
+        g = sqrt(3.0 / 3.0)
+        return [-g, g], ones(2)
+    elseif n == 3
+        w = [5.0, 8.0, 5.0] / 9.0
+        g = sqrt(3.0 / 5.0)
+        ξ = [-g, 0, g]
+        return ξ, w
+    elseif n == 4
+        a = sqrt(3.0 / 7.0 + 2.0 * sqrt(6.0 / 5.0) / 7.0)
+        b = sqrt(3.0 / 7.0 - 2.0 * sqrt(6.0 / 5.0) / 7.0)
+        c = (18.0 - sqrt(30.0)) / 36.0
+        d = (18.0 + sqrt(30.0)) / 36.0
+        w = [c, d, d, c]
+        ξ = [-a, -b, b, a]
+        return ξ, w
+    end
+    i = 1:n-1
+    v = i ./ sqrt.(4.0 .* i .* i .- 1.0)
+    vv = eigen(diagm(1=>v, -1=>v))
+    ξ = vv.values
+    w = 2.0 * vv.vectors[1, :].^2
+    return ξ, w
+end
+
+function gauss_legendreD1(n::Int64)
+    return gauss_legendre(n)
+end
+
+function gauss_legendreD2(n::Int64)
+    if n ∉ [1, 4, 9]
+        error("Order must be in [1,4,9] : ", n)
+    end
+    if n == 1
+        return zeros(2, 1), 4.0 * ones(1)
+    elseif n == 4
+        w = ones(4)
+        g = sqrt(3.0) / 3.0
+        ξ = g * [-1  1  1 -1;
+                 -1 -1  1  1]
+        return ξ, w
+    elseif n == 9    
+        x, ω = gauss_legendreD1(3)
+        ξ = [x[1] x[3] x[3] x[1] x[2] x[3] x[2] x[1] x[2];
+             x[1] x[1] x[3] x[3] x[1] x[2] x[3] x[2] x[2]]
+        w = [ω[1]*ω[1], ω[3]*ω[1], ω[3]*ω[3], ω[1]*ω[3], ω[2]*ω[1], ω[3]*ω[2], ω[2]*ω[3], ω[1]*ω[2], ω[2]*ω[2]]
+    end
+end
+
+function gauss_legendreD1(n::Int64)
+    return gauss_legendre(n)
+end
+
 function lagrangianD1N2(ξ::Float64)
     N = [0.5 * (1.0 - ξ), 0.5 * (1.0 + ξ)]
     dN = [-0.5, 0.5]
@@ -70,20 +131,38 @@ function lagrangianD1N2(ξ::Float64)
 end
 
 function lagrangianD1N2G1()
-    w = 2.0 * ones(1)
     N = zeros(2, 1)
     dN = zeros(1, 2, 1)
-    N, dN[:, :, 1] = lagrangianD1N2(0.0)
+    ξ, w = gauss_legendreD1(1)
+    N, dN[:, :, 1] = lagrangianD1N2(ξ[1])
     return N, dN, w
 end
 
 function lagrangianD1N2G2()
-    w = ones(2)
     N = zeros(2, 2)
     dN = zeros(1, 2, 2)
-    g = sqrt(3.0) / 3.0
-    ξ = [-g, g]
+    ξ, w = gauss_legendreD1(2)
     for i ∈ 1:2
+        N[:, i], dN[:, :, i] = lagrangianD1N2(ξ[i])
+    end
+    return N, dN, w
+end
+
+function lagrangianD1N2G3()
+    N = zeros(2, 3)
+    dN = zeros(1, 2, 3)
+    ξ, w = gauss_legendreD1(3)
+    for i ∈ 1:3
+        N[:, i], dN[:, :, i] = lagrangianD1N2(ξ[i])
+    end
+    return N, dN, w
+end
+
+function lagrangianD1N2G4()
+    N = zeros(2, 4)
+    dN = zeros(1, 2, 4)
+    ξ, w = gauss_legendreD1(4)
+    for i ∈ 1:4
         N[:, i], dN[:, :, i] = lagrangianD1N2(ξ[i])
     end
     return N, dN, w
@@ -105,12 +184,19 @@ function lagrangianD2N4(ξ::Vector{Float64})
 end
 
 function lagrangianD2N4G4()
-    w = ones(4)
     N = zeros(4, 4)
     dN = zeros(2, 4, 4)
-    g = sqrt(3.0) / 3.0
-    ξ = g * [-1 1 1 -1
-        -1 -1 1 1]
+    ξ, w = gauss_legendreD2(4)
+    for i ∈ 1:4
+        N[:, i], dN[:, :, i] = lagrangianD2N4(ξ[:, i])
+    end
+    return N, dN, w
+end
+
+function lagrangianD2N4G9()
+    N = zeros(4, 9)
+    dN = zeros(2, 4, 9)
+    ξ, w = gauss_legendreD2(9)
     for i ∈ 1:4
         N[:, i], dN[:, :, i] = lagrangianD2N4(ξ[:, i])
     end
@@ -207,6 +293,8 @@ function isoparametric(element_type::String, num_int::Int64)
     elseif element_type == "QUAD4"
         if num_int == 4
             return lagrangianD2N4G4()
+        elseif num_int == 9
+            return lagrangianD2N4G9()
         else
             error(msg1, num_int, msg2, element_type)
         end
@@ -378,9 +466,6 @@ function interpolate(element_type::String, ξ::Vector{Float64})
 end
 
 function is_inside_parametric(element_type::String, ξ::Vector{Float64})
-    tol = 0.0
-    # Shrink slightly so that if ξ is nearly inside it still counts as inside
-    ξ *= (1.0 - tol)
     if element_type == "BAR2"
         return -1.0 ≤ ξ ≤ 1.0
     elseif element_type == "TRI3"

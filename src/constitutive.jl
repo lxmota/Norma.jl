@@ -46,6 +46,199 @@ struct Neohookean <: Solid
     end
 end
 
+struct J2 <: Solid
+    E::Float64
+    ν::Float64
+    κ::Float64
+    μ::Float64
+    ρ::Float64
+    Y₀::Float64
+    n::Float64
+    ε₀::Float64
+    Sᵥᵢₛ₀::Float64
+    m::Float64
+    ∂ε∂t₀::Float64
+    Cₚ::Float64
+    β::Float64
+    T₀::Float64
+    Tₘ::Float64
+    M::Float64
+    function J2(params::Dict{Any,Any})
+        E = params["elastic modulus"]
+        ν = params["Poisson's ratio"]
+        ρ = params["density"]
+        Y₀ = params["yield stress"]
+        n = get(params, "hardening exponent", 0.0)
+        ε₀ = get(params, "reference plastic strain", 0.0)
+        Sᵥᵢₛ₀ = get(params, "reference viscoplastic stress", 0.0)
+        m = get(params, "rate dependence exponent", 0.0)
+        ∂ε∂t₀ = get(params, "reference plastic strain rate", 0.0)
+        Cₚ = get(params, "specific heat capacity", 0.0)
+        β = get(params, "Taylor-Quinney coefficient", 0.0)
+        T₀ = get(params, "reference temperature", 0.0)
+        Tₘ = get(params, "melting temperature", 0.0)
+        M =get(params, "thermal softening exponent", 0.0)
+        κ = E / (1.0 - 2.0 * ν) / 3.0
+        μ = E / (1.0 + ν) / 2.0
+        new(E, ν, κ, μ, ρ, Y₀, n, ε₀, Sᵥᵢₛ₀, m, ∂ε∂t₀, Cₚ, β, T₀, Tₘ, M)
+    end
+end
+
+function temperature_multiplier(material::J2, T::Float64)
+    T₀ = material.T₀
+    Tₘ = material.Tₘ
+    M = material.M
+    M > 0.0 ? 1.0 - ((T - T₀) / (Tₘ - T₀))^M : 1.0
+end
+
+function hardening_potential(material::J2, ε::Float64)
+    Y₀ = material.Y₀
+    n = material.n
+    ε₀ = material.ε₀
+    exponent = (1.0 + n) / n
+    n > 0.0 ? Y₀ * ε₀ / exponent * ((1.0 + ε / ε₀)^exponent - 1.0) : Y₀ * ε
+end
+
+function hardening_rate(material::J2, ε::Float64)
+    Y₀ = material.Y₀
+    n = material.n
+    ε₀ = material.ε₀
+    exponent = (1.0 - n) / n
+    n > 0.0 ? Y₀ / ε₀ / n * (1.0 + ε / ε₀)^exponent : 0.0
+end
+
+function flow_strength(material::J2, ε::Float64)
+    Y₀ = material.Y₀
+    n = material.n
+    ε₀ = material.ε₀
+    n > 0.0 ? Y₀ * (1.0 + ε / ε₀)^(1.0 / n) : Y₀
+end
+
+function viscoplastic_dual_kinetic_potential(material::J2, Δε::Float64, Δt::Float64)
+    Sᵥᵢₛ₀ = material.Sᵥᵢₛ₀
+    m = material.m
+    ∂ε∂t₀ = material.∂ε∂t₀
+    exponent = (1.0 + m) / m
+    Sᵥᵢₛ₀ > 0.0 && Δt > 0.0 && Δε > 0.0 ? Δt * Sᵥᵢₛ₀ * ∂ε∂t₀ / exponent * (Δε / Δt / ∂ε∂t₀)^exponent : 0.0
+end
+
+function viscoplastic_stress(material::J2, Δε::Float64, Δt::Float64)
+    Sᵥᵢₛ₀ = material.Sᵥᵢₛ₀
+    m = material.m
+    ∂ε∂t₀ = material.∂ε∂t₀
+    Sᵥᵢₛ₀ > 0.0 && Δt > 0.0 && Δε > 0.0 ? Sᵥᵢₛ₀ / ∂ε∂t₀ / Δt / m * (Δε / Δt / ∂ε∂t₀)^((1.0 - m) / m) : 0.0
+end
+
+function viscoplastic_hardening_rate(material::J2, Δε::Float64, Δt::Float64)
+    Sᵥᵢₛ₀ = material.Sᵥᵢₛ₀
+    m = material.m
+    ∂ε∂t₀ = material.∂ε∂t₀
+    Sᵥᵢₛ₀ > 0.0 && Δt > 0.0 && Δε > 0.0 ? Sᵥᵢₛ₀ * (Δε / Δt / ∂ε∂t₀)^(1.0 / m) : 0.0
+end
+
+function vol(A::Matrix{Float64})
+    return tr(A) * I(3) / 3.0
+end
+
+function dev(A::Matrix{Float64})
+    return A - vol(A)
+end
+
+function stress_update(material::J2, F::Matrix{Float64}, Fᵖ::Matrix{Float64}, εᵖ::Float64, Δt::Float64)
+    max_rma_iter = 64
+    max_ls_iter = 64
+
+    κ = material.κ
+    μ = material.μ
+    λ = κ - 2.0 * μ / 3.0
+    J = det(F)
+
+    Fᵉ   = F * inv(Fᵖ)
+    Cᵉ   = Fᵉ' * Fᵉ
+    Eᵉ   = 0.5 * log(Cᵉ)
+    M    = λ * tr(Eᵉ) * I(3) + 2.0 * μ * Eᵉ
+    Mᵈᵉᵛ = dev(M)
+    σᵛᵐ  = sqrt(1.5) * norm(Mᵈᵉᵛ)
+    σᵛᵒˡ = κ * vol(Eᵉ)
+  
+    Y  = flow_strength(material, εᵖ)
+    r  = σᵛᵐ - Y
+    r0 = r
+  
+    Δεᵖ     = 0.0
+    r_tol   = 1e-10
+    Δεᵖ_tol = 1e-10
+
+    rma_iter  = 0
+    rma_converged = r ≤ r_tol
+    while rma_converged == false
+        if rma_iter == max_rma_iter
+            break
+        end
+        Δεᵖ₀       = Δεᵖ
+        merit_old  = r * r
+        H          = hardening_rate(material, εᵖ + Δεᵖ) + viscoplastic_hardening_rate(material, Δεᵖ, Δt)
+        ∂r         = -3.0 * μ - H
+        δεᵖ        = - r / ∂r
+  
+        # line search
+        ls_iter          = 0
+        α                = 1.0
+        backtrack_factor = 0.1
+        decrease_factor  = 1.0e-05
+        ls_converged     = false
+        while ls_converged == false
+            if ls_iter == max_ls_iter
+                # line search has failed to satisfactorily improve newton step
+                # just take the full newton step and hope for the best
+                α = 1
+                break
+            end
+            ls_iter += 1
+            Δεᵖ  = max(Δεᵖ₀ + α * δεᵖ, 0.0)
+            Y    = flow_strength(material, εᵖ + Δεᵖ) + viscoplastic_stress(material, Δεᵖ, Δt)
+            r    = σᵛᵐ - 3.0 * μ * Δεᵖ - Y
+    
+            merit_new    = r * r
+            decrease_tol = 1.0 - 2.0 * α * decrease_factor
+            if merit_new <= decrease_tol * merit_old
+                merit_old      = merit_new
+                ls_converged = true
+            else
+                α₀ = α
+                α  = α₀ * α₀ * merit_old / (merit_new - merit_old + 2.0 * α₀ * merit_old)
+                if backtrack_factor * α₀ > α
+                    α = backtrack_factor * α₀
+                end
+            end
+        end
+        rma_converged = abs(r / r0) < r_tol || Δεᵖ < Δεᵖ_tol
+        rma_iter += 1
+    end
+    if rma_converged == false
+        println("J2 stress update did not converge to specified tolerance")
+    end
+
+    Nᵖ  = σᵛᵐ > 0.0 ? 1.5 * Mᵈᵉᵛ / σᵛᵐ : zeros(3,3)
+    ΔFᵖ = exp(Δεᵖ * Nᵖ)
+    Fᵖ  = ΔFᵖ * Fᵖ
+    εᵖ  += Δεᵖ
+
+    ΔEᵉ  = Δεᵖ * Nᵖ
+    Mᵈᵉᵛ -= 2.0 * μ * ΔEᵉ
+    σᵛᵐ  = sqrt(1.5) * norm(Mᵈᵉᵛ)
+    σᵈᵉᵛ = inv(Fᵉ)' * Mᵈᵉᵛ * Fᵉ' / J
+    σ    = σᵈᵉᵛ + σᵛᵒˡ
+
+    eʸ   = (σᵛᵐ - Y) / Y
+    Fᵉ   = F * inv(Fᵖ)  
+    Cᵉ   = Fᵉ' * Fᵉ
+    Eᵉ   = 0.5 * log(Cᵉ)
+    M    = λ * tr(Eᵉ) * I(3) + 2.0 * μ * Eᵉ
+    eᴹ   = norm(Mᵈᵉᵛ - dev(M)) / norm(Mᵈᵉᵛ)
+    return Fᵉ, Fᵖ, εᵖ, σ
+end
+
 struct Linear_Isotropic <: Thermal
     κ::Float64
     function Linear_Isotropic(params::Dict{Any,Any})
