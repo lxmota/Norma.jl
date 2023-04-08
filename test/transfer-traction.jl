@@ -1,3 +1,10 @@
+using LinearAlgebra
+using Statistics
+using Test
+
+include("../src/norma.jl")
+include("helpers.jl")
+
 @testset "transfer-traction" begin
     Exodus=Norma.exodus_module()
     src_mesh = Exodus.exodus("../examples/separate/transfer_tests/cube_fine.g")
