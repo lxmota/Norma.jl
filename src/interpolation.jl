@@ -1,7 +1,7 @@
 function barycentricD2N3(ξ::Vector{Float64})
     N = [1.0 - ξ[1] - ξ[2], ξ[1], ξ[2]]
-    dN = [-1 1 0
-        -1 0 1] / 1.0
+    dN = [-1 1 0;
+          -1 0 1] / 1.0
     return N, dN
 end
 
@@ -9,7 +9,7 @@ function barycentricD2N3G1()
     w = 0.5 * ones(1)
     N = zeros(3, 1)
     dN = zeros(2, 3, 1)
-    ξ = ones(2) / 3.0
+    ξ = ones(2) / 3
     N, dN[:, :, 1] = barycentricD2N3(ξ)
     return N, dN, w
 end
@@ -18,23 +18,44 @@ function barycentricD2N3G3()
     w = ones(3) / 6.0
     N = zeros(3, 3)
     dN = zeros(2, 3, 3)
-    ξ = [4 1 1 1
-        1 4 1 1
-        1 1 4 1] / 6.0
-    for i ∈ 1:3
-        N[:, i], dN[:, :, i] = barycentricD2N3(ξ[:, i])
+    ξ = [4 1 1 1;
+         1 4 1 1;
+         1 1 4 1] / 6
+    for p ∈ 1:3
+        N[:, p], dN[:, :, p] = barycentricD2N3(ξ[:, p])
     end
     return N, dN, w
 end
 
 function barycentricD3N4(ξ::Vector{Float64})
-    N = [1.0 - ξ[1] - ξ[2] - ξ[3],
+    N = [1 - ξ[1] - ξ[2] - ξ[3],
         ξ[1],
         ξ[2],
         ξ[3]]
-    dN = [-1 1 0 0
-        -1 0 1 0
-        -1 0 0 1] / 1.0
+    dN = [-1 1 0 0;
+          -1 0 1 0;
+          -1 0 0 1] / 1.0
+    return N, dN
+end
+
+function barycentricD3N10(ξ::Vector{Float64})
+    t1 = 1 - ξ[1] - ξ[2] - ξ[3]
+    t2 = ξ[1]
+    t3 = ξ[2]
+    t4 = ξ[3]
+    N = [t1 * (2 * t1 - 1),
+        t2 * (2 * t2 - 1),
+        t3 * (2 * t3 - 1),
+        t4 * (2 * t4 - 1),
+        4 * t1 * t2,
+        4 * t3 * t3,
+        4 * t3 * t1,
+        4 * t1 * t4,
+        4 * t2 * t4,
+        4 * t3 * t4]
+    dN = [1-4*t1 4*t2-1 0 0 4*(t1-t2) 4*t3 -4*t3 -4*t4 4*t4 0;
+          1-4*t1 0 4*t3-1 0 -4*t2 4*t2 4*(t1-t3) -4*t4 0 4*t4;
+          1-4*t1 0 0 4*t4-1 -4*t2 0 -4*t3 4*(t1-t4) 4*t2 4*t3]
     return N, dN
 end
 
@@ -54,11 +75,42 @@ function barycentricD3N4G4()
     s = sqrt(5.0)
     a = 5.0 + 3.0 * s
     b = 5.0 - s
-    ξ = [a b b b
-        b a b b
-        b b a b] / 20.0
-    for i ∈ 1:4
-        N[:, i], dN[:, :, i] = barycentricD3N4(ξ[:, i])
+    ξ = [b a b b
+         b b a b
+         b b b a] / 20.0
+    for p ∈ 1:4
+        N[:, p], dN[:, :, p] = barycentricD3N4(ξ[:, p])
+    end
+    return N, dN, w
+end
+
+function barycentricD3N10G4()
+    w = ones(4) / 24.0
+    N = zeros(10, 4)
+    dN = zeros(3, 10, 4)
+    s = sqrt(5.0)
+    a = 5.0 + 3.0 * s
+    b = 5.0 - s
+    ξ = [b a b b
+         b b a b
+         b b b a] / 20.0
+    for p ∈ 1:4
+        N[:, p], dN[:, :, p] = barycentricD3N4(ξ[:, p])
+    end
+    return N, dN, w
+end
+
+function barycentricD3N10G5()
+    a = -2/15
+    b = 3/40
+    w = [a b b b b]
+    N = zeros(10, 5)
+    dN = zeros(3, 10, 5)
+    ξ = [1/4 1/6 1/6 1/6 1/2
+         1/4 1/6 1/6 1/2 1/6
+         1/4 1/6 1/2 1/6 1/6]
+    for p ∈ 1:5
+        N[:, p], dN[:, :, p] = barycentricD3N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -142,8 +194,8 @@ function lagrangianD1N2G2()
     N = zeros(2, 2)
     dN = zeros(1, 2, 2)
     ξ, w = gauss_legendreD1(2)
-    for i ∈ 1:2
-        N[:, i], dN[:, :, i] = lagrangianD1N2(ξ[i])
+    for p ∈ 1:2
+        N[:, p], dN[:, :, p] = lagrangianD1N2(ξ[p])
     end
     return N, dN, w
 end
@@ -152,8 +204,8 @@ function lagrangianD1N2G3()
     N = zeros(2, 3)
     dN = zeros(1, 2, 3)
     ξ, w = gauss_legendreD1(3)
-    for i ∈ 1:3
-        N[:, i], dN[:, :, i] = lagrangianD1N2(ξ[i])
+    for p ∈ 1:3
+        N[:, p], dN[:, :, p] = lagrangianD1N2(ξ[p])
     end
     return N, dN, w
 end
@@ -162,8 +214,8 @@ function lagrangianD1N2G4()
     N = zeros(2, 4)
     dN = zeros(1, 2, 4)
     ξ, w = gauss_legendreD1(4)
-    for i ∈ 1:4
-        N[:, i], dN[:, :, i] = lagrangianD1N2(ξ[i])
+    for p ∈ 1:4
+        N[:, p], dN[:, :, p] = lagrangianD1N2(ξ[p])
     end
     return N, dN, w
 end
@@ -175,10 +227,10 @@ function lagrangianD2N4(ξ::Vector{Float64})
     sa = [-1 -1 1 1] / 1.0
     N = zeros(4)
     dN = zeros(2, 4)
-    for i ∈ 1:4
-        N[i] = 0.25 * (1.0 + ra[i] * r) * (1.0 + sa[i] * s)
-        dN[1, i] = 0.25 * ra[i] * (1 + sa[i] * s)
-        dN[2, i] = 0.25 * (1 + ra[i] * r) * sa[i]
+    for p ∈ 1:4
+        N[p] = 0.25 * (1.0 + ra[p] * r) * (1.0 + sa[p] * s)
+        dN[1, p] = 0.25 * ra[p] * (1 + sa[p] * s)
+        dN[2, p] = 0.25 * (1 + ra[p] * r) * sa[p]
     end
     return N, dN
 end
@@ -187,8 +239,8 @@ function lagrangianD2N4G4()
     N = zeros(4, 4)
     dN = zeros(2, 4, 4)
     ξ, w = gauss_legendreD2(4)
-    for i ∈ 1:4
-        N[:, i], dN[:, :, i] = lagrangianD2N4(ξ[:, i])
+    for p ∈ 1:4
+        N[:, p], dN[:, :, p] = lagrangianD2N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -197,8 +249,8 @@ function lagrangianD2N4G9()
     N = zeros(4, 9)
     dN = zeros(2, 4, 9)
     ξ, w = gauss_legendreD2(9)
-    for i ∈ 1:4
-        N[:, i], dN[:, :, i] = lagrangianD2N4(ξ[:, i])
+    for p ∈ 1:4
+        N[:, p], dN[:, :, p] = lagrangianD2N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -212,11 +264,11 @@ function lagrangianD3N8(ξ::Vector{Float64})
     ta = [-1 -1 -1 -1 1 1 1 1] / 1.0
     N = zeros(8)
     dN = zeros(3, 8)
-    for i ∈ 1:8
-        N[i] = 0.125 * (1.0 + ra[i] * r) * (1.0 + sa[i] * s) * (1.0 + ta[i] * t)
-        dN[1, i] = 0.125 * ra[i] * (1.0 + sa[i] * s) * (1.0 + ta[i] * t)
-        dN[2, i] = 0.125 * (1.0 + ra[i] * r) * sa[i] * (1.0 + ta[i] * t)
-        dN[3, i] = 0.125 * (1.0 + ra[i] * r) * (1.0 + sa[i] * s) * ta[i]
+    for p ∈ 1:8
+        N[p] = 0.125 * (1.0 + ra[p] * r) * (1.0 + sa[p] * s) * (1.0 + ta[p] * t)
+        dN[1, p] = 0.125 * ra[p] * (1.0 + sa[p] * s) * (1.0 + ta[p] * t)
+        dN[2, p] = 0.125 * (1.0 + ra[p] * r) * sa[p] * (1.0 + ta[p] * t)
+        dN[3, p] = 0.125 * (1.0 + ra[p] * r) * (1.0 + sa[p] * s) * ta[p]
     end
     return N, dN
 end
@@ -229,8 +281,8 @@ function lagrangianD3N8G8()
     ξ = g * [-1 1 1 -1 -1 1 1 -1
         -1 -1 1 1 -1 -1 1 1
         -1 -1 -1 -1 1 1 1 1]
-    for i ∈ 1:8
-        N[:, i], dN[:, :, i] = lagrangianD3N8(ξ[:, i])
+    for p ∈ 1:8
+        N[:, p], dN[:, :, p] = lagrangianD3N8(ξ[:, p])
     end
     return N, dN, w
 end
@@ -244,6 +296,8 @@ function default_num_int_pts(element_type)
         return 4
     elseif element_type == "TETRA4"
         return 1
+    elseif element_type == "TETRA10"
+        return 4
     elseif element_type == "HEX8"
         return 8
     else
@@ -260,6 +314,8 @@ function get_element_type(dim::Int64, num_nodes::Int64)
         return "QUAD4"
     elseif dim == 3 && num_nodes == 4
         return "TETRA4"
+    elseif dim == 3 && num_nodes == 10
+        return "TETRA10"
     elseif dim == 3 && num_nodes == 8
         return "HEX8"
     else
@@ -303,6 +359,14 @@ function isoparametric(element_type::String, num_int::Int64)
             return barycentricD3N4G1()
         elseif num_int == 4
             return barycentricD3N4G4()
+        else
+            error(msg1, num_int, msg2, element_type)
+        end
+    elseif element_type == "TETRA10"
+        if num_int == 4
+            return barycentricD3N10G4()
+        elseif num_int == 5
+            return barycentricD3N10G5()
         else
             error(msg1, num_int, msg2, element_type)
         end
@@ -458,6 +522,8 @@ function interpolate(element_type::String, ξ::Vector{Float64})
         return lagrangianD2N4(ξ)
     elseif element_type == "TETRA4"
         return barycentricD3N4(ξ)
+    elseif element_type == "TETRA10"
+        return barycentricD3N10(ξ)
     elseif element_type == "HEX8"
         return lagrangianD3N8(ξ)
     else
@@ -472,7 +538,7 @@ function is_inside_parametric(element_type::String, ξ::Vector{Float64})
         return reduce(*, zeros(2) .≤ ξ .≤ ones(2))
     elseif element_type == "QUAD4"
         return reduce(*, -ones(2) .≤ ξ .≤ ones(2))
-    elseif element_type == "TETRA4"
+    elseif element_type == "TETRA4" || element_type == "TETRA10"
         return reduce(*, zeros(3) .≤ ξ .≤ ones(3))
     elseif element_type == "HEX8"
         return reduce(*, -ones(3) .≤ ξ .≤ ones(3))
