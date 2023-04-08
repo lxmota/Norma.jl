@@ -42,7 +42,7 @@ function barycentricD3N4G1()
     w = ones(1) / 6.0
     N = zeros(4, 1)
     dN = zeros(3, 4, 1)
-    ξ = 0.25 * ones(3, 1)
+    ξ = 0.25 * ones(3)
     N, dN[:, :, 1] = barycentricD3N4(ξ)
     return N, dN, w
 end
