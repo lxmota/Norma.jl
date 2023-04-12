@@ -44,15 +44,15 @@ function barycentricD3N10(ξ::Vector{Float64})
     t3 = ξ[2]
     t4 = ξ[3]
     N = [t1 * (2 * t1 - 1),
-        t2 * (2 * t2 - 1),
-        t3 * (2 * t3 - 1),
-        t4 * (2 * t4 - 1),
-        4 * t1 * t2,
-        4 * t3 * t3,
-        4 * t3 * t1,
-        4 * t1 * t4,
-        4 * t2 * t4,
-        4 * t3 * t4]
+         t2 * (2 * t2 - 1),
+         t3 * (2 * t3 - 1),
+         t4 * (2 * t4 - 1),
+         4 * t1 * t2,
+         4 * t3 * t3,
+         4 * t3 * t1,
+         4 * t1 * t4,
+         4 * t2 * t4,
+         4 * t3 * t4]
     dN = [1-4*t1 4*t2-1 0 0 4*(t1-t2) 4*t3 -4*t3 -4*t4 4*t4 0;
           1-4*t1 0 4*t3-1 0 -4*t2 4*t2 4*(t1-t3) -4*t4 0 4*t4;
           1-4*t1 0 0 4*t4-1 -4*t2 0 -4*t3 4*(t1-t4) 4*t2 4*t3]
@@ -95,7 +95,7 @@ function barycentricD3N10G4()
          b b a b
          b b b a] / 20.0
     for p ∈ 1:4
-        N[:, p], dN[:, :, p] = barycentricD3N4(ξ[:, p])
+        N[:, p], dN[:, :, p] = barycentricD3N10(ξ[:, p])
     end
     return N, dN, w
 end
