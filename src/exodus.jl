@@ -11,5 +11,5 @@ function exodus_module()
     homepath = get(ENV, "HOME", "")
     exoduspath = homepath * "/exodus/archie/install/seacas/lib"
     push!(pyimport("sys")."path", exoduspath)
-    pyimport("exodus")
+    pyimport("exodus3")
 end
