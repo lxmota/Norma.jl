@@ -141,6 +141,12 @@ function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vect
     end
 end
 
+function save_history_snapshot(schwarz_controller::SchwarzController, sims::Vector{SingleDomainSimulation}, subsim_index::Int64, stop_index::Int64)
+    schwarz_controller.disp_hist[subsim_index][stop_index] = sims[subsim_index].integrator.displacement
+    schwarz_controller.velo_hist[subsim_index][stop_index] = sims[subsim_index].integrator.velocity
+    schwarz_controller.acce_hist[subsim_index][stop_index] = sims[subsim_index].integrator.acceleration
+end
+
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)
     return is_schwarz_converged(sim.schwarz_controller, sim.subsims)
 end
