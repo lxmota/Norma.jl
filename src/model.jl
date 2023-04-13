@@ -147,12 +147,12 @@ function create_model(params::Dict{Any,Any})
     end
 end
 
-function voigt_cauchy_from_stress(_::Any, P::MTTensor, F::MTTensor, J::Float64)
+function voigt_cauchy_from_stress(_::Solid, P::Matrix{Float64}, F::Matrix{Float64}, J::Float64)
     σ = F * P' ./ J
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
-function voigt_cauchy_from_stress(_::Linear_Elastic, σ::MTTensor, _::MTTensor, _::Float64)
+function voigt_cauchy_from_stress(_::Linear_Elastic, σ::Matrix{Float64}, _::Matrix{Float64}, _::Float64)
     return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
 end
 
@@ -232,7 +232,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
                     error("evaluation of model has failed with a non-positive Jacobian")
                     return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof)
                 end
-                F = MTTensor(dxdX)
+                F = dxdX
                 W, P, A = constitutive(material, F)
                 stress = P[1:9]
                 moduli = second_from_fourth(A)
@@ -307,7 +307,7 @@ function evaluate(_::Newmark, model::SolidMechanics)
                     error("evaluation of model has failed with a non-positive Jacobian")
                     return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof), spzeros(num_dof, num_dof)
                 end
-                F = MTTensor(dxdX)
+                F = dxdX
                 W, P, A = constitutive(material, F)
                 stress = P[1:9]
                 moduli = second_from_fourth(A)
@@ -439,7 +439,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
                     error("evaluation of model has failed with a non-positive Jacobian")
                     return 0.0, zeros(num_dof), zeros(num_dof), zeros(num_dof)
                 end
-                F = MTTensor(dxdX)
+                F = dxdX
                 W, P, _ = constitutive(material, F)
                 stress = P[1:9]
                 w = elem_weights[point]

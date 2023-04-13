@@ -202,7 +202,7 @@ function stress_update(material::J2, F::Matrix{Float64}, Fᵖ::Matrix{Float64}, 
             merit_new    = r * r
             decrease_tol = 1.0 - 2.0 * α * decrease_factor
             if merit_new <= decrease_tol * merit_old
-                merit_old      = merit_new
+                merit_old    = merit_new
                 ls_converged = true
             else
                 α₀ = α
@@ -247,12 +247,13 @@ struct Linear_Isotropic <: Thermal
     end
 end
 
-function odot(A::MTTensor, B::MTTensor)
-    C = MTTensor4(undef)
-    for a ∈ 1:3
-        for b ∈ 1:3
-            for c ∈ 1:3
-                for d ∈ 1:3
+function odot(A::Matrix{Float64}, B::Matrix{Float64})
+    n, _ = size(A)
+    C = zeros(n, n, n, n)
+    for a ∈ 1:n
+        for b ∈ 1:n
+            for c ∈ 1:n
+                for d ∈ 1:n
                     C[a, b, c, d] = A[a, c] * B[b, d] + A[a, d] * B[b, c]
                 end
             end
@@ -262,12 +263,13 @@ function odot(A::MTTensor, B::MTTensor)
     return C
 end
 
-function ox(A::MTTensor, B::MTTensor)
-    C = MTTensor4(undef)
-    for a ∈ 1:3
-        for b ∈ 1:3
-            for c ∈ 1:3
-                for d ∈ 1:3
+function ox(A::Matrix{Float64}, B::Matrix{Float64})
+    n, _ = size(A)
+    C = zeros(n, n, n, n)
+    for a ∈ 1:n
+        for b ∈ 1:n
+            for c ∈ 1:n
+                for d ∈ 1:n
                     C[a, b, c, d] = A[a, b] * B[c, d]
                 end
             end
@@ -276,12 +278,13 @@ function ox(A::MTTensor, B::MTTensor)
     return C
 end
 
-function oxI(A::MTTensor)
-    C = MTTensor4(undef)
-    for a ∈ 1:3
-        for b ∈ 1:3
-            for c ∈ 1:3
-                for d ∈ 1:3
+function oxI(A::Matrix{Float64})
+    n, _ = size(A)
+    C = zeros(n, n, n, n)
+    for a ∈ 1:n
+        for b ∈ 1:n
+            for c ∈ 1:n
+                for d ∈ 1:n
                     C[a, b, c, d] = A[a, b] * I[c, d]
                 end
             end
@@ -290,12 +293,13 @@ function oxI(A::MTTensor)
     return C
 end
 
-function Iox(B::MTTensor)
-    C = MTTensor4(undef)
-    for a ∈ 1:3
-        for b ∈ 1:3
-            for c ∈ 1:3
-                for d ∈ 1:3
+function Iox(B::Matrix{Float64})
+    n, _ = size(A)
+    C = zeros(n, n, n, n)
+    for a ∈ 1:n
+        for b ∈ 1:n
+            for c ∈ 1:n
+                for d ∈ 1:n
                     C[a, b, c, d] = I[a, b] * B[c, d]
                 end
             end
@@ -304,15 +308,16 @@ function Iox(B::MTTensor)
     return C
 end
 
-function convect_tangent(CC::MTTensor4, S::MTTensor, F::MTTensor)
-    AA = MTTensor4(undef)
-    for i ∈ 1:3
-        for j ∈ 1:3
-            for k ∈ 1:3
-                for l ∈ 1:3
+function convect_tangent(CC::Array{Float64}, S::Matrix{Float64}, F::Matrix{Float64})
+    n, _ = size(F)
+    AA = zeros(n, n, n, n)
+    for i ∈ 1:n
+        for j ∈ 1:n
+            for k ∈ 1:n
+                for l ∈ 1:n
                     s = 0.0
-                    for p ∈ 1:3
-                        for q ∈ 1:3
+                    for p ∈ 1:n
+                        for q ∈ 1:n
                             s = s + F[i, p] * CC[p, j, l, q] * F[k, q]
                         end
                     end
@@ -324,14 +329,15 @@ function convect_tangent(CC::MTTensor4, S::MTTensor, F::MTTensor)
     return AA
 end
 
-function second_from_fourth(AA::MTTensor4)
-    A = zeros(9, 9)
-    for i ∈ 1:3
-        for j ∈ 1:3
-            p = 3 * (i - 1) + j
-            for k ∈ 1:3
-                for l ∈ 1:3
-                    q = 3 * (k - 1) + l
+function second_from_fourth(AA::Array{Float64})
+    n, _, _, _ = size(AA)
+    A = zeros(n * n, n * n)
+    for i ∈ 1:n
+        for j ∈ 1:n
+            p = n * (i - 1) + j
+            for k ∈ 1:n
+                for l ∈ 1:n
+                    q = n * (k - 1) + l
                     A[p, q] = AA[i, j, k, l]
                 end
             end
@@ -340,7 +346,7 @@ function second_from_fourth(AA::MTTensor4)
     return A
 end
 
-function constitutive(material::SaintVenant_Kirchhoff, F::MTTensor)
+function constitutive(material::SaintVenant_Kirchhoff, F::Matrix{Float64})
     C = F' * F
     E = 0.5 * (C - I)
     λ = material.λ
@@ -348,7 +354,7 @@ function constitutive(material::SaintVenant_Kirchhoff, F::MTTensor)
     trE = tr(E)
     W = 0.5 * λ * trE * trE + μ * tr(E * E)
     S = λ * trE * I + 2.0 * μ * E
-    CC = MTTensor4(undef)
+    CC = zeros(3, 3, 3, 3)
     for i = 1:3
         for j = 1:3
             δᵢⱼ = I[i, j]
@@ -366,7 +372,7 @@ function constitutive(material::SaintVenant_Kirchhoff, F::MTTensor)
     return W, P, AA
 end
 
-function constitutive(material::Linear_Elastic, F::MTTensor)
+function constitutive(material::Linear_Elastic, F::Matrix{Float64})
     ∇u = F - I
     ϵ = MiniTensor.symm(∇u)
     λ = material.λ
@@ -374,7 +380,7 @@ function constitutive(material::Linear_Elastic, F::MTTensor)
     trϵ = tr(ϵ)
     W = 0.5 * λ * trϵ * trϵ + μ * tr(ϵ * ϵ)
     σ = λ * trϵ * I + 2.0 * μ * ϵ
-    CC = MTTensor4(undef)
+    CC = zeros(3, 3, 3, 3)
     for i = 1:3
         for j = 1:3
             δᵢⱼ = I[i, j]
@@ -390,7 +396,7 @@ function constitutive(material::Linear_Elastic, F::MTTensor)
     return W, σ, CC
 end
 
-function constitutive(material::Neohookean, F::MTTensor)
+function constitutive(material::Neohookean, F::Matrix{Float64})
     C = F' * F
     J2 = det(C)
     Jm23 = 1.0 / cbrt(J2)

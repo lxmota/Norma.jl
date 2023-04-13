@@ -1,12 +1,4 @@
 module MiniTensor
-export MTVector, MTTensor, MTTensor3, MTTensor4
-
-using StaticArrays
-
-const MTVector = SVector{3,Float64}
-const MTTensor = SMatrix{3,3,Float64}
-const MTTensor3 = MArray{Tuple{3,3,3},Float64}
-const MTTensor4 = MArray{Tuple{3,3,3,3},Float64}
 
 #
 # Lie groups and Lie algebra utilities, mostly algebra of rotations
