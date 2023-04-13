@@ -17,7 +17,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_velo = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_acce = Vector{Vector{Float64}}(undef, num_domains)
-    time_hist = Vector{Float64}(undef, num_domains)
+    time_hist = Vector{Vector{Float64}}(undef, num_domains)
     disp_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     velo_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     acce_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
@@ -76,6 +76,7 @@ function restore_stop_solutions(schwarz_controller::SolidSchwarzController, sims
         sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
         sims[i].integrator.velocity = schwarz_controller.stop_velo[i]
         sims[i].integrator.acceleration = schwarz_controller.stop_acce[i]
+        copy_solution_source_targets(sims[i].integrator, sims[i].solver, sims[i].model)
     end
 end
 
@@ -124,11 +125,15 @@ end
 function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
         num_steps = round(Int64, sims[i].integrator.time_step / schwarz_controller.time_step)
-        sims[i].integrator.time_step = schwarz_controller.time_step / num_steps
-        resize!(schwarz_controller.disp_hist[i], num_steps)
-        resize!(schwarz_controller.velo_hist[i], num_steps)
-        resize!(schwarz_controller.acce_hist[i], num_steps)
-        for j ∈ 1:num_steps
+        Δt = schwarz_controller.time_step / num_steps
+        num_stops = num_steps + 1
+        sims[i].integrator.time_step = Δt
+        resize!(schwarz_controller.time_hist[i], num_stops)
+        resize!(schwarz_controller.disp_hist[i], num_stops)
+        resize!(schwarz_controller.velo_hist[i], num_stops)
+        resize!(schwarz_controller.acce_hist[i], num_stops)
+        for j ∈ 1:num_stops
+            schwarz_controller.time_hist[i][j] = schwarz_controller.prev_time + (j - 1) * Δt
             schwarz_controller.disp_hist[i][j] = schwarz_controller.stop_disp[i]
             schwarz_controller.velo_hist[i][j] = schwarz_controller.stop_velo[i]
             schwarz_controller.acce_hist[i][j] = schwarz_controller.stop_acce[i]

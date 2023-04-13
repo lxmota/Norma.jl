@@ -21,7 +21,7 @@ mutable struct SolidSchwarzController <: SchwarzController
     schwarz_disp::Vector{Vector{Float64}}
     schwarz_velo::Vector{Vector{Float64}}
     schwarz_acce::Vector{Vector{Float64}}
-    time_hist::Vector{Float64}
+    time_hist::Vector{Vector{Float64}}
     disp_hist::Vector{Vector{Vector{Float64}}}
     velo_hist::Vector{Vector{Vector{Float64}}}
     acce_hist::Vector{Vector{Vector{Float64}}}
