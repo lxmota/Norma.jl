@@ -104,8 +104,10 @@ end
 
 function subcycle(sim::MultiDomainSimulation)
     setup_subcycle(sim)
+    subsim_index = 1
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
+        stop_index = 1
         while true
             advance_time(subsim)
             if stop_evolve(subsim) == true
@@ -114,7 +116,10 @@ function subcycle(sim::MultiDomainSimulation)
             subsim.model.time = subsim.integrator.time
             apply_bcs(subsim)
             advance(subsim)
+            stop += 1
+            save_history_snapshot(schwarz_controller, sim.subsims, subsim_index, stop_index)
         end
+        subsim_index +=1
     end
 end
 
@@ -123,20 +128,20 @@ function setup_subcycle(sim::MultiDomainSimulation)
 end
 
 function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    for i ∈ 1:schwarz_controller.num_domains
-        num_steps = round(Int64, sims[i].integrator.time_step / schwarz_controller.time_step)
+    for subsim ∈ 1:schwarz_controller.num_domains
+        num_steps = round(Int64, sims[subsim].integrator.time_step / schwarz_controller.time_step)
         Δt = schwarz_controller.time_step / num_steps
         num_stops = num_steps + 1
-        sims[i].integrator.time_step = Δt
-        resize!(schwarz_controller.time_hist[i], num_stops)
-        resize!(schwarz_controller.disp_hist[i], num_stops)
-        resize!(schwarz_controller.velo_hist[i], num_stops)
-        resize!(schwarz_controller.acce_hist[i], num_stops)
-        for j ∈ 1:num_stops
-            schwarz_controller.time_hist[i][j] = schwarz_controller.prev_time + (j - 1) * Δt
-            schwarz_controller.disp_hist[i][j] = schwarz_controller.stop_disp[i]
-            schwarz_controller.velo_hist[i][j] = schwarz_controller.stop_velo[i]
-            schwarz_controller.acce_hist[i][j] = schwarz_controller.stop_acce[i]
+        sims[subsim].integrator.time_step = Δt
+        resize!(schwarz_controller.time_hist[subsim], num_stops)
+        resize!(schwarz_controller.disp_hist[subsim], num_stops)
+        resize!(schwarz_controller.velo_hist[subsim], num_stops)
+        resize!(schwarz_controller.acce_hist[subsim], num_stops)
+        for stop ∈ 1:num_stops
+            schwarz_controller.time_hist[subsim][stop] = schwarz_controller.prev_time + (stop - 1) * Δt
+            schwarz_controller.disp_hist[subsim][stop] = schwarz_controller.stop_disp[subsim]
+            schwarz_controller.velo_hist[subsim][stop] = schwarz_controller.stop_velo[subsim]
+            schwarz_controller.acce_hist[subsim][stop] = schwarz_controller.stop_acce[subsim]
         end
     end
 end
