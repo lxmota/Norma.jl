@@ -116,7 +116,7 @@ function subcycle(sim::MultiDomainSimulation)
             subsim.model.time = subsim.integrator.time
             apply_bcs(subsim)
             advance(subsim)
-            stop += 1
+            stop_index += 1
             save_history_snapshot(schwarz_controller, sim.subsims, subsim_index, stop_index)
         end
         subsim_index +=1
