@@ -103,16 +103,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzContactBC)
-    ss_node_index = 1
-    for side ∈ num_nodes_per_side
-        side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
-        ss_node_index += side
-        side_node_index = 1
-        for node_index ∈ side_nodes
-            #get nodal forces
-            side_node_index += 1
-        end
-    end  
+    model.schwarz_tractions = get_dst_traction(input_mesh, side_set_id, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.traction)
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)

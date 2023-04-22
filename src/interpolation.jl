@@ -725,6 +725,13 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
     return rectangular_projection_matrix
 end
 
+function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::PyObject, src_side_set_id::Int64, src_traction::Vector{Float64}) 
+    square_projection_matrix = get_square_projection_matrix(src_mesh, src_side_set_id)
+    rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_side_set_id, src_mesh, src_side_set_id)
+    dst_traction = rectangular_projection_matrix * inv(square_projection_matrix) * src_traction
+    return dst_traction
+end    
+
 function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
     Δt = tᵇ - tᵃ
     if Δt == 0.0
