@@ -17,11 +17,26 @@ function create_simulation(input_file::String)
     params["name"] = input_file
     sim_type = params["type"]
     if sim_type == "single"
-        return SingleDomainSimulation(params)
+        sim = SingleDomainSimulation(params)
+        create_delayed_bcs(sim)
+        return sim
     elseif sim_type == "multi"
-        return MultiDomainSimulation(params)
+        sim = MultiDomainSimulation(params)
+        create_delayed_bcs(sim)
+        return sim
     else
         error("Unknown type of simulation: ", sim_type)
+    end
+end
+
+function create_delayed_bcs(sim::SingleDomainSimulation)
+    boundary_conditions = create_bcs(sim.params)
+    sim.model.boundary_conditions = boundary_conditions
+end
+
+function create_delayed_bcs(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        create_delayed_bcs(subsim)
     end
 end
 
@@ -61,13 +76,12 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subparams["CSV output interval"] = csv_interval
         subsim = SingleDomainSimulation(subparams)
         params[domain_name] = subsim.params
-        subsim.params["global_simulation"] = sim
         integrator_name = subsim.params["time integrator"]["type"]
         subsim_type = is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
         if sim_type == "none"
             sim_type = subsim_type
         elseif subsim_type ≠ sim_type
-            error("Multidomain subdomains must be all have the same physics")
+            error("Multidomain subdomains must all have the same physics")
         end
         push!(subsims, subsim)
         subsim_name_index_map[domain_name] = subsim_index
@@ -75,5 +89,8 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     end
     params["subdomains type"] = sim_type
     schwarz_controller = create_schwarz_controller(params)
-    MultiDomainSimulation(name, params, schwarz_controller, subsims, subsim_name_index_map)
+    sim = MultiDomainSimulation(name, params, schwarz_controller, subsims, subsim_name_index_map)
+    for subsim ∈ sim.subsims
+        subsim.params["global_simulation"] = sim
+    end
 end

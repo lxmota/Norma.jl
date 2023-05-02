@@ -164,10 +164,10 @@ function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)
 end
 
 function update_schwarz_convergence_criterion(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    num_sims = length(sims)
-    norms_disp = zeros(num_sims)
-    norms_diff = zeros(num_sims)
-    for i ∈ 1:num_sims
+    num_domains = schwarz_controller.num_domains
+    norms_disp = zeros(num_domains)
+    norms_diff = zeros(num_domains)
+    for i ∈ 1:num_domains
         Δt = schwarz_controller.time_step
         xᵖʳᵉᵛ = schwarz_controller.schwarz_disp[i] + Δt * schwarz_controller.schwarz_velo[i]
         xᶜᵘʳʳ = sims[i].integrator.displacement + Δt * sims[i].integrator.velocity

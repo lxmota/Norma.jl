@@ -83,7 +83,7 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     saved_traction_force = bc.coupled_subsim.model.boundary_traction_force
     time = model.time
     coupled_name = bc.coupled_subsim.name
-    global_sim = bc.coupled_subsim.params["global_sim"]
+    global_sim = bc.coupled_subsim.params["global_simulation"]
     coupled_index = global_sim.subsim_name_index_map[coupled_name]
     time_hist = global_sim.schwarz_controller.time_hist[coupled_index]
     disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
@@ -233,7 +233,7 @@ function create_bcs(params::Dict{Any,Any})
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz contact"
                 sim = params["global_simulation"]
-                coupled_subdomain_index = sim.subsim_name_index_map[coupled_cubsim_name]
+                coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
                 boundary_condition = SMSchwarzContactBC(coupled_subsim, input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)                

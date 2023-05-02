@@ -52,7 +52,7 @@ function SolidMechanics(params::Dict{Any,Any})
     failed = false
     internal_force = zeros(3*num_nodes)
     boundary_traction_force = zeros(3*num_nodes)
-    boundary_conditions = create_bcs(params)
+    boundary_conditions = Vector{BoundaryCondition}()
     free_dofs = trues(3 * num_nodes)
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
@@ -111,7 +111,7 @@ function HeatConduction(params::Dict{Any,Any})
     failed = false
     internal_heat_flux = zeros(num_nodes)
     boundary_heat_flux = zeros(num_nodes)
-    boundary_conditions = create_bcs(params)
+    boundary_conditions = Vector{BoundaryCondition}()
     free_dofs = trues(num_nodes)
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
