@@ -552,20 +552,21 @@ function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vecto
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set_id::Int64, model::SolidMechanics)
+function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set_id::Int64, coupled_model::SolidMechanics)
     elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
-    elem_type = coupled_mesh.elem_type(blk_id)
+    elem_type = coupled_mesh.elem_type(coupled_block_id)
     point_new = point
     inside = false
+    node_indices = [1:num_elem_nodes]
     for blk_elem_index ∈ 1:num_blk_elems
         conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
         node_indices = elem_blk_conn[conn_indices]
-        vertices = model.current[:, node_indices]
+        vertices = coupled_model.current[:, node_indices]
         inside = is_inside(elem_type, vertices, point)
         #if a point is inside an element, we will move it on the contact side
         if inside == true
             #call a function wich projects the point onto the contact boundary
-            point_new = project_onto_contact_surface(point, coupled_side_set_id, coupled_mesh, model)
+            point_new = project_onto_contact_surface(point, coupled_side_set_id, coupled_mesh, coupled_model)
             break
         end        
     end

@@ -52,7 +52,7 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     integrator = create_time_integrator(params)
     solver = create_solver(params)
     model = create_model(params)
-    SingleDomainSimulation(name, params, integrator, solver, model)
+    return SingleDomainSimulation(name, params, integrator, solver, model)
 end
 
 function MultiDomainSimulation(params::Dict{Any,Any})
@@ -93,4 +93,5 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     for subsim ∈ sim.subsims
         subsim.params["global_simulation"] = sim
     end
+    return sim
 end

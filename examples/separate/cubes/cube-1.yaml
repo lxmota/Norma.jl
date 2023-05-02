@@ -12,7 +12,9 @@ model:
       Poisson's ratio: 0.25
       density: 1000.0
 time integrator:
-  type: quasi static
+  type: Newmark
+  β: 0.25
+  γ: 0.5
   time step: 0.3333333333333333333
 boundary conditions:
   Dirichlet:
@@ -27,7 +29,7 @@ boundary conditions:
       function: "0.0"
   Schwarz contact:
     - side set: ssz+
-      source: "cuboid-2.yaml"
+      source: "cube-2.yaml"
       source block: coarse
       source side set: ssz-
 solver:

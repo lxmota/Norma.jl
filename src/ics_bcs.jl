@@ -28,7 +28,6 @@ end
 
 function SMSchwarzContactBC(coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
     side_set_name = bc_params["side set"]
-    offset = component_offset_from_string(bc_params["component"])
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
     num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
     coupled_block_name = bc_params["source block"]
@@ -37,8 +36,8 @@ function SMSchwarzContactBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
     is_dirichlet = true
-    SMSchwarzContactBC(side_set_name, offset, side_set_id, num_nodes_per_side, 
-        side_set_node_indices, coupled_subsim, coupled_block_id, coupled_side_set_id, is_dirichlet)
+    SMSchwarzContactBC(side_set_name, side_set_id, num_nodes_per_side, 
+        side_set_node_indices, coupled_subsim, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
 end
 
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
@@ -76,6 +75,15 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
 end
 
 function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
+    global_sim = bc.coupled_subsim.params["global_simulation"]
+    if length(global_sim.schwarz_controller.time_hist) == 0
+        if bc.is_dirichlet == true
+            apply_sm_schwarz_contact_dirichlet(model, bc)
+        else
+            apply_sm_schwarz_contact_neumann(model, bc)
+        end
+        return
+    end
     # Save solution of coupled simulation
     saved_disp = bc.coupled_subsim.integrator.displacement
     saved_velo = bc.coupled_subsim.integrator.velocity
@@ -83,7 +91,6 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     saved_traction_force = bc.coupled_subsim.model.boundary_traction_force
     time = model.time
     coupled_name = bc.coupled_subsim.name
-    global_sim = bc.coupled_subsim.params["global_simulation"]
     coupled_index = global_sim.subsim_name_index_map[coupled_name]
     time_hist = global_sim.schwarz_controller.time_hist[coupled_index]
     disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
@@ -113,19 +120,19 @@ end
 
 function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarzContactBC)
     ss_node_index = 1
-    for side ∈ num_nodes_per_side
+    for side ∈ bc.num_nodes_per_side
         side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, coupled_node_indices = find_and_project(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set_id, model)
+            point_new, coupled_node_indices = find_and_project(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set_id, bc.coupled_subsim.model)
             model.current[:, node_index] = point_new
             element_type = get_element_type(3, length(coupled_node_indices))
             coupled_vertices = bc.coupled_subsim.model.current[:, coupled_node_indices]
             ξ = map_to_parametric(element_type, coupled_vertices, point_new)
             N, _ = interpolate(element_type, ξ)
-            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, coupled_vertices] * N
-            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, coupled_vertices] * N
+            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, coupled_node_indices] * N
+            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, coupled_node_indices] * N
         end
     end  
 end
@@ -233,6 +240,7 @@ function create_bcs(params::Dict{Any,Any})
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz contact"
                 sim = params["global_simulation"]
+                coupled_subsim_name = bc_setting_params["source"]
                 coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
                 boundary_condition = SMSchwarzContactBC(coupled_subsim, input_mesh, bc_setting_params)

@@ -18,11 +18,11 @@ function SolidSchwarzController(params::Dict{Any,Any})
     schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_velo = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_acce = Vector{Vector{Float64}}(undef, num_domains)
-    time_hist = Vector{Vector{Float64}}(undef, num_domains)
-    disp_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
-    velo_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
-    acce_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
-    traction_force_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
+    time_hist = Vector{Vector{Float64}}()
+    disp_hist = Vector{Vector{Vector{Float64}}}()
+    velo_hist = Vector{Vector{Vector{Float64}}}()
+    acce_hist = Vector{Vector{Vector{Float64}}}()
+    traction_force_hist = Vector{Vector{Vector{Float64}}}()
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, stop, converged,
@@ -107,7 +107,7 @@ function set_subcycle_times(sim::MultiDomainSimulation)
 end
 
 function subcycle(sim::MultiDomainSimulation)
-    setup_subcycle(sim)
+    resize_histories(sim)
     subsim_index = 1
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
@@ -127,21 +127,27 @@ function subcycle(sim::MultiDomainSimulation)
     end
 end
 
-function setup_subcycle(sim::MultiDomainSimulation)
+function resize_histories(sim::MultiDomainSimulation)
     resize_histories(sim.schwarz_controller, sim.subsims)
 end
 
 function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
-    for subsim ∈ 1:schwarz_controller.num_domains
+    num_domains = schwarz_controller.num_domains
+    resize!(schwarz_controller.time_hist, num_domains)
+    resize!(schwarz_controller.disp_hist, num_domains)
+    resize!(schwarz_controller.velo_hist, num_domains)
+    resize!(schwarz_controller.acce_hist, num_domains)
+    resize!(schwarz_controller.traction_force_hist, num_domains)
+    for subsim ∈ 1:num_domains
         num_steps = round(Int64, sims[subsim].integrator.time_step / schwarz_controller.time_step)
         Δt = schwarz_controller.time_step / num_steps
         num_stops = num_steps + 1
         sims[subsim].integrator.time_step = Δt
-        resize!(schwarz_controller.time_hist[subsim], num_stops)
-        resize!(schwarz_controller.disp_hist[subsim], num_stops)
-        resize!(schwarz_controller.velo_hist[subsim], num_stops)
-        resize!(schwarz_controller.acce_hist[subsim], num_stops)
-        resize!(schwarz_controller.traction_force_hist[subsim], num_stops)
+        schwarz_controller.time_hist[subsim] = Vector{Float64}(undef, num_stops)
+        schwarz_controller.disp_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
+        schwarz_controller.velo_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
+        schwarz_controller.acce_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
+        schwarz_controller.traction_force_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
         for stop ∈ 1:num_stops
             schwarz_controller.time_hist[subsim][stop] = schwarz_controller.prev_time + (stop - 1) * Δt
             schwarz_controller.disp_hist[subsim][stop] = schwarz_controller.stop_disp[subsim]
