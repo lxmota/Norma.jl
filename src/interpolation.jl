@@ -615,8 +615,19 @@ function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Int64)
     return global_to_local_map, num_nodes_sides, side_set_node_indices
 end
 
+function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Int64)
+    _, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+    unique_node_indices = unique(side_set_node_indices)
+    num_nodes = length(unique_node_indices)
+    local_to_global_map = zeros(num_nodes)
+    for i ∈ 1:num_nodes
+        local_to_global_map[i] = Int64(unique_node_indices[i])
+    end
+    return local_to_global_map
+end
+
 function get_square_projection_matrix(mesh::PyObject, side_set_id::Int64)
-    global_to_local_map, num_nodes_sides, side_set_node_indices = Norma.get_side_set_global_to_local_map(mesh, side_set_id)
+    global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
     coords = mesh.get_coords()
     square_projection_matrix = zeros(num_nodes, num_nodes)
@@ -624,10 +635,10 @@ function get_square_projection_matrix(mesh::PyObject, side_set_id::Int64)
     for num_nodes_side ∈ num_nodes_sides
         side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
         side_coordinates = [coords[1][side_nodes]'; coords[2][side_nodes]'; coords[3][side_nodes]']
-        two_dim_coord = Norma.surface_3D_to_2D(side_coordinates)
-        element_type = Norma.get_element_type(2, Int64(num_nodes_side))
-        num_int_points = Norma.default_num_int_pts(element_type)
-        N, dNdξ, w = Norma.isoparametric(element_type, num_int_points)
+        two_dim_coord = surface_3D_to_2D(side_coordinates)
+        element_type = get_element_type(2, Int64(num_nodes_side))
+        num_int_points = default_num_int_pts(element_type)
+        N, dNdξ, w = isoparametric(element_type, num_int_points)
         side_matrix = zeros(num_nodes_side, num_nodes_side)
         for point ∈ 1:num_int_points
             Nₚ = N[:, point]
@@ -645,10 +656,10 @@ function get_square_projection_matrix(mesh::PyObject, side_set_id::Int64)
 end
 
 function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::PyObject, src_side_set_id::Int64)
-    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = Norma.get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
+    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_mesh.get_coords()
-    src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = Norma.get_side_set_global_to_local_map(src_mesh, src_side_set_id)
+    src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_global_to_local_map)
     src_coords = src_mesh.get_coords()
     src_side_set_elems, _ = src_mesh.get_side_set(src_side_set_id)
@@ -658,10 +669,10 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
         dst_side_coordinates = [dst_coords[1][dst_side_nodes]'; dst_coords[2][dst_side_nodes]'; dst_coords[3][dst_side_nodes]']
-        dst_two_dim_coord = Norma.surface_3D_to_2D(dst_side_coordinates)
-        dst_element_type = Norma.get_element_type(2, Int64(dst_num_nodes_side))
-        dst_num_int_points = Norma.default_num_int_pts(dst_element_type)
-        dst_N, dst_dNdξ, dst_w = Norma.isoparametric(dst_element_type, dst_num_int_points)
+        dst_two_dim_coord = surface_3D_to_2D(dst_side_coordinates)
+        dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
+        dst_num_int_points = default_num_int_pts(dst_element_type)
+        dst_N, dst_dNdξ, dst_w = isoparametric(dst_element_type, dst_num_int_points)
         for dst_point ∈ 1:dst_num_int_points
             dst_Nₚ = dst_N[:, dst_point]
             dst_dNdξₚ = dst_dNdξ[:, :, dst_point]
@@ -692,7 +703,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
             for src_num_nodes_side ∈ src_num_nodes_sides
                 src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
                 src_side_coordinates = [src_coords[1][src_side_nodes]'; src_coords[2][src_side_nodes]']
-                src_side_element_type = Norma.get_element_type(2, Int64(src_num_nodes_side))
+                src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
                 src_side_set_elem = src_side_set_elems[src_side_set_index]
                 src_blk_id = src_mesh.elem_to_blk_map[src_side_set_elem]
                 src_element_type = src_mesh.elem_type(src_blk_id)
@@ -700,7 +711,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
                 side_set_elem_conn_indices = (src_side_set_elem-1)*src_num_elem_nodes+1:src_side_set_elem*src_num_elem_nodes
                 src_node_indices = src_elem_blk_conn[side_set_elem_conn_indices]
                 src_side_set_elem_coordinates = [src_coords[1][src_node_indices]'; src_coords[2][src_node_indices]'; src_coords[3][src_node_indices]']
-                inside = Norma.is_inside(src_element_type, src_side_set_elem_coordinates, dst_int_point_coord)
+                inside = is_inside(src_element_type, src_side_set_elem_coordinates, dst_int_point_coord)
                 if inside == true
                     dst_int_point_coord_2D = zeros(2)
                     dst_int_point_coord_2D[1] = dst_int_point_coord[1]
@@ -725,10 +736,32 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
     return rectangular_projection_matrix
 end
 
-function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::PyObject, src_side_set_id::Int64, src_traction::Vector{Float64}) 
+function reduce_traction(mesh::PyObject, side_set_id::Int64, global_traction::Vector{Float64})
+    local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
+    num_local_nodes = length(local_to_global_map)
+    local_traction = zeros(3*num_local_nodes)
+    for local_node ∈ 1:num_local_nodes
+        global_node = local_to_global_map[local_node]
+        local_traction[3*local_node-2:3*local_node] = global_traction[3*global_node-2:3*global_node]
+    end
+    return local_traction
+end
+
+function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::PyObject, src_side_set_id::Int64, src_global_traction::Vector{Float64}) 
     square_projection_matrix = get_square_projection_matrix(src_mesh, src_side_set_id)
     rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_side_set_id, src_mesh, src_side_set_id)
-    dst_traction = rectangular_projection_matrix * inv(square_projection_matrix) * src_traction
+    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
+    src_traction_x = src_local_traction[1:3:end]
+    src_traction_y = src_local_traction[2:3:end]
+    src_traction_z = src_local_traction[3:3:end]
+    projection_operator = square_projection_matrix \ rectangular_projection_matrix
+    dst_traction_x = projection_operator * src_traction_x
+    dst_traction_y = projection_operator * src_traction_y
+    dst_traction_z = projection_operator * src_traction_z
+    dst_traction = zeros(3*length(dst_traction_x))
+    dst_traction[1:3:end] = dst_traction_x
+    dst_traction[2:3:end] = dst_traction_y
+    dst_traction[3:3:end] = dst_traction_z
     return dst_traction
 end    
 
@@ -740,4 +773,25 @@ function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::
     p = (tᵇ - t) / Δt
     q = 1.0 - p
     return p * xᵃ + q * xᵇ
+end
+
+function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Float64}}, param::Float64)
+    if param < param_hist[1] || param > param_hist[end]
+        error("parameter for interpolation out of range : ", param)
+    end
+    index = 1
+    size = length(param_hist)
+    while param_hist[index] < param
+        if index == size
+            break
+        end
+        index += 1
+    end
+    if index == 1
+        return value_hist[1]
+    elseif index == size
+        return value_hist[size]
+    else
+        return interpolate(param_hist[index], param_hist[index + 1], value_hist[index], value_hist[index + 1], param)
+    end
 end

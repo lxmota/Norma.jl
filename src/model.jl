@@ -51,7 +51,7 @@ function SolidMechanics(params::Dict{Any,Any})
     time = 0.0
     failed = false
     internal_force = zeros(3*num_nodes)
-    boundary_tractions_force = zeros(3*num_nodes)
+    boundary_traction_force = zeros(3*num_nodes)
     boundary_conditions = create_bcs(params)
     free_dofs = trues(3 * num_nodes)
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
@@ -73,7 +73,7 @@ function SolidMechanics(params::Dict{Any,Any})
     end
     create_elem_to_blk_map(input_mesh)
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
-        internal_force, boundary_tractions_force, boundary_conditions, stress, free_dofs, time, failed)
+        internal_force, boundary_traction_force, boundary_conditions, stress, free_dofs, time, failed)
 end
 
 function HeatConduction(params::Dict{Any,Any})

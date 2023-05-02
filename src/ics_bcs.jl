@@ -70,17 +70,45 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
             bc_val = nodal_force_component[side_node_index]
             side_node_index += 1
             dof_index = 3 * (node_index - 1) + bc.offset
-            model.boundary_tractions_force[dof_index] += bc_val
+            model.boundary_traction_force[dof_index] += bc_val
         end
     end
 end
 
 function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
+    # Save solution of coupled simulation
+    saved_disp = bc.coupled_subsim.integrator.displacement
+    saved_velo = bc.coupled_subsim.integrator.velocity
+    saved_acce = bc.coupled_subsim.integrator.acceleration
+    saved_traction_force = bc.coupled_subsim.model.boundary_traction_force
+    time = model.time
+    coupled_name = bc.coupled_subsim.name
+    global_sim = bc.coupled_subsim.params["global_sim"]
+    coupled_index = global_sim.subsim_name_index_map[coupled_name]
+    time_hist = global_sim.schwarz_controller.time_hist[coupled_index]
+    disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
+    velo_hist = global_sim.schwarz_controller.velo_hist[coupled_index]
+    acce_hist = global_sim.schwarz_controller.acce_hist[coupled_index]
+    traction_force_hist = global_sim.schwarz_controller.traction_force_hist[coupled_index]
+    interp_disp = interpolate(time_hist, disp_hist, time)
+    interp_velo = interpolate(time_hist, velo_hist, time)
+    interp_acce = interpolate(time_hist, acce_hist, time)
+    interp_traction_force = interpolate(time_hist, traction_force_hist, time)
+    bc.coupled_subsim.integrator.displacement = interp_disp
+    bc.coupled_subsim.integrator.velocity = interp_velo
+    bc.coupled_subsim.integrator.acceleration = interp_acce
+    bc.coupled_subsim.model.boundary_traction_force = interp_traction_force
+    copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
     if bc.is_dirichlet == true
         apply_sm_schwarz_contact_dirichlet(model, bc)
     else
         apply_sm_schwarz_contact_neumann(model, bc)
     end
+    bc.coupled_subsim.integrator.displacement = saved_disp
+    bc.coupled_subsim.integrator.velocity = saved_velo
+    bc.coupled_subsim.integrator.acceleration = saved_acce
+    bc.coupled_subsim.model.boundary_traction_force = saved_traction_force
+    copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 
 function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarzContactBC)
@@ -103,7 +131,13 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzContactBC)
-    model.schwarz_tractions = get_dst_traction(input_mesh, side_set_id, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.traction)
+    schwarz_tractions = get_dst_traction(input_mesh, side_set_id, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model.boundary_traction_force)
+    local_to_global_map = get_side_set_local_to_global_map(input_mesh, side_set_id)
+    num_local_nodes = length(local_to_global_map)
+    for local_node ∈ 1:num_local_nodes
+        global_node = local_to_global_map[local_node]
+        model.boundary_traction_force[3*global_node-2:3*global_node] += schwarz_tractions[3*local_node-2:3*local_node]
+    end
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
@@ -198,7 +232,6 @@ function create_bcs(params::Dict{Any,Any})
                 boundary_condition = SMNeumannBC(input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz contact"
-                coupled_subsim_name = bc_setting_params["source"]
                 sim = params["global_simulation"]
                 coupled_subdomain_index = sim.subsim_name_index_map[coupled_cubsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
@@ -216,7 +249,7 @@ end
 
 function apply_bcs(model::SolidMechanics)
     _, num_nodes = size(model.reference)
-    model.boundary_tractions_force = zeros(3*num_nodes)
+    model.boundary_traction_force = zeros(3*num_nodes)
     model.free_dofs = trues(3 * num_nodes)
     for boundary_condition ∈ model.boundary_conditions
         apply_bc(model, boundary_condition)

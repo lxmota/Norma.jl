@@ -14,6 +14,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     stop_disp = Vector{Vector{Float64}}(undef, num_domains)
     stop_velo = Vector{Vector{Float64}}(undef, num_domains)
     stop_acce = Vector{Vector{Float64}}(undef, num_domains)
+    stop_traction_force = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_disp = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_velo = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_acce = Vector{Vector{Float64}}(undef, num_domains)
@@ -21,11 +22,12 @@ function SolidSchwarzController(params::Dict{Any,Any})
     disp_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     velo_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     acce_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
+    traction_force_hist = Vector{Vector{Vector{Float64}}}(undef, num_domains)
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, stop, converged,
-        stop_disp, stop_velo, stop_acce, schwarz_disp, schwarz_velo, schwarz_acce,
-        time_hist, disp_hist, velo_hist, acce_hist)
+        stop_disp, stop_velo, stop_acce, stop_traction_force, schwarz_disp, schwarz_velo, schwarz_acce,
+        time_hist, disp_hist, velo_hist, acce_hist, traction_force_hist)
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
@@ -64,6 +66,7 @@ function save_stop_solutions(schwarz_controller::SolidSchwarzController, sims::V
         schwarz_controller.stop_disp[i] = sims[i].integrator.displacement
         schwarz_controller.stop_velo[i] = sims[i].integrator.velocity
         schwarz_controller.stop_acce[i] = sims[i].integrator.acceleration
+        schwarz_controller.stop_traction_force[i] = sims[i].model.boundary_traction_force
     end
 end
 
@@ -76,6 +79,7 @@ function restore_stop_solutions(schwarz_controller::SolidSchwarzController, sims
         sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
         sims[i].integrator.velocity = schwarz_controller.stop_velo[i]
         sims[i].integrator.acceleration = schwarz_controller.stop_acce[i]
+        sims[i].model.boundary_traction_force = schwarz_controller.stop_traction_force[i]
         copy_solution_source_targets(sims[i].integrator, sims[i].solver, sims[i].model)
     end
 end
@@ -137,11 +141,13 @@ function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vect
         resize!(schwarz_controller.disp_hist[subsim], num_stops)
         resize!(schwarz_controller.velo_hist[subsim], num_stops)
         resize!(schwarz_controller.acce_hist[subsim], num_stops)
+        resize!(schwarz_controller.traction_force_hist[subsim], num_stops)
         for stop ∈ 1:num_stops
             schwarz_controller.time_hist[subsim][stop] = schwarz_controller.prev_time + (stop - 1) * Δt
             schwarz_controller.disp_hist[subsim][stop] = schwarz_controller.stop_disp[subsim]
             schwarz_controller.velo_hist[subsim][stop] = schwarz_controller.stop_velo[subsim]
             schwarz_controller.acce_hist[subsim][stop] = schwarz_controller.stop_acce[subsim]
+            schwarz_controller.traction_force_hist[subsim][stop] = schwarz_controller.stop_traction_force[subsim]
         end
     end
 end
@@ -150,13 +156,14 @@ function save_history_snapshot(schwarz_controller::SchwarzController, sims::Vect
     schwarz_controller.disp_hist[subsim_index][stop_index] = sims[subsim_index].integrator.displacement
     schwarz_controller.velo_hist[subsim_index][stop_index] = sims[subsim_index].integrator.velocity
     schwarz_controller.acce_hist[subsim_index][stop_index] = sims[subsim_index].integrator.acceleration
+    schwarz_controller.traction_force_hist[subsim_index][stop_index] = sims[subsim_index].model.boundary_traction_force
 end
 
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)
-    return is_schwarz_converged(sim.schwarz_controller, sim.subsims)
+    return update_schwarz_convergence_criterion(sim.schwarz_controller, sim.subsims)
 end
 
-function is_schwarz_converged(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function update_schwarz_convergence_criterion(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     num_sims = length(sims)
     norms_disp = zeros(num_sims)
     norms_diff = zeros(num_sims)

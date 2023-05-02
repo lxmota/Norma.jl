@@ -18,6 +18,7 @@ mutable struct SolidSchwarzController <: SchwarzController
     stop_disp::Vector{Vector{Float64}}
     stop_velo::Vector{Vector{Float64}}
     stop_acce::Vector{Vector{Float64}}
+    stop_traction_force::Vector{Vector{Float64}}
     schwarz_disp::Vector{Vector{Float64}}
     schwarz_velo::Vector{Vector{Float64}}
     schwarz_acce::Vector{Vector{Float64}}
@@ -25,4 +26,5 @@ mutable struct SolidSchwarzController <: SchwarzController
     disp_hist::Vector{Vector{Vector{Float64}}}
     velo_hist::Vector{Vector{Vector{Float64}}}
     acce_hist::Vector{Vector{Vector{Float64}}}
+    traction_force_hist::Vector{Vector{Vector{Float64}}}
 end
