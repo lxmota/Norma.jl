@@ -620,7 +620,7 @@ function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Int64)
     _, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    local_to_global_map = zeros(num_nodes)
+    local_to_global_map = zeros(Int64, num_nodes)
     for i ∈ 1:num_nodes
         local_to_global_map[i] = Int64(unique_node_indices[i])
     end
@@ -755,7 +755,7 @@ function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::
     src_traction_x = src_local_traction[1:3:end]
     src_traction_y = src_local_traction[2:3:end]
     src_traction_z = src_local_traction[3:3:end]
-    projection_operator = square_projection_matrix \ rectangular_projection_matrix
+    projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
     dst_traction_x = projection_operator * src_traction_x
     dst_traction_y = projection_operator * src_traction_y
     dst_traction_z = projection_operator * src_traction_z

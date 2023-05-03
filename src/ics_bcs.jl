@@ -31,13 +31,14 @@ function SMSchwarzContactBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
     num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
     coupled_block_name = bc_params["source block"]
+    coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
     is_dirichlet = true
     SMSchwarzContactBC(side_set_name, side_set_id, num_nodes_per_side, 
-        side_set_node_indices, coupled_subsim, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
+        side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
 end
 
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
@@ -138,8 +139,8 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzContactBC)
-    schwarz_tractions = get_dst_traction(input_mesh, side_set_id, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model.boundary_traction_force)
-    local_to_global_map = get_side_set_local_to_global_map(input_mesh, side_set_id)
+    schwarz_tractions = get_dst_traction(model.mesh, bc.side_set_id, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model.boundary_traction_force)
+    local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
         global_node = local_to_global_map[local_node]
@@ -293,4 +294,36 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
             end
         end
     end
+end
+
+function pair_schwarz_bcs(sim::MultiDomainSimulation)
+    for subsim ∈ sim.subsims
+        model = subsim.model
+        name = subsim.name
+        bcs = model.boundary_conditions
+        for bc ∈ bcs
+            pair_bc(name, bc)
+        end
+    end
+end
+
+function pair_bc(_::String, _::RegularBoundaryCondition)
+end
+
+function pair_bc(name::String, bc::SchwarzBoundaryCondition)
+    coupled_model = bc.coupled_subsim.model
+    coupled_bcs = coupled_model.boundary_conditions
+    for coupled_bc ∈ coupled_bcs
+        if is_coupled_to_current(name, coupled_bc) == true
+            coupled_bc.is_dirichlet = !bc.is_dirichlet
+        end
+    end
+end
+
+function is_coupled_to_current(_::String, _::RegularBoundaryCondition)
+    return false
+end
+
+function is_coupled_to_current(name::String, coupled_bc::SchwarzBoundaryCondition)
+    return name == coupled_bc.coupled_subsim.name
 end

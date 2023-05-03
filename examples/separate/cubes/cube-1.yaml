@@ -15,7 +15,7 @@ time integrator:
   type: Newmark
   β: 0.25
   γ: 0.5
-  time step: 0.3333333333333333333
+  time step: 0.3333333333333333333e-02
 boundary conditions:
   Dirichlet:
     - node set: nsx-

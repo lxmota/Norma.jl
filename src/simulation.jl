@@ -38,6 +38,7 @@ function create_delayed_bcs(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         create_delayed_bcs(subsim)
     end
+    pair_schwarz_bcs(sim)
 end
 
 function SingleDomainSimulation(params::Dict{Any,Any})
