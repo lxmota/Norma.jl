@@ -130,7 +130,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
             model.current[:, node_index] = point_new
             element_type = get_element_type(2, size(closest_coupled_vertices)[2])
             ξ = map_to_parametric(element_type, closest_coupled_vertices, point_new)
-            N, _ = interpolate(element_type, ξ)
+            N, _, _ = interpolate(element_type, ξ)
             model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, closest_coupled_vertices] * N
             model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, closest_coupled_vertices] * N
             dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]

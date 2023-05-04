@@ -2,7 +2,8 @@ function barycentricD2N3(ξ::Vector{Float64})
     N = [1.0 - ξ[1] - ξ[2], ξ[1], ξ[2]]
     dN = [-1 1 0;
           -1 0 1] / 1.0
-    return N, dN
+    ddN = zeros(2, 2, 3)
+    return N, dN, ddN
 end
 
 function barycentricD2N3G1()
@@ -10,7 +11,7 @@ function barycentricD2N3G1()
     N = zeros(3, 1)
     dN = zeros(2, 3, 1)
     ξ = ones(2) / 3
-    N, dN[:, :, 1] = barycentricD2N3(ξ)
+    N, dN[:, :, 1], _ = barycentricD2N3(ξ)
     return N, dN, w
 end
 
@@ -22,7 +23,7 @@ function barycentricD2N3G3()
          1 4 1 1;
          1 1 4 1] / 6
     for p ∈ 1:3
-        N[:, p], dN[:, :, p] = barycentricD2N3(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = barycentricD2N3(ξ[:, p])
     end
     return N, dN, w
 end
@@ -35,7 +36,8 @@ function barycentricD3N4(ξ::Vector{Float64})
     dN = [-1 1 0 0;
           -1 0 1 0;
           -1 0 0 1] / 1.0
-    return N, dN
+    ddN = zeros(3, 3, 4)
+    return N, dN, ddN
 end
 
 function barycentricD3N10(ξ::Vector{Float64})
@@ -56,7 +58,9 @@ function barycentricD3N10(ξ::Vector{Float64})
     dN = [1-4*t1 4*t2-1 0 0 4*(t1-t2) 4*t3 -4*t3 -4*t4 4*t4 0;
           1-4*t1 0 4*t3-1 0 -4*t2 4*t2 4*(t1-t3) -4*t4 0 4*t4;
           1-4*t1 0 0 4*t4-1 -4*t2 0 -4*t3 4*(t1-t4) 4*t2 4*t3]
-    return N, dN
+    # TODO: Fill this up with correct values
+    ddN = zeros(3, 3, 10)
+    return N, dN, ddN
 end
 
 function barycentricD3N4G1()
@@ -64,7 +68,7 @@ function barycentricD3N4G1()
     N = zeros(4, 1)
     dN = zeros(3, 4, 1)
     ξ = 0.25 * ones(3)
-    N, dN[:, :, 1] = barycentricD3N4(ξ)
+    N, dN[:, :, 1], _ = barycentricD3N4(ξ)
     return N, dN, w
 end
 
@@ -79,7 +83,7 @@ function barycentricD3N4G4()
          b b a b
          b b b a] / 20.0
     for p ∈ 1:4
-        N[:, p], dN[:, :, p] = barycentricD3N4(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = barycentricD3N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -95,7 +99,7 @@ function barycentricD3N10G4()
          b b a b
          b b b a] / 20.0
     for p ∈ 1:4
-        N[:, p], dN[:, :, p] = barycentricD3N10(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = barycentricD3N10(ξ[:, p])
     end
     return N, dN, w
 end
@@ -110,7 +114,7 @@ function barycentricD3N10G5()
          1/4 1/6 1/6 1/2 1/6
          1/4 1/6 1/2 1/6 1/6]
     for p ∈ 1:5
-        N[:, p], dN[:, :, p] = barycentricD3N4(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = barycentricD3N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -179,14 +183,15 @@ end
 function lagrangianD1N2(ξ::Float64)
     N = [0.5 * (1.0 - ξ), 0.5 * (1.0 + ξ)]
     dN = [-0.5, 0.5]
-    return N, dN
+    ddN = zeros(1, 1, 2)
+    return N, dN, ddN
 end
 
 function lagrangianD1N2G1()
     N = zeros(2, 1)
     dN = zeros(1, 2, 1)
     ξ, w = gauss_legendreD1(1)
-    N, dN[:, :, 1] = lagrangianD1N2(ξ[1])
+    N, dN[:, :, 1], _ = lagrangianD1N2(ξ[1])
     return N, dN, w
 end
 
@@ -195,7 +200,7 @@ function lagrangianD1N2G2()
     dN = zeros(1, 2, 2)
     ξ, w = gauss_legendreD1(2)
     for p ∈ 1:2
-        N[:, p], dN[:, :, p] = lagrangianD1N2(ξ[p])
+        N[:, p], dN[:, :, p], _ = lagrangianD1N2(ξ[p])
     end
     return N, dN, w
 end
@@ -205,7 +210,7 @@ function lagrangianD1N2G3()
     dN = zeros(1, 2, 3)
     ξ, w = gauss_legendreD1(3)
     for p ∈ 1:3
-        N[:, p], dN[:, :, p] = lagrangianD1N2(ξ[p])
+        N[:, p], dN[:, :, p], _ = lagrangianD1N2(ξ[p])
     end
     return N, dN, w
 end
@@ -215,7 +220,7 @@ function lagrangianD1N2G4()
     dN = zeros(1, 2, 4)
     ξ, w = gauss_legendreD1(4)
     for p ∈ 1:4
-        N[:, p], dN[:, :, p] = lagrangianD1N2(ξ[p])
+        N[:, p], dN[:, :, p], _ = lagrangianD1N2(ξ[p])
     end
     return N, dN, w
 end
@@ -227,12 +232,17 @@ function lagrangianD2N4(ξ::Vector{Float64})
     sa = [-1 -1 1 1] / 1.0
     N = zeros(4)
     dN = zeros(2, 4)
+    ddN = zeros(2, 2, 4)
     for p ∈ 1:4
         N[p] = 0.25 * (1.0 + ra[p] * r) * (1.0 + sa[p] * s)
         dN[1, p] = 0.25 * ra[p] * (1 + sa[p] * s)
         dN[2, p] = 0.25 * (1 + ra[p] * r) * sa[p]
+        ddN[1, 1, p] = 0.0
+        ddN[1, 2, p] = 0.25 * ra[p] * sa[p]
+        ddN[2, 1, p] = 0.25 * ra[p] * sa[p]
+        ddN[2, 2, p] = 0.0
     end
-    return N, dN
+    return N, dN, ddN
 end
 
 function lagrangianD2N4G4()
@@ -240,7 +250,7 @@ function lagrangianD2N4G4()
     dN = zeros(2, 4, 4)
     ξ, w = gauss_legendreD2(4)
     for p ∈ 1:4
-        N[:, p], dN[:, :, p] = lagrangianD2N4(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = lagrangianD2N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -250,7 +260,7 @@ function lagrangianD2N4G9()
     dN = zeros(2, 4, 9)
     ξ, w = gauss_legendreD2(9)
     for p ∈ 1:4
-        N[:, p], dN[:, :, p] = lagrangianD2N4(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = lagrangianD2N4(ξ[:, p])
     end
     return N, dN, w
 end
@@ -264,13 +274,23 @@ function lagrangianD3N8(ξ::Vector{Float64})
     ta = [-1 -1 -1 -1 1 1 1 1] / 1.0
     N = zeros(8)
     dN = zeros(3, 8)
+    ddN = zeros(3, 3, 8)
     for p ∈ 1:8
         N[p] = 0.125 * (1.0 + ra[p] * r) * (1.0 + sa[p] * s) * (1.0 + ta[p] * t)
         dN[1, p] = 0.125 * ra[p] * (1.0 + sa[p] * s) * (1.0 + ta[p] * t)
         dN[2, p] = 0.125 * (1.0 + ra[p] * r) * sa[p] * (1.0 + ta[p] * t)
         dN[3, p] = 0.125 * (1.0 + ra[p] * r) * (1.0 + sa[p] * s) * ta[p]
+        ddN[1, 1, p] = 0.0
+        ddN[1, 2, p] = 0.125 * ra[p] * sa[p] * (1.0 + ta[p] * t)
+        ddN[1, 3, p] = 0.125 * ra[p] * ta[p] * (1.0 + sa[p] * s)
+        ddN[2, 1, p] = 0.125 * ra[p] * sa[p] * (1.0 + ta[p] * t)
+        ddN[2, 2, p] = 0.0
+        ddN[2, 3, p] = 0.125 * sa[p] * ta[p] * (1.0 + ra[p] * r)
+        ddN[3, 1, p] = 0.125 * ra[p] * ta[p] * (1.0 + sa[p] * s)
+        ddN[3, 2, p] = 0.125 * sa[p] * ta[p] * (1.0 + ra[p] * r)
+        ddN[3, 3, p] = 0.0
     end
-    return N, dN
+    return N, dN, ddN
 end
 
 function lagrangianD3N8G8()
@@ -282,7 +302,7 @@ function lagrangianD3N8G8()
         -1 -1 1 1 -1 -1 1 1
         -1 -1 -1 -1 1 1 1 1]
     for p ∈ 1:8
-        N[:, p], dN[:, :, p] = lagrangianD3N8(ξ[:, p])
+        N[:, p], dN[:, :, p], _ = lagrangianD3N8(ξ[:, p])
     end
     return N, dN, w
 end
@@ -499,7 +519,7 @@ function map_to_parametric(element_type::String, vertices::Matrix{Float64}, poin
     ξ = zeros(dim)
     hessian = zeros(dim, dim)
     while true
-        N, dN = interpolate(element_type, ξ)
+        N, dN, _ = interpolate(element_type, ξ)
         trial_point = vertices * N
         residual = trial_point - point
         hessian = vertices * dN'
@@ -717,7 +737,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
                     dst_int_point_coord_2D[1] = dst_int_point_coord[1]
                     dst_int_point_coord_2D[2] = dst_int_point_coord[2]
                     src_ξ = map_to_parametric(src_side_element_type, src_side_coordinates, dst_int_point_coord_2D)
-                    src_Nₚ, _ = interpolate(src_side_element_type, src_ξ)
+                    src_Nₚ, _, _ = interpolate(src_side_element_type, src_ξ)
                     dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
                     src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
                     rectangular_side_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ 
