@@ -36,7 +36,7 @@ function SMSchwarzContactBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    is_dirichlet = true
+    is_dirichlet = false
     SMSchwarzContactBC(side_set_name, side_set_id, num_nodes_per_side, 
         side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
 end
@@ -126,16 +126,17 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, coupled_node_indices = find_and_project(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            point_new, closest_coupled_vertices = find_and_project(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set_id, bc.coupled_subsim.model)
             model.current[:, node_index] = point_new
-            element_type = get_element_type(3, length(coupled_node_indices))
-            coupled_vertices = bc.coupled_subsim.model.current[:, coupled_node_indices]
-            ξ = map_to_parametric(element_type, coupled_vertices, point_new)
+            element_type = get_element_type(2, size(closest_coupled_vertices)[2])
+            ξ = map_to_parametric(element_type, closest_coupled_vertices, point_new)
             N, _ = interpolate(element_type, ξ)
-            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, coupled_node_indices] * N
-            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, coupled_node_indices] * N
+            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, closest_coupled_vertices] * N
+            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, closest_coupled_vertices] * N
+            dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
+            model.free_dofs[dof_index] .= false
         end
-    end  
+    end
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzContactBC)

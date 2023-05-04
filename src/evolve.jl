@@ -1,5 +1,5 @@
 function evolve(sim::Simulation)
-    synchronize(sim)
+    watch_keep_time(sim)
     apply_ics(sim)
     apply_bcs(sim)
     initialize(sim)
@@ -10,7 +10,7 @@ function evolve(sim::Simulation)
         if stop_evolve(sim) == true
             break
         end
-        synchronize(sim)
+        watch_keep_time(sim)
         apply_bcs(sim)
         advance(sim)
         write_step(sim)
@@ -117,19 +117,27 @@ function finalize_writing(sim::MultiDomainSimulation)
     end
 end
 
-function synchronize(sim::SingleDomainSimulation)
-    sim.model.time = sim.integrator.time
+function watch_keep_time(sim::SingleDomainSimulation)
+    synchronize(sim)
     println("stop ", sim.integrator.stop, ", t=", sim.integrator.time)
 end
 
+function watch_keep_time(sim::MultiDomainSimulation)
+    synchronize(sim)
+    println("stop ", sim.schwarz_controller.stop, ", t=", sim.schwarz_controller.time)
+end
+
+function synchronize(sim::SingleDomainSimulation)
+    sim.model.time = sim.integrator.time
+end
+
 function synchronize(sim::MultiDomainSimulation)
-    time = sim.schwarz_controller.time
-    stop = sim.schwarz_controller.stop
+    time = sim.schwarz_controller.prev_time
+    stop = 0
     for subsim ∈ sim.subsims
         subsim.integrator.time = subsim.model.time = time
         subsim.integrator.stop = stop
     end
-    println("stop ", sim.schwarz_controller.stop, ", t=", sim.schwarz_controller.time)
 end
 
 function advance_time(sim::SingleDomainSimulation)

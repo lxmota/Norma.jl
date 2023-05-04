@@ -40,11 +40,12 @@ function create_schwarz_controller(params::Dict{Any,Any})
 end
 
 function schwarz(sim::MultiDomainSimulation)
-    set_subcycle_times(sim)
     iteration_number = 1
     save_stop_solutions(sim)
     while true
         println("Schwarz iteration=", iteration_number)
+        synchronize(sim)
+        set_subcycle_times(sim)
         save_schwarz_solutions(sim)
         subcycle(sim)
         iteration_number += 1
@@ -53,6 +54,7 @@ function schwarz(sim::MultiDomainSimulation)
         if stop_schwarz(sim, iteration_number) == true
             break
         end
+        write_step(sim)
         restore_stop_solutions(sim)
     end
 end
@@ -121,7 +123,7 @@ function subcycle(sim::MultiDomainSimulation)
             apply_bcs(subsim)
             advance(subsim)
             stop_index += 1
-            save_history_snapshot(schwarz_controller, sim.subsims, subsim_index, stop_index)
+            save_history_snapshot(sim.schwarz_controller, sim.subsims, subsim_index, stop_index)
         end
         subsim_index +=1
     end
@@ -139,7 +141,7 @@ function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vect
     resize!(schwarz_controller.acce_hist, num_domains)
     resize!(schwarz_controller.traction_force_hist, num_domains)
     for subsim ∈ 1:num_domains
-        num_steps = round(Int64, sims[subsim].integrator.time_step / schwarz_controller.time_step)
+        num_steps = round(Int64, schwarz_controller.time_step / sims[subsim].integrator.time_step)
         Δt = schwarz_controller.time_step / num_steps
         num_stops = num_steps + 1
         sims[subsim].integrator.time_step = Δt

@@ -556,8 +556,8 @@ function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, couple
     elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
     elem_type = coupled_mesh.elem_type(coupled_block_id)
     point_new = point
-    inside = false
     node_indices = [1:num_elem_nodes]
+    closest_coupled_vertices = Array{Float64}(undef,0)
     for blk_elem_index ∈ 1:num_blk_elems
         conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
         node_indices = elem_blk_conn[conn_indices]
@@ -566,14 +566,11 @@ function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, couple
         #if a point is inside an element, we will move it on the contact side
         if inside == true
             #call a function wich projects the point onto the contact boundary
-            point_new = project_onto_contact_surface(point, coupled_side_set_id, coupled_mesh, coupled_model)
+            point_new, closest_coupled_vertices = project_onto_contact_surface(point, coupled_side_set_id, coupled_mesh, coupled_model)
             break
         end        
     end
-    if inside == false
-        error("Point : ", point, " not in contact")
-    end
-    return point_new, node_indices
+    return point_new, closest_coupled_vertices
 end
 
 function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_id::Int64, coupled_mesh::PyObject, model::SolidMechanics)
@@ -582,6 +579,7 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_i
     coupled_ss_node_index = 1
     minimum_distance = Inf
     point_new = point
+    closest_coupled_vertices = Array{Float64}(undef,0)
     for coupled_side ∈ num_nodes_per_side
         coupled_side_nodes = side_set_node_indices[coupled_ss_node_index:coupled_ss_node_index+coupled_side-1]
         coupled_side_coordinates = model.current[:, coupled_side_nodes]
@@ -596,13 +594,14 @@ function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_i
         distance = (point - coordinates_A) ⋅ n
         #store the new point if the distance is min
         if abs(distance) < minimum_distance
-            point_new = point - distance * n   
+            point_new = point - distance * n
+            minimum_distance = abs(distance)
+            closest_coupled_vertices = coupled_side_coordinates
         end    
-        minimum_distance = min(minimum_distance, abs(distance))
         coupled_ss_node_index += coupled_side
     end
     #point_new: new points position
-    return point_new
+    return point_new, closest_coupled_vertices
 end
 
 function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Int64)
