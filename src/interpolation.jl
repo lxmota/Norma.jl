@@ -803,24 +803,24 @@ function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Floa
     end
 end
 
-function closest_point_projection(parametric_dim::Int64, nodes::Matrix{Float64}, point::Vector{Float64})
+function closest_point_projection(parametric_dim::Int64, nodes::Matrix{Float64}, x::Vector{Float64})
     space_dim, num_nodes = size(nodes)
     element_type = get_element_type(parametric_dim, num_nodes)
     ξ = zeros(parametric_dim)
     residual = zeros(parametric_dim)
     hessian = zeros(parametric_dim, parametric_dim)
-    trial_point = point
-    diff = zeros(space_dim)
+    y = x
+    yx = zeros(space_dim)
     tol = 1.0e-08
     while true
         N, dN, ddN = interpolate(element_type, ξ)
-        trial_point = nodes * N
-        dNnodes = dN * nodes'
-        diff = trial_point - point
-        residual = dNnodes * diff
-        ddNnodes = MiniTensor.dot_last_first(ddN, nodes')
-        ddNnodesdiff = MiniTensor.dot_last_first(ddNnodes, diff)
-        hessian = ddNnodesdiff + dNnodes * dNnodes'
+        y = nodes * N
+        dydξ = dN * nodes'
+        yx = y - x
+        residual = dydξ * yx
+        ddyddξ = MiniTensor.dot_last_first(ddN, nodes')
+        ddyddξyx = MiniTensor.dot_last_first(ddyddξ, yx)
+        hessian = ddyddξyx + dydξ * dydξ'
         δ = - hessian \ residual
         ξ = ξ + δ
         error = norm(δ)
@@ -828,6 +828,6 @@ function closest_point_projection(parametric_dim::Int64, nodes::Matrix{Float64},
             break
         end
     end
-    distance = norm(diff)
-    return trial_point, ξ, distance
+    distance = norm(yx)
+    return y, ξ, distance
 end
