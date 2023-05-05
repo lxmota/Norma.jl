@@ -124,7 +124,7 @@ end
 # Reference:
 # G. H. Golub and J. H. Welsch, Calculation of Gauss quadrature
 # rules, Math. Comp., 23(106):221-230, 1969.
-function gauss_legendre(n::Int64)
+function gauss_legendre(n::Integer)
     if n == 1
         return zeros(1), 2.0 * ones(1)
     elseif n == 2
@@ -152,11 +152,11 @@ function gauss_legendre(n::Int64)
     return ξ, w
 end
 
-function gauss_legendreD1(n::Int64)
+function gauss_legendreD1(n::Integer)
     return gauss_legendre(n)
 end
 
-function gauss_legendreD2(n::Int64)
+function gauss_legendreD2(n::Integer)
     if n ∉ [1, 4, 9]
         error("Order must be in [1,4,9] : ", n)
     end
@@ -176,7 +176,7 @@ function gauss_legendreD2(n::Int64)
     end
 end
 
-function gauss_legendreD1(n::Int64)
+function gauss_legendreD1(n::Integer)
     return gauss_legendre(n)
 end
 
@@ -307,7 +307,7 @@ function lagrangianD3N8G8()
     return N, dN, w
 end
 
-function default_num_int_pts(element_type)
+function default_num_int_pts(element_type::String)
     if element_type == "BAR2"
         return 1
     elseif element_type == "TRI3"
@@ -347,7 +347,7 @@ end
 # Compute isoparametric interpolation functions, their parametric
 # derivatives and integration weights.
 #
-function isoparametric(element_type::String, num_int::Int64)
+function isoparametric(element_type::String, num_int::Integer)
     msg1 = "Invalid number of integration points: "
     msg2 = " for element type: "
     if element_type == "BAR2"
@@ -572,7 +572,7 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Int64, model::SolidMechanics)
+function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Integer, model::SolidMechanics)
     #we assume that we know the contact surfaces in advance 
     num_nodes_per_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     ss_node_index = 1
@@ -612,7 +612,7 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
     return point_new, ξ, closest_face_nodes, closest_face_node_indices, found
 end
 
-function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Int64)
+function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Integer)
     num_nodes_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
@@ -623,7 +623,7 @@ function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Int64)
     return global_to_local_map, num_nodes_sides, side_set_node_indices
 end
 
-function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Int64)
+function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Integer)
     _, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
@@ -634,7 +634,7 @@ function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Int64)
     return local_to_global_map
 end
 
-function get_square_projection_matrix(mesh::PyObject, side_set_id::Int64)
+function get_square_projection_matrix(mesh::PyObject, side_set_id::Integer)
     global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
     coords = mesh.get_coords()
@@ -663,7 +663,7 @@ function get_square_projection_matrix(mesh::PyObject, side_set_id::Int64)
     return square_projection_matrix
 end
 
-function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::PyObject, src_side_set_id::Int64)
+function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::Integer, src_mesh::PyObject, src_side_set_id::Integer)
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_mesh.get_coords()
@@ -744,7 +744,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
     return rectangular_projection_matrix
 end
 
-function reduce_traction(mesh::PyObject, side_set_id::Int64, global_traction::Vector{Float64})
+function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::Vector{Float64})
     local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
     num_local_nodes = length(local_to_global_map)
     local_traction = zeros(3*num_local_nodes)
@@ -755,7 +755,7 @@ function reduce_traction(mesh::PyObject, side_set_id::Int64, global_traction::Ve
     return local_traction
 end
 
-function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Int64, src_mesh::PyObject, src_side_set_id::Int64, src_global_traction::Vector{Float64}) 
+function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Integer, src_mesh::PyObject, src_side_set_id::Integer, src_global_traction::Vector{Float64}) 
     square_projection_matrix = get_square_projection_matrix(src_mesh, src_side_set_id)
     rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_side_set_id, src_mesh, src_side_set_id)
     src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
@@ -804,7 +804,7 @@ function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Floa
     end
 end
 
-function closest_point_projection(parametric_dim::Int64, nodes::Matrix{Float64}, x::Vector{Float64})
+function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64}, x::Vector{Float64})
     space_dim, num_nodes = size(nodes)
     element_type = get_element_type(parametric_dim, num_nodes)
     ξ = zeros(parametric_dim)
