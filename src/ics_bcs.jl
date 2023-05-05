@@ -142,7 +142,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzContactBC)
-    schwarz_tractions = get_dst_traction(model.mesh, bc.side_set_id, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model.boundary_traction_force)
+    schwarz_tractions = get_dst_traction(model, bc)
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes

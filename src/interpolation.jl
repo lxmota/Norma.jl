@@ -552,16 +552,18 @@ function interpolate(element_type::String, ξ::Vector{Float64})
 end
 
 function is_inside_parametric(element_type::String, ξ::Vector{Float64})
+    tol = 1.0e-06
+    factor = 1.0 + tol
     if element_type == "BAR2"
-        return -1.0 ≤ ξ ≤ 1.0
+        return -factor ≤ ξ ≤ factor
     elseif element_type == "TRI3"
-        return reduce(*, zeros(2) .≤ ξ .≤ ones(2))
+        return reduce(*, -tol * ones(2) .≤ ξ .≤ factor * ones(2))
     elseif element_type == "QUAD4"
-        return reduce(*, -ones(2) .≤ ξ .≤ ones(2))
+        return reduce(*, -factor * ones(2) .≤ ξ .≤ factor * ones(2))
     elseif element_type == "TETRA4" || element_type == "TETRA10"
-        return reduce(*, zeros(3) .≤ ξ .≤ ones(3))
+        return reduce(*, -tol * ones(3) .≤ ξ .≤ factor * ones(3))
     elseif element_type == "HEX8"
-        return reduce(*, -ones(3) .≤ ξ .≤ ones(3))
+        return reduce(*, -factor * ones(3) .≤ ξ .≤ factor * ones(3))
     else
         error("Invalid element type: ", element_type)
     end
@@ -634,15 +636,15 @@ function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Integer)
     return local_to_global_map
 end
 
-function get_square_projection_matrix(mesh::PyObject, side_set_id::Integer)
+function get_square_projection_matrix(mesh::PyObject, model::SolidMechanics, side_set_id::Integer)
     global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
-    coords = mesh.get_coords()
+    coords = model.current
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
         side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
-        side_coordinates = [coords[1][side_nodes]'; coords[2][side_nodes]'; coords[3][side_nodes]']
+        side_coordinates = coords[:, side_nodes]
         two_dim_coord = surface_3D_to_2D(side_coordinates)
         element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
@@ -663,19 +665,19 @@ function get_square_projection_matrix(mesh::PyObject, side_set_id::Integer)
     return square_projection_matrix
 end
 
-function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::Integer, src_mesh::PyObject, src_side_set_id::Integer)
+function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidMechanics, dst_side_set_id::Integer, src_mesh::PyObject, src_model::SolidMechanics, src_side_set_id::Integer)
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
-    dst_coords = dst_mesh.get_coords()
+    dst_coords = dst_model.current
     src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_global_to_local_map)
-    src_coords = src_mesh.get_coords()
+    src_coords = src_model.current
     src_side_set_elems, _ = src_mesh.get_side_set(src_side_set_id)
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_side_set_node_index = 1
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
-        dst_side_coordinates = [dst_coords[1][dst_side_nodes]'; dst_coords[2][dst_side_nodes]'; dst_coords[3][dst_side_nodes]']
+        dst_side_coordinates = dst_coords[:, dst_side_nodes]
         dst_two_dim_coord = surface_3D_to_2D(dst_side_coordinates)
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
@@ -713,7 +715,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
             src_local_indices = Array{Int64}(undef,0)
             for src_num_nodes_side ∈ src_num_nodes_sides
                 src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
-                src_side_coordinates = [src_coords[1][src_side_nodes]'; src_coords[2][src_side_nodes]'; src_coords[3][src_side_nodes]']
+                src_side_coordinates = src_coords[:, src_side_nodes]
                 _, ξ, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
                 src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
                 is_inside = is_inside_parametric(src_side_element_type, ξ)
@@ -748,9 +750,15 @@ function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::
     return local_traction
 end
 
-function get_dst_traction(dst_mesh::PyObject, dst_side_set_id::Integer, src_mesh::PyObject, src_side_set_id::Integer, src_global_traction::Vector{Float64}) 
-    square_projection_matrix = get_square_projection_matrix(src_mesh, src_side_set_id)
-    rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_side_set_id, src_mesh, src_side_set_id)
+function get_dst_traction(dst_model::SolidMechanics, bc::SMSchwarzContactBC)
+    src_mesh = bc.coupled_subsim.model.mesh
+    src_side_set_id = bc.coupled_side_set_id
+    src_global_traction = bc.coupled_subsim.model.boundary_traction_force
+    src_model = bc.coupled_subsim.model
+    dst_mesh = dst_model.mesh
+    dst_side_set_id = bc.side_set_id
+    square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
+    rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
     src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
     src_traction_x = src_local_traction[1:3:end]
     src_traction_y = src_local_traction[2:3:end]
