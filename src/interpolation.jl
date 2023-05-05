@@ -551,25 +551,14 @@ function interpolate(element_type::String, ξ::Vector{Float64})
     end
 end
 
-function is_inside_parametric(element_type::String, ξ::Vector{Float64})
-    if element_type == "BAR2"
-        return -1.0 ≤ ξ ≤ 1.0
-    elseif element_type == "TRI3"
-        return reduce(*, zeros(2) .≤ ξ .≤ ones(2))
-    elseif element_type == "QUAD4"
-        return reduce(*, -ones(2) .≤ ξ .≤ ones(2))
-    elseif element_type == "TETRA4" || element_type == "TETRA10"
-        return reduce(*, zeros(3) .≤ ξ .≤ ones(3))
-    elseif element_type == "HEX8"
-        return reduce(*, -ones(3) .≤ ξ .≤ ones(3))
-    else
-        error("Invalid element type: ", element_type)
-    end
+function is_inside_parametric(ξ::Vector{Float64})
+    dim = length(ξ)
+    return reduce(*, zeros(dim) .≤ abs.(ξ) .≤ ones(dim))
 end
 
-function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vector{Float64})
-    ξ = map_to_parametric(element_type, vertices, point)
-    return is_inside_parametric(element_type, ξ)
+function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
+    ξ = map_to_parametric(element_type, nodes, point)
+    return is_inside_parametric(ξ)
 end
 
 function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Int64, model::SolidMechanics)
@@ -581,8 +570,8 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
     closest_face_nodes = Array{Float64}(undef,0)
     closest_face_node_indices = Array{Int64}(undef,0)
     space_dim = length(point)
-    parametric_dimension = space_dim - 1
-    ξ = zeros(parametric_dimension)
+    parametric_dim = space_dim - 1
+    ξ = zeros(parametric_dim)
     found = false
     for num_nodes_side ∈ num_nodes_per_sides
         face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
@@ -595,10 +584,10 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         CA = point_C - point_A
         N = cross(BA, CA)
         n = N / norm(N)
-        trial_point, ξ, distance = closest_point_projection(parametric_dimension, face_nodes, point)
+        trial_point, ξ, distance = closest_point_projection(parametric_dim, face_nodes, point)
         #store the new point if the distance is minimal and the point is inside the element corresponding to this face
         is_closer = distance < minimum_distance
-        is_inside = dot(n, point - trial_point) < 0.0
+        is_inside = dot(n, point - trial_point) < 0.0 && is_inside_parametric(ξ)
         found = is_closer && is_inside
         if found == true
             point_new = trial_point
