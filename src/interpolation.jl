@@ -325,7 +325,7 @@ function default_num_int_pts(element_type)
     end
 end
 
-function get_element_type(dim::Int64, num_nodes::Int64)
+function get_element_type(dim::Integer, num_nodes::Integer)
     if dim == 1 && num_nodes == 2
         return "BAR2"
     elseif dim == 2 && num_nodes == 3
@@ -551,14 +551,25 @@ function interpolate(element_type::String, ξ::Vector{Float64})
     end
 end
 
-function is_inside_parametric(ξ::Vector{Float64})
-    dim = length(ξ)
-    return reduce(*, zeros(dim) .≤ abs.(ξ) .≤ ones(dim))
+function is_inside_parametric(element_type::String, ξ::Vector{Float64})
+    if element_type == "BAR2"
+        return -1.0 ≤ ξ ≤ 1.0
+    elseif element_type == "TRI3"
+        return reduce(*, zeros(2) .≤ ξ .≤ ones(2))
+    elseif element_type == "QUAD4"
+        return reduce(*, -ones(2) .≤ ξ .≤ ones(2))
+    elseif element_type == "TETRA4" || element_type == "TETRA10"
+        return reduce(*, zeros(3) .≤ ξ .≤ ones(3))
+    elseif element_type == "HEX8"
+        return reduce(*, -ones(3) .≤ ξ .≤ ones(3))
+    else
+        error("Invalid element type: ", element_type)
+    end
 end
 
 function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
     ξ = map_to_parametric(element_type, nodes, point)
-    return is_inside_parametric(ξ)
+    return is_inside_parametric(element_type, ξ)
 end
 
 function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Int64, model::SolidMechanics)
@@ -586,8 +597,9 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         n = N / norm(N)
         trial_point, ξ, distance = closest_point_projection(parametric_dim, face_nodes, point)
         #store the new point if the distance is minimal and the point is inside the element corresponding to this face
+        element_type = get_element_type(parametric_dim, num_nodes_side)
         is_closer = distance < minimum_distance
-        is_inside = dot(n, point - trial_point) < 0.0 && is_inside_parametric(ξ)
+        is_inside = dot(n, point - trial_point) < 0.0 && is_inside_parametric(element_type, ξ)
         found = is_closer && is_inside
         if found == true
             point_new = trial_point
