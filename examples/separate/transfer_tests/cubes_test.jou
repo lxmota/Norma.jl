@@ -1,19 +1,19 @@
 ${side = 1.0}
 ${height = 1.0}
 ${separation = 0.0}
-${h_fine = 1/2}
-${h_coarse = 1}
+${h_fine = 1/8}
+${h_coarse = 1/4}
 
 ${area = side * side}
 ${offset = (height + separation) / 2.0}
 
 create brick x {side} y {side} z {height}
 move volume 1 z {-offset} include_merged
-#volume 1 scheme tetmesh
+volume 1 scheme tetmesh
 volume 1 size {h_fine}
 mesh volume 1
 block 1 volume 1
-#block 1 element type tetra4
+block 1 element type tetra4
 block 1 name "fine"
 nodeset 1 surface 4
 nodeset 1 name "nsx-"
@@ -40,7 +40,7 @@ sideset 5 name "ssz-"
 sideset 6 surface 1
 sideset 6 name "ssz+"
 set large exodus file off
-export mesh "cube_fine.g" overwrite
+export mesh "cube_fine_tet.g" overwrite
 delete mesh
 move volume 1 z {2 * offset} include_merged
 #volume 1 scheme tetmesh
@@ -74,4 +74,4 @@ sideset 5 name "ssz-"
 sideset 6 surface 1
 sideset 6 name "ssz+"
 set large exodus file off
-export mesh "cube_coarse.g" overwrite
+export mesh "cube_coarse_tet.g" overwrite

@@ -311,11 +311,11 @@ function default_num_int_pts(element_type::String)
     if element_type == "BAR2"
         return 1
     elseif element_type == "TRI3"
-        return 1
+        return 3
     elseif element_type == "QUAD4"
         return 4
     elseif element_type == "TETRA4"
-        return 1
+        return 4
     elseif element_type == "TETRA10"
         return 4
     elseif element_type == "HEX8"
@@ -430,9 +430,9 @@ function surface_3D_to_2D(vertices::Matrix{Float64})
 end
 
 function triangle_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64})
-    AB = B - A
+    AB = A - B
     Bx = norm(AB)
-    AC = C - A
+    AC = A - C
     AC2 = AC ⋅ AC
     n = AB / Bx
     Cx = AC ⋅ n
@@ -671,8 +671,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
     src_num_nodes = length(src_global_to_local_map)
     src_coords = src_mesh.get_coords()
     src_side_set_elems, _ = src_mesh.get_side_set(src_side_set_id)
-    rectangular_projection_matrix = zeros(src_num_nodes, dst_num_nodes)
-    rectangular_side_matrix = zeros(dst_num_nodes, src_num_nodes)
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_side_set_node_index = 1
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
@@ -707,38 +706,32 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_side_set_id::
             src_side_set_elems, _ = src_mesh.get_side_set(src_side_set_id)
             src_side_set_node_index = 1
             src_side_set_index = 1
-            inside = false
+            is_inside = false
+            space_dim = length(dst_int_point_coord)
+            parametric_dim = space_dim - 1
+            dst_local_indices = Array{Int64}(undef,0)
+            src_local_indices = Array{Int64}(undef,0)
             for src_num_nodes_side ∈ src_num_nodes_sides
                 src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
-                src_side_coordinates = [src_coords[1][src_side_nodes]'; src_coords[2][src_side_nodes]']
+                src_side_coordinates = [src_coords[1][src_side_nodes]'; src_coords[2][src_side_nodes]'; src_coords[3][src_side_nodes]']
+                _, ξ, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
                 src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
-                src_side_set_elem = src_side_set_elems[src_side_set_index]
-                src_blk_id = src_mesh.elem_to_blk_map[src_side_set_elem]
-                src_element_type = src_mesh.elem_type(src_blk_id)
-                src_elem_blk_conn, _, src_num_elem_nodes = src_mesh.get_elem_connectivity(src_blk_id)
-                side_set_elem_conn_indices = (src_side_set_elem-1)*src_num_elem_nodes+1:src_side_set_elem*src_num_elem_nodes
-                src_node_indices = src_elem_blk_conn[side_set_elem_conn_indices]
-                src_side_set_elem_coordinates = [src_coords[1][src_node_indices]'; src_coords[2][src_node_indices]'; src_coords[3][src_node_indices]']
-                inside = is_inside(src_element_type, src_side_set_elem_coordinates, dst_int_point_coord)
-                if inside == true
-                    dst_int_point_coord_2D = zeros(2)
-                    dst_int_point_coord_2D[1] = dst_int_point_coord[1]
-                    dst_int_point_coord_2D[2] = dst_int_point_coord[2]
-                    src_ξ = map_to_parametric(src_side_element_type, src_side_coordinates, dst_int_point_coord_2D)
-                    src_Nₚ, _, _ = interpolate(src_side_element_type, src_ξ)
+                is_inside = is_inside_parametric(src_side_element_type, ξ)
+                if is_inside == true
+                    src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
+                    src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
                     dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
                     src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
-                    rectangular_side_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ 
+                    rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ 
                     break
                 end
                 src_side_set_index += 1
                 src_side_set_node_index += src_num_nodes_side
             end
-            if inside == false
-                error("Point : ", dst_point, " not in contact")
+            if is_inside == false
+                println("Point : ", dst_point, " not in contact")
             end
         end
-        rectangular_projection_matrix = rectangular_side_matrix
         dst_side_set_node_index += dst_num_nodes_side
     end
     return rectangular_projection_matrix
