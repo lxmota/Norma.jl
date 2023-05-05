@@ -513,16 +513,16 @@ function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::N
     return nodal_force_component
 end
 
-function map_to_parametric(element_type::String, vertices::Matrix{Float64}, point::Vector{Float64})
+function map_to_parametric(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
     tol = 1.0e-08
     dim = length(point)
     ξ = zeros(dim)
     hessian = zeros(dim, dim)
     while true
         N, dN, _ = interpolate(element_type, ξ)
-        trial_point = vertices * N
+        trial_point = nodes * N
         residual = trial_point - point
-        hessian = vertices * dN'
+        hessian = nodes * dN'
         δ = - hessian \ residual
         ξ = ξ + δ
         error = norm(δ)
@@ -572,56 +572,43 @@ function is_inside(element_type::String, vertices::Matrix{Float64}, point::Vecto
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, coupled_mesh::PyObject, coupled_block_id::Int64, coupled_side_set_id::Int64, coupled_model::SolidMechanics)
-    elem_blk_conn, num_blk_elems, num_elem_nodes = coupled_mesh.get_elem_connectivity(coupled_block_id)
-    elem_type = coupled_mesh.elem_type(coupled_block_id)
-    point_new = point
-    node_indices = [1:num_elem_nodes]
-    closest_coupled_vertices = Array{Float64}(undef,0)
-    for blk_elem_index ∈ 1:num_blk_elems
-        conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
-        node_indices = elem_blk_conn[conn_indices]
-        vertices = coupled_model.current[:, node_indices]
-        inside = is_inside(elem_type, vertices, point)
-        #if a point is inside an element, we will move it on the contact side
-        if inside == true
-            #call a function wich projects the point onto the contact boundary
-            point_new, closest_coupled_vertices = project_onto_contact_surface(point, coupled_side_set_id, coupled_mesh, coupled_model)
-            break
-        end        
-    end
-    return point_new, closest_coupled_vertices
-end
-
-function project_onto_contact_surface(point::Vector{Float64}, coupled_side_set_id::Int64, coupled_mesh::PyObject, model::SolidMechanics)
+function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Int64, model::SolidMechanics)
     #we assume that we know the contact surfaces in advance 
-    num_nodes_per_side, side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
-    coupled_ss_node_index = 1
+    num_nodes_per_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+    ss_node_index = 1
     minimum_distance = Inf
     point_new = point
-    closest_coupled_vertices = Array{Float64}(undef,0)
-    for coupled_side ∈ num_nodes_per_side
-        coupled_side_nodes = side_set_node_indices[coupled_ss_node_index:coupled_ss_node_index+coupled_side-1]
-        coupled_side_coordinates = model.current[:, coupled_side_nodes]
+    closest_face_nodes = Array{Float64}(undef,0)
+    closest_face_node_indices = Array{Int64}(undef,0)
+    space_dim = length(point)
+    parametric_dimension = space_dim - 1
+    ξ = zeros(parametric_dimension)
+    found = false
+    for num_nodes_side ∈ num_nodes_per_sides
+        face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
+        face_nodes = model.current[:, face_node_indices]
         #plane 
-        coordinates_A = coupled_side_coordinates[:, 1]
-        coordinates_B = coupled_side_coordinates[:, 2]
-        coordinates_C = coupled_side_coordinates[:, 3]
-        BA = coordinates_B - coordinates_A
-        CA = coordinates_C - coordinates_A
+        point_A = face_nodes[:, 1]
+        point_B = face_nodes[:, 2]
+        point_C = face_nodes[:, end]
+        BA = point_B - point_A
+        CA = point_C - point_A
         N = cross(BA, CA)
         n = N / norm(N)
-        distance = (point - coordinates_A) ⋅ n
-        #store the new point if the distance is min
-        if abs(distance) < minimum_distance
-            point_new = point - distance * n
-            minimum_distance = abs(distance)
-            closest_coupled_vertices = coupled_side_coordinates
+        trial_point, ξ, distance = closest_point_projection(parametric_dimension, face_nodes, point)
+        #store the new point if the distance is minimal and the point is inside the element corresponding to this face
+        is_closer = distance < minimum_distance
+        is_inside = dot(n, point - trial_point) < 0.0
+        found = is_closer && is_inside
+        if found == true
+            point_new = trial_point
+            minimum_distance = distance
+            closest_face_nodes = face_nodes
+            closest_face_node_indices = face_node_indices
         end    
-        coupled_ss_node_index += coupled_side
+        ss_node_index += num_nodes_side
     end
-    #point_new: new points position
-    return point_new, closest_coupled_vertices
+    return point_new, ξ, closest_face_nodes, closest_face_node_indices, found
 end
 
 function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Int64)
@@ -814,4 +801,33 @@ function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Floa
     else
         return interpolate(param_hist[index], param_hist[index + 1], value_hist[index], value_hist[index + 1], param)
     end
+end
+
+function closest_point_projection(parametric_dim::Int64, nodes::Matrix{Float64}, point::Vector{Float64})
+    space_dim, num_nodes = size(nodes)
+    element_type = get_element_type(parametric_dim, num_nodes)
+    ξ = zeros(parametric_dim)
+    residual = zeros(parametric_dim)
+    hessian = zeros(parametric_dim, parametric_dim)
+    trial_point = point
+    diff = zeros(space_dim)
+    tol = 1.0e-08
+    while true
+        N, dN, ddN = interpolate(element_type, ξ)
+        trial_point = nodes * N
+        dNnodes = dN * nodes'
+        diff = trial_point - point
+        residual = dNnodes * diff
+        ddNnodes = MiniTensor.dot_last_first(ddN, nodes')
+        ddNnodesdiff = MiniTensor.dot_last_first(ddNnodes, diff)
+        hessian = ddNnodesdiff + dNnodes * dNnodes'
+        δ = - hessian \ residual
+        ξ = ξ + δ
+        error = norm(δ)
+        if error <= tol
+            break
+        end
+    end
+    distance = norm(diff)
+    return trial_point, ξ, distance
 end

@@ -126,13 +126,15 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, closest_coupled_vertices = find_and_project(point, bc.coupled_mesh, bc.coupled_block_id, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            point_new, ξ, closest_face_nodes, closest_face_node_indices, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            if found == false
+                continue
+            end
             model.current[:, node_index] = point_new
-            element_type = get_element_type(2, size(closest_coupled_vertices)[2])
-            ξ = map_to_parametric(element_type, closest_coupled_vertices, point_new)
+            element_type = get_element_type(2, size(closest_face_nodes)[2])
             N, _, _ = interpolate(element_type, ξ)
-            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, closest_coupled_vertices] * N
-            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, closest_coupled_vertices] * N
+            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, closest_face_node_indices] * N
+            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, closest_face_node_indices] * N
             dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
             model.free_dofs[dof_index] .= false
         end
