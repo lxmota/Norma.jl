@@ -299,6 +299,41 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
     end
 end
 
+function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::Vector{Float64})
+    local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
+    num_local_nodes = length(local_to_global_map)
+    local_traction = zeros(3*num_local_nodes)
+    for local_node ∈ 1:num_local_nodes
+        global_node = local_to_global_map[local_node]
+        local_traction[3*local_node-2:3*local_node] = global_traction[3*global_node-2:3*global_node]
+    end
+    return local_traction
+end
+
+function get_dst_traction(dst_model::SolidMechanics, bc::SMSchwarzContactBC)
+    src_mesh = bc.coupled_subsim.model.mesh
+    src_side_set_id = bc.coupled_side_set_id
+    src_global_traction = -bc.coupled_subsim.model.internal_force
+    src_model = bc.coupled_subsim.model
+    dst_mesh = dst_model.mesh
+    dst_side_set_id = bc.side_set_id
+    square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
+    rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
+    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
+    src_traction_x = src_local_traction[1:3:end]
+    src_traction_y = src_local_traction[2:3:end]
+    src_traction_z = src_local_traction[3:3:end]
+    projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
+    dst_traction_x = projection_operator * src_traction_x
+    dst_traction_y = projection_operator * src_traction_y
+    dst_traction_z = projection_operator * src_traction_z
+    dst_traction = zeros(3*length(dst_traction_x))
+    dst_traction[1:3:end] = dst_traction_x
+    dst_traction[2:3:end] = dst_traction_y
+    dst_traction[3:3:end] = dst_traction_z
+    return dst_traction
+end    
+
 function pair_schwarz_bcs(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         model = subsim.model
