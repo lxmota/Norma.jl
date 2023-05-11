@@ -1,32 +1,113 @@
+function elastic_constants(params::Dict{Any,Any})
+    E = 0.0
+    ν = 0.0
+    κ = 0.0
+    λ = 0.0
+    μ = 0.0
+    if haskey(params, "elastic modulus") == true
+        E = params["elastic modulus"]
+        if haskey(params, "Poisson's ratio") == true
+            ν = params["Poisson's ratio"]
+            κ = E / 3(1 - 2ν)
+            λ = E * ν / (1 + ν) / (1 - 2ν)
+            μ = E / 2(1 + ν)
+        elseif haskey(params, "bulk modulus") == true
+            κ = params["bulk modulus"]
+            ν = (3κ - E) / 6κ
+            λ = (3κ * (3κ - E)) / (9κ - E)
+            μ = 3κ * E / (9κ - E)
+        elseif haskey(params, "Lamé's first constant") == true
+            λ = params["Lamé's first constant"]
+            R = sqrt(E^2 + 9λ^2 + 2E * λ)
+            ν = 2λ / (E + λ + R)
+            κ = (E + 3λ + R) / 6
+            μ = (E - 3λ + R) / 4
+        elseif haskey(params, "shear modulus") == true
+            μ = params["shear modulus"]
+            ν = E / 2μ - 1
+            κ = E * μ / 3(3μ - E)
+            λ = μ * (E - 2μ) / (3μ - E)
+        else
+            error("At least two elastic constants are required, only elastic modulus found")
+        end
+    elseif haskey(params, "Poisson's ratio") == true
+        ν = params["Poisson's ratio"]
+        if haskey(params, "bulk modulus") == true
+            κ = params["bulk modulus"]
+            E = 3κ * (1 - 2ν)
+            λ = 3κ * ν / (1 + ν)
+            μ = 3κ * (1 - 2ν) / 2(1 + ν)
+        elseif haskey(params, "Lamé's first constant") == true
+            λ = params["Lamé's first constant"]
+            E = λ * (1 + ν) * (1 - 2ν) / ν
+            κ = λ * (1 + ν) / 3ν
+            μ = λ * (1 - 2ν) / 2ν
+        elseif haskey(params, "shear modulus") == true
+            μ = params["shear modulus"]
+            E = 2μ * (1 + ν)
+            κ = 2μ * (1 + ν) / 3(1 - 2ν)
+            λ = 2μ * ν / (1 - 2ν)
+        else
+            error("At least two elastic constants are required, only Poisson's ratio found")
+        end
+    elseif haskey(params, "bulk modulus") == true
+        κ = params["bulk modulus"]
+        if haskey(params, "Lamé's first constant") == true
+            λ = params["Lamé's first constant"]
+            E = 9κ * (κ - λ) / (3κ - λ)
+            ν = λ / (3κ - λ)
+            μ = 3(κ - λ) / 2
+        elseif haskey(params, "shear modulus") == true
+            μ = params["shear modulus"]
+            E = 9κ * μ / (3κ + μ)
+            ν = (3κ - 2μ) / 2(3κ + μ)
+            λ = κ - 2μ / 3
+        else
+            error("At least two elastic constants are required, only bulk modulus found")
+        end
+    elseif haskey(params, "Lamé's first constant") == true
+        λ = params["Lamé's first constant"]
+        if haskey(params, "shear modulus") == true
+            μ = params["shear modulus"]
+            E = μ * (3λ + 2μ) / (λ + μ)
+            ν = λ / 2(λ + μ)
+            κ = λ + 2μ / 3
+        else
+            error("At least two elastic constants are required, only Lamé's first constant found")
+        end
+    elseif haskey(params, "shear modulus") == true
+        error("At least two elastic constants are required, only shear modulus found")
+    else
+        error("At least two elastic constants are required, none found")
+    end
+    return E, ν, κ, λ, μ
+end
+
 struct SaintVenant_Kirchhoff <: Solid
     E::Float64
     ν::Float64
+    κ::Float64
     λ::Float64
     μ::Float64
     ρ::Float64
     function SaintVenant_Kirchhoff(params::Dict{Any,Any})
-        E = params["elastic modulus"]
-        ν = params["Poisson's ratio"]
+        E, ν, κ, λ, μ = elastic_constants(params)
         ρ = params["density"]
-        λ = E * ν / (1.0 + ν) / (1.0 - 2.0 * ν)
-        μ = E / (1.0 + ν) / 2.0
-        new(E, ν, λ, μ, ρ)
+        new(E, ν, κ, λ, μ, ρ)
     end
 end
 
 struct Linear_Elastic <: Solid
     E::Float64
     ν::Float64
+    κ::Float64
     λ::Float64
     μ::Float64
     ρ::Float64
     function Linear_Elastic(params::Dict{Any,Any})
-        E = params["elastic modulus"]
-        ν = params["Poisson's ratio"]
+        E, ν, κ, λ, μ = elastic_constants(params)
         ρ = params["density"]
-        λ = E * ν / (1.0 + ν) / (1.0 - 2.0 * ν)
-        μ = E / (1.0 + ν) / 2.0
-        new(E, ν, λ, μ, ρ)
+        new(E, ν, κ, λ, μ, ρ)
     end
 end
 
@@ -34,15 +115,13 @@ struct Neohookean <: Solid
     E::Float64
     ν::Float64
     κ::Float64
+    λ::Float64
     μ::Float64
     ρ::Float64
     function Neohookean(params::Dict{Any,Any})
-        E = params["elastic modulus"]
-        ν = params["Poisson's ratio"]
+        E, ν, κ, λ, μ = elastic_constants(params)
         ρ = params["density"]
-        κ = E / (1.0 - 2.0 * ν) / 3.0
-        μ = E / (1.0 + ν) / 2.0
-        new(E, ν, κ, μ, ρ)
+        new(E, ν, κ, λ, μ, ρ)
     end
 end
 
@@ -50,6 +129,7 @@ struct J2 <: Solid
     E::Float64
     ν::Float64
     κ::Float64
+    λ::Float64
     μ::Float64
     ρ::Float64
     Y₀::Float64
@@ -64,8 +144,7 @@ struct J2 <: Solid
     Tₘ::Float64
     M::Float64
     function J2(params::Dict{Any,Any})
-        E = params["elastic modulus"]
-        ν = params["Poisson's ratio"]
+        E, ν, κ, λ, μ = elastic_constants(params)
         ρ = params["density"]
         Y₀ = params["yield stress"]
         n = get(params, "hardening exponent", 0.0)
@@ -80,7 +159,7 @@ struct J2 <: Solid
         M =get(params, "thermal softening exponent", 0.0)
         κ = E / (1.0 - 2.0 * ν) / 3.0
         μ = E / (1.0 + ν) / 2.0
-        new(E, ν, κ, μ, ρ, Y₀, n, ε₀, Sᵥᵢₛ₀, m, ∂ε∂t₀, Cₚ, β, T₀, Tₘ, M)
+        new(E, ν, κ, λ, μ, ρ, Y₀, n, ε₀, Sᵥᵢₛ₀, m, ∂ε∂t₀, Cₚ, β, T₀, Tₘ, M)
     end
 end
 
@@ -150,7 +229,7 @@ function stress_update(material::J2, F::Matrix{Float64}, Fᵖ::Matrix{Float64}, 
 
     κ = material.κ
     μ = material.μ
-    λ = κ - 2.0 * μ / 3.0
+    λ = material.λ
     J = det(F)
 
     Fᵉ   = F * inv(Fᵖ)
