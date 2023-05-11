@@ -42,11 +42,12 @@ end
 function schwarz(sim::MultiDomainSimulation)
     iteration_number = 1
     save_stop_solutions(sim)
+    save_schwarz_solutions(sim)
+    resize_histories(sim)
     while true
         println("Schwarz iteration=", iteration_number)
         synchronize(sim)
         set_subcycle_times(sim)
-        save_schwarz_solutions(sim)
         subcycle(sim)
         iteration_number += 1
         ΔX = update_schwarz_convergence_criterion(sim)
@@ -55,6 +56,7 @@ function schwarz(sim::MultiDomainSimulation)
             break
         end
         write_step(sim)
+        save_schwarz_solutions(sim)
         restore_stop_solutions(sim)
     end
 end
@@ -68,7 +70,7 @@ function save_stop_solutions(schwarz_controller::SolidSchwarzController, sims::V
         schwarz_controller.stop_disp[i] = deepcopy(sims[i].integrator.displacement)
         schwarz_controller.stop_velo[i] = deepcopy(sims[i].integrator.velocity)
         schwarz_controller.stop_acce[i] = deepcopy(sims[i].integrator.acceleration)
-        schwarz_controller.stop_traction_force[i] = deepcopy(sims[i].model.boundary_traction_force)
+        schwarz_controller.stop_traction_force[i] = deepcopy(sims[i].model.internal_force)
     end
 end
 
@@ -78,10 +80,10 @@ end
 
 function restore_stop_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
     for i ∈ 1:schwarz_controller.num_domains
-        sims[i].integrator.displacement = schwarz_controller.stop_disp[i]
-        sims[i].integrator.velocity = schwarz_controller.stop_velo[i]
-        sims[i].integrator.acceleration = schwarz_controller.stop_acce[i]
-        sims[i].model.boundary_traction_force = schwarz_controller.stop_traction_force[i]
+        sims[i].integrator.displacement = deepcopy(schwarz_controller.stop_disp[i])
+        sims[i].integrator.velocity = deepcopy(schwarz_controller.stop_velo[i])
+        sims[i].integrator.acceleration = deepcopy(schwarz_controller.stop_acce[i])
+        sims[i].model.internal_force = deepcopy(schwarz_controller.stop_traction_force[i])
         copy_solution_source_targets(sims[i].integrator, sims[i].solver, sims[i].model)
     end
 end
@@ -109,7 +111,6 @@ function set_subcycle_times(sim::MultiDomainSimulation)
 end
 
 function subcycle(sim::MultiDomainSimulation)
-    resize_histories(sim)
     subsim_index = 1
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
@@ -152,10 +153,10 @@ function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vect
         schwarz_controller.traction_force_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
         for stop ∈ 1:num_stops
             schwarz_controller.time_hist[subsim][stop] = schwarz_controller.prev_time + (stop - 1) * Δt
-            schwarz_controller.disp_hist[subsim][stop] = schwarz_controller.stop_disp[subsim]
-            schwarz_controller.velo_hist[subsim][stop] = schwarz_controller.stop_velo[subsim]
-            schwarz_controller.acce_hist[subsim][stop] = schwarz_controller.stop_acce[subsim]
-            schwarz_controller.traction_force_hist[subsim][stop] = schwarz_controller.stop_traction_force[subsim]
+            schwarz_controller.disp_hist[subsim][stop] = deepcopy(schwarz_controller.stop_disp[subsim])
+            schwarz_controller.velo_hist[subsim][stop] = deepcopy(schwarz_controller.stop_velo[subsim])
+            schwarz_controller.acce_hist[subsim][stop] = deepcopy(schwarz_controller.stop_acce[subsim])
+            schwarz_controller.traction_force_hist[subsim][stop] = deepcopy(schwarz_controller.stop_traction_force[subsim])
         end
     end
 end
@@ -164,7 +165,7 @@ function save_history_snapshot(schwarz_controller::SchwarzController, sims::Vect
     schwarz_controller.disp_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].integrator.displacement)
     schwarz_controller.velo_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].integrator.velocity)
     schwarz_controller.acce_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].integrator.acceleration)
-    schwarz_controller.traction_force_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].model.boundary_traction_force)
+    schwarz_controller.traction_force_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].model.internal_force)
 end
 
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)

@@ -89,7 +89,7 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     saved_disp = bc.coupled_subsim.integrator.displacement
     saved_velo = bc.coupled_subsim.integrator.velocity
     saved_acce = bc.coupled_subsim.integrator.acceleration
-    saved_traction_force = bc.coupled_subsim.model.boundary_traction_force
+    saved_traction_force = bc.coupled_subsim.model.internal_force
     time = model.time
     coupled_name = bc.coupled_subsim.name
     coupled_index = global_sim.subsim_name_index_map[coupled_name]
@@ -102,20 +102,22 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     interp_velo = interpolate(time_hist, velo_hist, time)
     interp_acce = interpolate(time_hist, acce_hist, time)
     interp_traction_force = interpolate(time_hist, traction_force_hist, time)
-    bc.coupled_subsim.integrator.displacement = interp_disp
-    bc.coupled_subsim.integrator.velocity = interp_velo
-    bc.coupled_subsim.integrator.acceleration = interp_acce
-    bc.coupled_subsim.model.boundary_traction_force = interp_traction_force
+    bc.coupled_subsim.integrator.displacement = deepcopy(interp_disp)
+    bc.coupled_subsim.integrator.velocity = deepcopy(interp_velo)
+    bc.coupled_subsim.integrator.acceleration = deepcopy(interp_acce)
+    bc.coupled_subsim.model.internal_force = deepcopy(interp_traction_force)
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
     if bc.is_dirichlet == true
+        println("Apply Schwarz contact Dirichlet BCs")
         apply_sm_schwarz_contact_dirichlet(model, bc)
     else
+        println("Apply Schwarz contact Neumann BCs")
         apply_sm_schwarz_contact_neumann(model, bc)
     end
-    bc.coupled_subsim.integrator.displacement = saved_disp
-    bc.coupled_subsim.integrator.velocity = saved_velo
-    bc.coupled_subsim.integrator.acceleration = saved_acce
-    bc.coupled_subsim.model.boundary_traction_force = saved_traction_force
+    bc.coupled_subsim.integrator.displacement = deepcopy(saved_disp)
+    bc.coupled_subsim.integrator.velocity = deepcopy(saved_velo)
+    bc.coupled_subsim.integrator.acceleration = deepcopy(saved_acce)
+    bc.coupled_subsim.model.internal_force = deepcopy(saved_traction_force)
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 
@@ -150,6 +152,41 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzCo
         model.boundary_traction_force[3*global_node-2:3*global_node] += schwarz_tractions[3*local_node-2:3*local_node]
     end
 end
+
+function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::Vector{Float64})
+    local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
+    num_local_nodes = length(local_to_global_map)
+    local_traction = zeros(3*num_local_nodes)
+    for local_node ∈ 1:num_local_nodes
+        global_node = local_to_global_map[local_node]
+        local_traction[3*local_node-2:3*local_node] = global_traction[3*global_node-2:3*global_node]
+    end
+    return local_traction
+end
+
+function get_dst_traction(dst_model::SolidMechanics, bc::SMSchwarzContactBC)
+    src_mesh = bc.coupled_subsim.model.mesh
+    src_side_set_id = bc.coupled_side_set_id
+    src_global_traction = -bc.coupled_subsim.model.internal_force
+    src_model = bc.coupled_subsim.model
+    dst_mesh = dst_model.mesh
+    dst_side_set_id = bc.side_set_id
+    square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
+    rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
+    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
+    src_traction_x = src_local_traction[1:3:end]
+    src_traction_y = src_local_traction[2:3:end]
+    src_traction_z = src_local_traction[3:3:end]
+    projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
+    dst_traction_x = projection_operator * src_traction_x
+    dst_traction_y = projection_operator * src_traction_y
+    dst_traction_z = projection_operator * src_traction_z
+    dst_traction = zeros(3*length(dst_traction_x))
+    dst_traction[1:3:end] = dst_traction_x
+    dst_traction[2:3:end] = dst_traction_y
+    dst_traction[3:3:end] = dst_traction_z
+    return dst_traction
+end    
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)
     node_set_names = mesh.get_node_set_names()
@@ -298,41 +335,6 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
         end
     end
 end
-
-function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::Vector{Float64})
-    local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
-    num_local_nodes = length(local_to_global_map)
-    local_traction = zeros(3*num_local_nodes)
-    for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
-        local_traction[3*local_node-2:3*local_node] = global_traction[3*global_node-2:3*global_node]
-    end
-    return local_traction
-end
-
-function get_dst_traction(dst_model::SolidMechanics, bc::SMSchwarzContactBC)
-    src_mesh = bc.coupled_subsim.model.mesh
-    src_side_set_id = bc.coupled_side_set_id
-    src_global_traction = -bc.coupled_subsim.model.internal_force
-    src_model = bc.coupled_subsim.model
-    dst_mesh = dst_model.mesh
-    dst_side_set_id = bc.side_set_id
-    square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
-    rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
-    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
-    src_traction_x = src_local_traction[1:3:end]
-    src_traction_y = src_local_traction[2:3:end]
-    src_traction_z = src_local_traction[3:3:end]
-    projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
-    dst_traction_x = projection_operator * src_traction_x
-    dst_traction_y = projection_operator * src_traction_y
-    dst_traction_z = projection_operator * src_traction_z
-    dst_traction = zeros(3*length(dst_traction_x))
-    dst_traction[1:3:end] = dst_traction_x
-    dst_traction[2:3:end] = dst_traction_y
-    dst_traction[3:3:end] = dst_traction_z
-    return dst_traction
-end    
 
 function pair_schwarz_bcs(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims

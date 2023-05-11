@@ -1,8 +1,8 @@
-${side = 1.0}
-${height = 1.0}
+${side = 1.0e-3}
+${height = 1.0e-3}
 ${separation = 0.0}
-${h_fine = 1.0}
-${h_coarse = 1.0}
+${h_fine = 1.0e-3}
+${h_coarse = 1.0e-3}
 
 ${area = side * side}
 ${offset = (height + separation) / 2.0}
