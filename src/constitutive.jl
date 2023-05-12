@@ -83,7 +83,7 @@ function elastic_constants(params::Dict{Any,Any})
     return E, ν, κ, λ, μ
 end
 
-struct SaintVenant_Kirchhoff <: Solid
+mutable struct SaintVenant_Kirchhoff <: Solid
     E::Float64
     ν::Float64
     κ::Float64
@@ -97,7 +97,7 @@ struct SaintVenant_Kirchhoff <: Solid
     end
 end
 
-struct Linear_Elastic <: Solid
+mutable struct Linear_Elastic <: Solid
     E::Float64
     ν::Float64
     κ::Float64
@@ -111,7 +111,7 @@ struct Linear_Elastic <: Solid
     end
 end
 
-struct Neohookean <: Solid
+mutable struct Neohookean <: Solid
     E::Float64
     ν::Float64
     κ::Float64
@@ -125,7 +125,7 @@ struct Neohookean <: Solid
     end
 end
 
-struct J2 <: Solid
+mutable struct J2 <: Solid
     E::Float64
     ν::Float64
     κ::Float64
