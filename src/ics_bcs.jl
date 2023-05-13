@@ -121,6 +121,12 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 
+function transfer_normal_component!(source::Vector{Float64}, target::Vector{Float64}, normal::Vector{Float64})
+    P_parallel = normal * normal'
+    P_perpendicular = I(length(normal)) - P_parallel
+    target = P_perpendicular * target + P_parallel * source
+end
+
 function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarzContactBC)
     ss_node_index = 1
     for side ∈ bc.num_nodes_per_side
@@ -135,8 +141,10 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
             model.current[:, node_index] = point_new
             element_type = get_element_type(2, size(closest_face_nodes)[2])
             N, _, _ = interpolate(element_type, ξ)
-            model.velocity[:, node_index] = bc.coupled_subsim.model.velocity[:, closest_face_node_indices] * N
-            model.acceleration[:, node_index] = bc.coupled_subsim.model.acceleration[:, closest_face_node_indices] * N
+            source_velo = bc.coupled_subsim.model.velocity[:, closest_face_node_indices] * N
+            source_acce = bc.coupled_subsim.model.acceleration[:, closest_face_node_indices] * N
+            transfer_normal_component!(source_velo, model.velocity[:, node_index], closest_normal)
+            transfer_normal_component!(source_acce, model.acceleration[:, node_index], closest_normal)
             dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
             model.free_dofs[dof_index] .= false
         end
