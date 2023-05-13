@@ -128,7 +128,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, ξ, closest_face_nodes, closest_face_node_indices, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            point_new, ξ, closest_face_nodes, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
             if found == false
                 continue
             end

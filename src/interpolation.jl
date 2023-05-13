@@ -521,6 +521,7 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
     space_dim = length(point)
     parametric_dim = space_dim - 1
     ξ = zeros(parametric_dim)
+    closest_normal = zeros(space_dim)
     found = false
     for num_nodes_side ∈ num_nodes_per_sides
         face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
@@ -533,7 +534,7 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         CA = point_C - point_A
         N = cross(BA, CA)
         n = N / norm(N)
-        trial_point, ξ, distance = closest_point_projection(parametric_dim, face_nodes, point)
+        trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
         #store the new point if the distance is minimal and the point is inside the element corresponding to this face
         element_type = get_element_type(parametric_dim, num_nodes_side)
         is_closer = distance < minimum_distance
@@ -544,10 +545,11 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
             minimum_distance = distance
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
+            closest_normal = normal
         end    
         ss_node_index += num_nodes_side
     end
-    return point_new, ξ, closest_face_nodes, closest_face_node_indices, found
+    return point_new, ξ, closest_face_nodes, closest_face_node_indices, closest_normal, found
 end
 
 function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Integer)
@@ -633,7 +635,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
             for src_num_nodes_side ∈ src_num_nodes_sides
                 src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
                 src_side_coordinates = src_coords[:, src_side_nodes]
-                _, ξ, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
+                _, ξ, _, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
                 src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
                 is_inside = is_inside_parametric(src_side_element_type, ξ)
                 if is_inside == true
@@ -696,6 +698,7 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
     y = x
     yx = zeros(space_dim)
     tol = 1.0e-08
+    normal = zeros(space_dim)
     while true
         N, dN, ddN = interpolate(element_type, ξ)
         y = nodes * N
@@ -712,6 +715,10 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
             break
         end
     end
+    _, dN, _ = interpolate(element_type, ξ)
+    dxdξ = dN * nodes'
+    perp_vec = cross(dxdξ[1, :], dxdξ[2, :])
+    normal = perp_vec / norm(perp_vec)
     distance = norm(yx)
-    return y, ξ, distance
+    return y, ξ, distance, normal
 end
