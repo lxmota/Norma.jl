@@ -483,35 +483,17 @@ using Symbolics
 
 function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
     _, num_side_nodes = size(nodal_coord)
-    if num_side_nodes == 3
-        A = nodal_coord[:, 1]
-        B = nodal_coord[:, 2]
-        C = nodal_coord[:, 3]
-        centroid = (A + B + C) / 3.0
-        two_dim_coord = triangle_3D_to_2D(A, B, C)
-        g = 0.0
-    elseif num_side_nodes == 4
-        A = nodal_coord[:, 1]
-        B = nodal_coord[:, 2]
-        C = nodal_coord[:, 3]
-        D = nodal_coord[:, 4]
-        centroid = (A + B + C + D) / 4.0
-        two_dim_coord = quadrilateral_3D_to_2D(A, B, C, D)
-        g = sqrt(3.0) / 3.0
-    else
-        error("Unknown side topology with number of nodes: ", num_side_nodes)
-    end
     element_type = get_element_type(2, num_side_nodes)
     num_int_points = default_num_int_pts(element_type)
-    N, dNdξ, w, ξ = isoparametric(element_type, num_int_points)
+    N, dNdξ, w, _ = isoparametric(element_type, num_int_points)
     nodal_force_component = zeros(num_side_nodes)
     for point ∈ 1:num_int_points
         Nₚ = N[:, point]
         dNdξₚ = dNdξ[:, :, point]
-        dXdξ = dNdξₚ * two_dim_coord'
-        j = det(dXdξ)
+        dXdξ = dNdξₚ * nodal_coord'
+        j = norm(cross(dXdξ[1, :], dXdξ[2, :]))
         wₚ = w[point]
-        point_coord = g * nodal_coord[:, point] + (1.0 - g) * centroid
+        point_coord = nodal_coord * Nₚ
         values = Dict(t=>time, x=>point_coord[1], y=>point_coord[2], z=>point_coord[3])
         traction_sym = substitute(traction_num, values)
         traction_val = extract_value(traction_sym)
