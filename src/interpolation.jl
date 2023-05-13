@@ -1,6 +1,6 @@
 function barycentricD2N3(ξ::Vector{Float64})
     N = [1.0 - ξ[1] - ξ[2], ξ[1], ξ[2]]
-    dN = [-1 1 0;
+    dN = [-1 1 0
           -1 0 1] / 1.0
     ddN = zeros(2, 2, 3)
     return N, dN, ddN
@@ -12,20 +12,19 @@ function barycentricD2N3G1()
     dN = zeros(2, 3, 1)
     ξ = ones(2) / 3
     N, dN[:, :, 1], _ = barycentricD2N3(ξ)
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function barycentricD2N3G3()
     w = ones(3) / 6.0
     N = zeros(3, 3)
     dN = zeros(2, 3, 3)
-    ξ = [4 1 1 1;
-         1 4 1 1;
-         1 1 4 1] / 6
+    ξ = [1 4 1
+         1 1 4] / 6
     for p ∈ 1:3
         N[:, p], dN[:, :, p], _ = barycentricD2N3(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function barycentricD3N4(ξ::Vector{Float64})
@@ -33,33 +32,41 @@ function barycentricD3N4(ξ::Vector{Float64})
         ξ[1],
         ξ[2],
         ξ[3]]
-    dN = [-1 1 0 0;
-          -1 0 1 0;
+    dN = [-1 1 0 0
+          -1 0 1 0
           -1 0 0 1] / 1.0
     ddN = zeros(3, 3, 4)
     return N, dN, ddN
 end
 
 function barycentricD3N10(ξ::Vector{Float64})
-    t1 = 1 - ξ[1] - ξ[2] - ξ[3]
-    t2 = ξ[1]
-    t3 = ξ[2]
-    t4 = ξ[3]
-    N = [t1 * (2 * t1 - 1),
+    t0 = 1 - ξ[1] - ξ[2] - ξ[3]
+    t1 = ξ[1]
+    t2 = ξ[2]
+    t3 = ξ[3]
+    N = [t0 * (2 * t0 - 1),
+         t1 * (2 * t1 - 1),
          t2 * (2 * t2 - 1),
          t3 * (2 * t3 - 1),
-         t4 * (2 * t4 - 1),
-         4 * t1 * t2,
-         4 * t3 * t3,
-         4 * t3 * t1,
-         4 * t1 * t4,
-         4 * t2 * t4,
-         4 * t3 * t4]
-    dN = [1-4*t1 4*t2-1 0 0 4*(t1-t2) 4*t3 -4*t3 -4*t4 4*t4 0;
-          1-4*t1 0 4*t3-1 0 -4*t2 4*t2 4*(t1-t3) -4*t4 0 4*t4;
-          1-4*t1 0 0 4*t4-1 -4*t2 0 -4*t3 4*(t1-t4) 4*t2 4*t3]
-    # TODO: Fill this up with correct values
+         4 * t0 * t1,
+         4 * t2 * t2,
+         4 * t2 * t0,
+         4 * t0 * t3,
+         4 * t1 * t3,
+         4 * t2 * t3]
+    dN = [1-4*t0 4*t1-1 0 0 4*(t0-t1) 4*t2 -4*t2 -4*t3 4*t3 0
+          1-4*t0 0 4*t2-1 0 -4*t1 4*t1 4*(t0-t2) -4*t3 0 4*t3
+          1-4*t0 0 0 4*t3-1 -4*t1 0 -4*t2 4*(t0-t3) 4*t1 4*t2]
     ddN = zeros(3, 3, 10)
+    ddN[1,1,:] = [4  4  0  0 -8  0  0  0  0  0] * 1.0
+    ddN[1,2,:] = [4  0  0  0 -4  4 -4  0  0  0] * 1.0
+    ddN[1,3,:] = [4  0  0  0 -4  0  0 -4  4  0] * 1.0
+    ddN[2,1,:] = [4  0  0  0 -4  4 -4  0  0  0] * 1.0
+    ddN[2,2,:] = [4  0  4  0  0  0 -8  0  0  0] * 1.0
+    ddN[2,3,:] = [4  0  0  0  0  0 -4 -4  0  4] * 1.0
+    ddN[3,1,:] = [4  0  0  0 -4  0  0 -4  4  0] * 1.0
+    ddN[3,2,:] = [4  0  0  0  0  0 -4 -4  0  4] * 1.0
+    ddN[3,3,:] = [4  0  0  4  0  0  0 -8  0  0] * 1.0
     return N, dN, ddN
 end
 
@@ -69,7 +76,7 @@ function barycentricD3N4G1()
     dN = zeros(3, 4, 1)
     ξ = 0.25 * ones(3)
     N, dN[:, :, 1], _ = barycentricD3N4(ξ)
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function barycentricD3N4G4()
@@ -85,7 +92,7 @@ function barycentricD3N4G4()
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = barycentricD3N4(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function barycentricD3N10G4()
@@ -101,7 +108,7 @@ function barycentricD3N10G4()
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = barycentricD3N10(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function barycentricD3N10G5()
@@ -116,7 +123,7 @@ function barycentricD3N10G5()
     for p ∈ 1:5
         N[:, p], dN[:, :, p], _ = barycentricD3N4(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 # Computes the nodes x and weights w
@@ -192,7 +199,7 @@ function lagrangianD1N2G1()
     dN = zeros(1, 2, 1)
     ξ, w = gauss_legendreD1(1)
     N, dN[:, :, 1], _ = lagrangianD1N2(ξ[1])
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function lagrangianD1N2G2()
@@ -202,7 +209,7 @@ function lagrangianD1N2G2()
     for p ∈ 1:2
         N[:, p], dN[:, :, p], _ = lagrangianD1N2(ξ[p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function lagrangianD1N2G3()
@@ -212,7 +219,7 @@ function lagrangianD1N2G3()
     for p ∈ 1:3
         N[:, p], dN[:, :, p], _ = lagrangianD1N2(ξ[p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function lagrangianD1N2G4()
@@ -222,7 +229,7 @@ function lagrangianD1N2G4()
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = lagrangianD1N2(ξ[p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function lagrangianD2N4(ξ::Vector{Float64})
@@ -252,7 +259,7 @@ function lagrangianD2N4G4()
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = lagrangianD2N4(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function lagrangianD2N4G9()
@@ -262,7 +269,7 @@ function lagrangianD2N4G9()
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = lagrangianD2N4(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function lagrangianD3N8(ξ::Vector{Float64})
@@ -304,7 +311,7 @@ function lagrangianD3N8G8()
     for p ∈ 1:8
         N[:, p], dN[:, :, p], _ = lagrangianD3N8(ξ[:, p])
     end
-    return N, dN, w
+    return N, dN, w, ξ
 end
 
 function default_num_int_pts(element_type::String)
@@ -345,7 +352,7 @@ end
 
 #
 # Compute isoparametric interpolation functions, their parametric
-# derivatives and integration weights.
+# derivatives, integration weights, and integration point locations
 #
 function isoparametric(element_type::String, num_int::Integer)
     msg1 = "Invalid number of integration points: "
@@ -496,7 +503,7 @@ function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::N
     end
     element_type = get_element_type(2, num_side_nodes)
     num_int_points = default_num_int_pts(element_type)
-    N, dNdξ, w = isoparametric(element_type, num_int_points)
+    N, dNdξ, w, ξ = isoparametric(element_type, num_int_points)
     nodal_force_component = zeros(num_side_nodes)
     for point ∈ 1:num_int_points
         Nₚ = N[:, point]
@@ -648,7 +655,7 @@ function get_square_projection_matrix(mesh::PyObject, model::SolidMechanics, sid
         two_dim_coord = surface_3D_to_2D(side_coordinates)
         element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
-        N, dNdξ, w = isoparametric(element_type, num_int_points)
+        N, dNdξ, w, ξ = isoparametric(element_type, num_int_points)
         side_matrix = zeros(num_nodes_side, num_nodes_side)
         for point ∈ 1:num_int_points
             Nₚ = N[:, point]
@@ -681,7 +688,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
         dst_two_dim_coord = surface_3D_to_2D(dst_side_coordinates)
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
-        dst_N, dst_dNdξ, dst_w = isoparametric(dst_element_type, dst_num_int_points)
+        dst_N, dst_dNdξ, dst_w, dst_ξ = isoparametric(dst_element_type, dst_num_int_points)
         for dst_point ∈ 1:dst_num_int_points
             dst_Nₚ = dst_N[:, dst_point]
             dst_dNdξₚ = dst_dNdξ[:, :, dst_point]
