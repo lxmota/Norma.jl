@@ -425,59 +425,6 @@ function gradient_operator(dNdX::Matrix{Float64})
     return B
 end
 
-function surface_3D_to_2D(vertices::Matrix{Float64})
-    _, num_nodes = size(vertices)
-    if num_nodes == 3
-        return triangle_3D_to_2D(vertices[:, 1], vertices[:, 2], vertices[:, 3])
-    elseif num_nodes == 4
-        return quadrilateral_3D_to_2D(vertices[:, 1], vertices[:, 2], vertices[:, 3], vertices[:, 4])
-    else
-        error("Unknown surface type with number of nodes : ", num_nodes)
-    end
-end
-
-function triangle_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64})
-    AB = A - B
-    Bx = norm(AB)
-    AC = A - C
-    AC2 = AC ⋅ AC
-    n = AB / Bx
-    Cx = AC ⋅ n
-    Cy = sqrt(AC2 - Cx * Cx)
-    coordinates = zeros(2, 3)
-    coordinates[1, 2] = Bx
-    coordinates[1, 3] = Cx
-    coordinates[2, 3] = Cy
-    return coordinates
-end
-
-function quadrilateral_3D_to_2D(A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64})
-    AB = A - B
-    AC = A - C
-    AD = A - D
-    V = cross(AB, AC)
-    v = V / norm(V)
-    u = AD ⋅ v
-    if abs(u) / norm(AD) >= 1.0e-04
-        error("Curved quadrilaterals are not supported")
-    end
-    Bx = norm(AB)
-    AC2 = AC ⋅ AC
-    AD2 = AD ⋅ AD
-    n = AB / Bx
-    Cx = AC ⋅ n
-    Cy = sqrt(AC2 - Cx * Cx)
-    Dx = AD ⋅ n
-    Dy = sqrt(AD2 - Dx * Dx)
-    coordinates = zeros(2, 4)
-    coordinates[1, 2] = Bx
-    coordinates[1, 3] = Cx
-    coordinates[1, 4] = Dx
-    coordinates[2, 3] = Cy
-    coordinates[2, 4] = Dy
-    return coordinates
-end
-
 using Symbolics
 @variables t, x, y, z
 
@@ -634,16 +581,15 @@ function get_square_projection_matrix(mesh::PyObject, model::SolidMechanics, sid
     for num_nodes_side ∈ num_nodes_sides
         side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
         side_coordinates = coords[:, side_nodes]
-        two_dim_coord = surface_3D_to_2D(side_coordinates)
         element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
-        N, dNdξ, w, ξ = isoparametric(element_type, num_int_points)
+        N, dNdξ, w, _ = isoparametric(element_type, num_int_points)
         side_matrix = zeros(num_nodes_side, num_nodes_side)
         for point ∈ 1:num_int_points
             Nₚ = N[:, point]
             dNdξₚ = dNdξ[:, :, point]
-            dXdξ = dNdξₚ * two_dim_coord'
-            j = det(dXdξ)
+            dXdξ = dNdξₚ * side_coordinates'
+            j = norm(cross(dXdξ[1, :], dXdξ[2, :]))
             wₚ = w[point]
             side_matrix += Nₚ * Nₚ' * j * wₚ
         end
@@ -658,48 +604,30 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_model.current
+    space_dim, _ = size(dst_coords)
+    parametric_dim = space_dim - 1
     src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_global_to_local_map)
     src_coords = src_model.current
-    src_side_set_elems, _ = src_mesh.get_side_set(src_side_set_id)
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_side_set_node_index = 1
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
         dst_side_coordinates = dst_coords[:, dst_side_nodes]
-        dst_two_dim_coord = surface_3D_to_2D(dst_side_coordinates)
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
-        dst_N, dst_dNdξ, dst_w, dst_ξ = isoparametric(dst_element_type, dst_num_int_points)
+        dst_N, dst_dNdξ, dst_w, _ = isoparametric(dst_element_type, dst_num_int_points)
         for dst_point ∈ 1:dst_num_int_points
             dst_Nₚ = dst_N[:, dst_point]
             dst_dNdξₚ = dst_dNdξ[:, :, dst_point]
-            dst_dXdξ = dst_dNdξₚ * dst_two_dim_coord'
-            dst_j = det(dst_dXdξ)
+            dst_dXdξ = dst_dNdξₚ * dst_side_coordinates'
+            dst_j = norm(cross(dst_dXdξ[1, :], dst_dXdξ[2, :]))
             dst_wₚ = dst_w[dst_point]
-            # find the physical coordinates of the integration point of the source sides
-            if dst_num_nodes_side == 3
-                A = dst_side_coordinates[:, 1]
-                B = dst_side_coordinates[:, 2]
-                C = dst_side_coordinates[:, 3]
-                centroid = (A + B + C) / 3.0
-                g = 0.0
-            elseif dst_num_nodes_side == 4
-                A = dst_side_coordinates[:, 1]
-                B = dst_side_coordinates[:, 2]
-                C = dst_side_coordinates[:, 3]
-                D = dst_side_coordinates[:, 4]
-                centroid = (A + B + C + D) / 4.0
-                g = sqrt(3.0) / 3.0
-            end
-            dst_int_point_coord = g * dst_side_coordinates[:, dst_point] + (1.0 - g) * centroid
+            dst_int_point_coord = dst_side_coordinates * dst_Nₚ
             # loop over the sides of the destination side set
-            src_side_set_elems, _ = src_mesh.get_side_set(src_side_set_id)
             src_side_set_node_index = 1
             src_side_set_index = 1
             is_inside = false
-            space_dim = length(dst_int_point_coord)
-            parametric_dim = space_dim - 1
             dst_local_indices = Array{Int64}(undef,0)
             src_local_indices = Array{Int64}(undef,0)
             for src_num_nodes_side ∈ src_num_nodes_sides
@@ -713,7 +641,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
                     src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
                     dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
                     src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
-                    rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ 
+                    rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
                     break
                 end
                 src_side_set_index += 1
