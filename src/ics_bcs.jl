@@ -122,9 +122,9 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
 end
 
 function transfer_normal_component!(source::Vector{Float64}, target::Vector{Float64}, normal::Vector{Float64})
-    P_parallel = normal * normal'
-    P_perpendicular = I(length(normal)) - P_parallel
-    target = P_perpendicular * target + P_parallel * source
+    normal_projection = normal * normal'
+    tangent_projection = I(length(normal)) - normal_projection
+    target = tangent_projection * target + normal_projection * source
 end
 
 function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarzContactBC)
