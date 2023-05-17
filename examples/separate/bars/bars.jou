@@ -1,14 +1,16 @@
 ${side = 1.0e-3}
-${height = 1.0e-3}
-${separation = 0.0}
-${h_fine = 1.0e-3}
-${h_coarse = 1.0e-3}
+${length = 0.25}
+${separation = 0.004}
+${nel_fine = 100}
+${nel_coarse = 100}
+${h_fine = length / nel_fine}
+${h_coarse = length / nel_coarse}
 
 ${area = side * side}
-${offset = (height + separation) / 2.0}
+${offset = (length + separation) / 2.0}
 
-create brick x {side} y {side} z {height}
-move volume 1 z {-offset} include_merged
+create brick x {length} y {side} z {side}
+move volume 1 x {-offset} include_merged
 #volume 1 scheme tetmesh
 volume 1 size {h_fine}
 mesh volume 1
@@ -42,9 +44,9 @@ sideset 5 name "ssz-"
 sideset 6 surface 1
 sideset 6 name "ssz+"
 set large exodus file off
-export mesh "cube-1.g" overwrite
+export mesh "bar-1.g" overwrite
 delete mesh
-move volume 1 z {2 * offset} include_merged
+move volume 1 x {2 * offset} include_merged
 #volume 1 scheme tetmesh
 volume 1 size {h_coarse}
 mesh volume 1
@@ -78,4 +80,4 @@ sideset 5 name "ssz-"
 sideset 6 surface 1
 sideset 6 name "ssz+"
 set large exodus file off
-export mesh "cube-2.g" overwrite
+export mesh "bar-2.g" overwrite
