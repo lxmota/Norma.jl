@@ -27,5 +27,6 @@ mutable struct SolidSchwarzController <: SchwarzController
     velo_hist::Vector{Vector{Vector{Float64}}}
     acce_hist::Vector{Vector{Vector{Float64}}}
     traction_force_hist::Vector{Vector{Vector{Float64}}}
+    schwarz_contact::Bool
     active_contact::Bool
 end

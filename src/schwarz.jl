@@ -23,12 +23,13 @@ function SolidSchwarzController(params::Dict{Any,Any})
     velo_hist = Vector{Vector{Vector{Float64}}}()
     acce_hist = Vector{Vector{Vector{Float64}}}()
     traction_force_hist = Vector{Vector{Vector{Float64}}}()
+    schwarz_contact = false
     active_contact = false
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, stop, converged,
         stop_disp, stop_velo, stop_acce, stop_traction_force, schwarz_disp, schwarz_velo, schwarz_acce,
-        time_hist, disp_hist, velo_hist, acce_hist, traction_force_hist, active_contact)
+        time_hist, disp_hist, velo_hist, acce_hist, traction_force_hist, schwarz_contact, active_contact)
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
@@ -214,7 +215,13 @@ function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
     return sim.schwarz_controller.converged
 end
 
+function detect_contact(_::SingleDomainSimulation)
+end
+
 function detect_contact(sim::MultiDomainSimulation)
+    if sim.schwarz_controller.schwarz_contact == false
+        return
+    end
     num_domains = sim.schwarz_controller.num_domains
     #first condition: contact at the previous stop
     contact_prev = sim.schwarz_controller.active_contact

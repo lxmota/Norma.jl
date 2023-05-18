@@ -146,6 +146,10 @@ end
 
 function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     global_sim = bc.coupled_subsim.params["global_simulation"]
+    schwarz_controller = global_sim.schwarz_controller
+    if schwarz_controller.schwarz_contact == true && schwarz_controller.active_contact == false
+        return
+    end
     if length(global_sim.schwarz_controller.time_hist) == 0
         apply_bc_detail(model, bc)
         return
@@ -348,6 +352,7 @@ function create_bcs(params::Dict{Any,Any})
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz contact"
                 sim = params["global_simulation"]
+                sim.schwarz_controller.schwarz_contact = true
                 coupled_subsim_name = bc_setting_params["source"]
                 coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
