@@ -694,7 +694,7 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
     hessian = zeros(parametric_dim, parametric_dim)
     y = x
     yx = zeros(space_dim)
-    tol = 1.0e-08
+    tol = 1.0e-06
     normal = zeros(space_dim)
     while true
         N, dN, ddN = interpolate(element_type, ξ)

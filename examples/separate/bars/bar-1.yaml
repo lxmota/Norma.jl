@@ -15,7 +15,7 @@ time integrator:
   type: Newmark
   β: 0.25
   γ: 0.5
-  time step: 1.0e-07
+  time step: 1.0e-06
 initial conditions:
   velocity:
     - node set: nsall
