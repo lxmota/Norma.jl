@@ -666,8 +666,11 @@ function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::
 end
 
 function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Float64}}, param::Float64)
-    if param < param_hist[1] || param > param_hist[end]
-        error("parameter for interpolation out of range : ", param)
+    if param < param_hist[1]
+        param = param_hist[1]
+    end
+    if param > param_hist[end]
+        param = param_hist[end]
     end
     index = 1
     size = length(param_hist)
