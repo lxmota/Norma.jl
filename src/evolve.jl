@@ -1,6 +1,7 @@
 function evolve(sim::Simulation)
     watch_keep_time(sim)
     apply_ics(sim)
+    detect_contact(sim)
     apply_bcs(sim)
     initialize(sim)
     initialize_writing(sim)
@@ -11,6 +12,7 @@ function evolve(sim::Simulation)
             break
         end
         watch_keep_time(sim)
+        detect_contact(sim)
         apply_bcs(sim)
         advance(sim)
         write_step(sim)
@@ -31,7 +33,14 @@ function advance(sim::SingleDomainSimulation)
 end
 
 function advance(sim::MultiDomainSimulation)
-    schwarz(sim)
+    if sim.schwarz_controller.active_contact == true
+        schwarz(sim)
+    else
+        for subsim ∈ sim.subsims
+            println("Solve domain ", subsim.name)
+            solve(subsim)
+        end
+    end    
 end
 
 function apply_ics(sim::SingleDomainSimulation)

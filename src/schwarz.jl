@@ -23,11 +23,12 @@ function SolidSchwarzController(params::Dict{Any,Any})
     velo_hist = Vector{Vector{Vector{Float64}}}()
     acce_hist = Vector{Vector{Vector{Float64}}}()
     traction_force_hist = Vector{Vector{Vector{Float64}}}()
+    active_contact = false
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, stop, converged,
         stop_disp, stop_velo, stop_acce, stop_traction_force, schwarz_disp, schwarz_velo, schwarz_acce,
-        time_hist, disp_hist, velo_hist, acce_hist, traction_force_hist)
+        time_hist, disp_hist, velo_hist, acce_hist, traction_force_hist, active_contact)
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
@@ -211,4 +212,54 @@ function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
         return true
     end
     return sim.schwarz_controller.converged
+end
+
+function detect_contact(sim::MultiDomainSimulation)
+    num_domains = sim.schwarz_controller.num_domains
+    #first condition: contact at the previous stop
+    contact_prev = sim.schwarz_controller.active_contact
+    contact_domain = zeros(Bool, num_domains)
+    for i ∈ 1:sim.schwarz_controller.num_domains
+        subsim = sim.subsims[i]
+        subsim_bc_params = subsim.params["boundary conditions"]
+        mesh = subsim.params["input_mesh"]
+        Schwarz_bcs = subsim_bc_params["Schwarz contact"]
+        for bc_setting_params ∈ Schwarz_bcs
+            side_set_name = bc_setting_params["side set"]
+            side_set_id = side_set_id_from_name(side_set_name, mesh)
+            num_nodes_per_side, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+            coupled_subsim_name = bc_setting_params["source"]
+            coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
+            coupled_subsim = sim.subsims[coupled_subdomain_index]
+            coupled_mesh = coupled_subsim.params["input_mesh"]
+            coupled_side_set_name = bc_setting_params["source side set"]
+            coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
+            #second condition: overlap
+            global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, side_set_id)
+            overlap_nodes = zeros(Bool,length(global_to_local_map))
+            ss_node_index = 1
+            for side ∈ num_nodes_per_side
+                side_nodes = side_set_node_indices[ss_node_index:ss_node_index+side-1]
+                for node_index ∈ side_nodes
+                    point = subsim.model.current[:, node_index]
+                    _, _, _, _, _, found = find_and_project(point, coupled_mesh, coupled_side_set_id, coupled_subsim.model)
+                    node = get.(Ref(global_to_local_map), node_index, 0)
+                    overlap_nodes[node] = found
+                end
+                ss_node_index += side
+            end
+            #true if at least one node interpenetrates the coupled domain
+            overlap = any(overlap_nodes)
+            #third condition: compression 
+            coupled_global_traction = coupled_subsim.model.internal_force
+            coupled_local_traction = reduce_traction(coupled_mesh, coupled_side_set_id, coupled_global_traction)
+            compress_nodes = coupled_local_traction[isless.(coupled_local_traction, 0)]
+            #true if at least one node interpenetrates the coupled domain
+            compress = length(compress_nodes) > 1
+            persist = compress && contact_prev
+            contact_domain[i] = overlap || persist
+        end
+    end
+    sim.schwarz_controller.active_contact = any(contact_domain)
+    return sim.schwarz_controller.active_contact
 end

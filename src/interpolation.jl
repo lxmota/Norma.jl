@@ -514,7 +514,6 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
     #we assume that we know the contact surfaces in advance 
     num_nodes_per_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     ss_node_index = 1
-    minimum_distance = Inf
     point_new = point
     closest_face_nodes = Array{Float64}(undef,0)
     closest_face_node_indices = Array{Int64}(undef,0)
@@ -534,19 +533,17 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         CA = point_C - point_A
         N = cross(BA, CA)
         n = N / norm(N)
-        trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
+        trial_point, ξ, _, normal = closest_point_projection(parametric_dim, face_nodes, point)
         #store the new point if the distance is minimal and the point is inside the element corresponding to this face
         element_type = get_element_type(parametric_dim, num_nodes_side)
-        is_closer = distance < minimum_distance
-        is_inside = dot(n, point - trial_point) < 0.0 && is_inside_parametric(element_type, ξ)
-        found = is_closer && is_inside
+        found = dot(n, point - trial_point) <= 0.0 && is_inside_parametric(element_type, ξ)
         if found == true
             point_new = trial_point
-            minimum_distance = distance
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
             closest_normal = normal
-        end    
+            break
+        end
         ss_node_index += num_nodes_side
     end
     return point_new, ξ, closest_face_nodes, closest_face_node_indices, closest_normal, found
@@ -697,7 +694,7 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
     hessian = zeros(parametric_dim, parametric_dim)
     y = x
     yx = zeros(space_dim)
-    tol = 1.0e-08
+    tol = 1.0e-06
     normal = zeros(space_dim)
     while true
         N, dN, ddN = interpolate(element_type, ξ)

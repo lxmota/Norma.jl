@@ -1,8 +1,8 @@
 ${side = 1.0e-3}
-${length = 0.25}
-${separation = 0.004}
-${nel_fine = 100}
-${nel_coarse = 100}
+${length = 5.e-3}
+${separation = 4.e-4}
+${nel_fine = 5}
+${nel_coarse = 5}
 ${h_fine = length / nel_fine}
 ${h_coarse = length / nel_coarse}
 

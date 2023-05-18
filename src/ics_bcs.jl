@@ -77,48 +77,52 @@ end
 
 function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     global_sim = bc.coupled_subsim.params["global_simulation"]
-    if length(global_sim.schwarz_controller.time_hist) == 0
+    if global_sim.schwarz_controller.active_contact == false
+        return
+    else    
+        if length(global_sim.schwarz_controller.time_hist) == 0
+            if bc.is_dirichlet == true
+                apply_sm_schwarz_contact_dirichlet(model, bc)
+            else
+                apply_sm_schwarz_contact_neumann(model, bc)
+            end
+            return
+        end
+        # Save solution of coupled simulation
+        saved_disp = bc.coupled_subsim.integrator.displacement
+        saved_velo = bc.coupled_subsim.integrator.velocity
+        saved_acce = bc.coupled_subsim.integrator.acceleration
+        saved_traction_force = bc.coupled_subsim.model.internal_force
+        time = model.time
+        coupled_name = bc.coupled_subsim.name
+        coupled_index = global_sim.subsim_name_index_map[coupled_name]
+        time_hist = global_sim.schwarz_controller.time_hist[coupled_index]
+        disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
+        velo_hist = global_sim.schwarz_controller.velo_hist[coupled_index]
+        acce_hist = global_sim.schwarz_controller.acce_hist[coupled_index]
+        traction_force_hist = global_sim.schwarz_controller.traction_force_hist[coupled_index]
+        interp_disp = interpolate(time_hist, disp_hist, time)
+        interp_velo = interpolate(time_hist, velo_hist, time)
+        interp_acce = interpolate(time_hist, acce_hist, time)
+        interp_traction_force = interpolate(time_hist, traction_force_hist, time)
+        bc.coupled_subsim.integrator.displacement = deepcopy(interp_disp)
+        bc.coupled_subsim.integrator.velocity = deepcopy(interp_velo)
+        bc.coupled_subsim.integrator.acceleration = deepcopy(interp_acce)
+        bc.coupled_subsim.model.internal_force = deepcopy(interp_traction_force)
+        copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
         if bc.is_dirichlet == true
+            println("Apply Schwarz contact Dirichlet BCs")
             apply_sm_schwarz_contact_dirichlet(model, bc)
         else
+            println("Apply Schwarz contact Neumann BCs")
             apply_sm_schwarz_contact_neumann(model, bc)
         end
-        return
+        bc.coupled_subsim.integrator.displacement = deepcopy(saved_disp)
+        bc.coupled_subsim.integrator.velocity = deepcopy(saved_velo)
+        bc.coupled_subsim.integrator.acceleration = deepcopy(saved_acce)
+        bc.coupled_subsim.model.internal_force = deepcopy(saved_traction_force)
+        copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
     end
-    # Save solution of coupled simulation
-    saved_disp = bc.coupled_subsim.integrator.displacement
-    saved_velo = bc.coupled_subsim.integrator.velocity
-    saved_acce = bc.coupled_subsim.integrator.acceleration
-    saved_traction_force = bc.coupled_subsim.model.internal_force
-    time = model.time
-    coupled_name = bc.coupled_subsim.name
-    coupled_index = global_sim.subsim_name_index_map[coupled_name]
-    time_hist = global_sim.schwarz_controller.time_hist[coupled_index]
-    disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
-    velo_hist = global_sim.schwarz_controller.velo_hist[coupled_index]
-    acce_hist = global_sim.schwarz_controller.acce_hist[coupled_index]
-    traction_force_hist = global_sim.schwarz_controller.traction_force_hist[coupled_index]
-    interp_disp = interpolate(time_hist, disp_hist, time)
-    interp_velo = interpolate(time_hist, velo_hist, time)
-    interp_acce = interpolate(time_hist, acce_hist, time)
-    interp_traction_force = interpolate(time_hist, traction_force_hist, time)
-    bc.coupled_subsim.integrator.displacement = deepcopy(interp_disp)
-    bc.coupled_subsim.integrator.velocity = deepcopy(interp_velo)
-    bc.coupled_subsim.integrator.acceleration = deepcopy(interp_acce)
-    bc.coupled_subsim.model.internal_force = deepcopy(interp_traction_force)
-    copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
-    if bc.is_dirichlet == true
-        println("Apply Schwarz contact Dirichlet BCs")
-        apply_sm_schwarz_contact_dirichlet(model, bc)
-    else
-        println("Apply Schwarz contact Neumann BCs")
-        apply_sm_schwarz_contact_neumann(model, bc)
-    end
-    bc.coupled_subsim.integrator.displacement = deepcopy(saved_disp)
-    bc.coupled_subsim.integrator.velocity = deepcopy(saved_velo)
-    bc.coupled_subsim.integrator.acceleration = deepcopy(saved_acce)
-    bc.coupled_subsim.model.internal_force = deepcopy(saved_traction_force)
-    copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 
 function transfer_normal_component!(source::Vector{Float64}, target::Vector{Float64}, normal::Vector{Float64})
