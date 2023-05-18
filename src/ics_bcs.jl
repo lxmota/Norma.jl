@@ -167,16 +167,16 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     interp_velo = interpolate(time_hist, velo_hist, time)
     interp_acce = interpolate(time_hist, acce_hist, time)
     interp_traction_force = interpolate(time_hist, traction_force_hist, time)
-    bc.coupled_subsim.integrator.displacement = deepcopy(interp_disp)
-    bc.coupled_subsim.integrator.velocity = deepcopy(interp_velo)
-    bc.coupled_subsim.integrator.acceleration = deepcopy(interp_acce)
-    bc.coupled_subsim.model.internal_force = deepcopy(interp_traction_force)
+    bc.coupled_subsim.integrator.displacement = interp_disp
+    bc.coupled_subsim.integrator.velocity = interp_velo
+    bc.coupled_subsim.integrator.acceleration = interp_acce
+    bc.coupled_subsim.model.internal_force = interp_traction_force
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
     apply_bc_detail(model, bc)
-    bc.coupled_subsim.integrator.displacement = deepcopy(saved_disp)
-    bc.coupled_subsim.integrator.velocity = deepcopy(saved_velo)
-    bc.coupled_subsim.integrator.acceleration = deepcopy(saved_acce)
-    bc.coupled_subsim.model.internal_force = deepcopy(saved_traction_force)
+    bc.coupled_subsim.integrator.displacement = saved_disp
+    bc.coupled_subsim.integrator.velocity = saved_velo
+    bc.coupled_subsim.integrator.acceleration = saved_acce
+    bc.coupled_subsim.model.internal_force = saved_traction_force
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 

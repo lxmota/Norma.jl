@@ -1,8 +1,8 @@
 ${side = 1.0}
 ${height = 2.0}
 ${overlap_vol_frac = 0.5}
-${h_fine = 1.50}
-${h_coarse = 1.50}
+${h_fine = 0.25}
+${h_coarse = 1.00}
 
 ${area = side * side}
 ${volume = area * height}
