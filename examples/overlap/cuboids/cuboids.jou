@@ -1,8 +1,8 @@
 ${side = 1.0}
 ${height = 2.0}
 ${overlap_vol_frac = 0.5}
-${h_fine = 0.25}
-${h_coarse = 1.0}
+${h_fine = 1.50}
+${h_coarse = 1.50}
 
 ${area = side * side}
 ${volume = area * height}
@@ -18,7 +18,7 @@ volume 1 size {h_fine}
 mesh volume 1
 block 1 volume 1
 #block 1 element type tetra4
-block 1 name "domain_1"
+block 1 name "fine"
 nodeset 1 surface 4
 nodeset 1 name "nsx-"
 nodeset 2 surface 6
@@ -52,7 +52,7 @@ volume 1 size {h_coarse}
 mesh volume 1
 block 1 volume 1
 #block 1 element type tetra4
-block 1 name "domain_2"
+block 1 name "coarse"
 nodeset 1 surface 4
 nodeset 1 name "nsx-"
 nodeset 2 surface 6

@@ -13,7 +13,9 @@ function QuasiStatic(params::Dict{Any,Any})
     num_nodes = length(x)
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
-    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement)
+    velocity = zeros(num_dof)
+    acceleration = zeros(num_dof)
+    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement, velocity, acceleration)
 end
 
 function Newmark(params::Dict{Any,Any})
@@ -85,6 +87,7 @@ function is_static_or_dynamic(integrator_name::String)
 end
 
 function initialize(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
+    println("Establishing initial equilibrium")
     copy_solution_source_targets(model, integrator, solver)
     solve(integrator, solver, model)
     copy_solution_source_targets(solver, model, integrator)
@@ -198,8 +201,8 @@ function initialize_writing(params::Dict{Any,Any}, _::StaticTimeIntegrator, mode
     max_num_int_points = 0
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = output_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
+        element_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
         max_num_int_points = max(max_num_int_points, num_points)
     end
     ip_var_index = num_element_vars
@@ -261,8 +264,8 @@ function initialize_writing(params::Dict{Any,Any}, _::DynamicTimeIntegrator, mod
     max_num_int_points = 0
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = output_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
+        element_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
         max_num_int_points = max(max_num_int_points, num_points)
     end
     ip_var_index = num_element_vars
@@ -347,8 +350,8 @@ function write_step_exodus(params::Dict{Any,Any}, integrator::StaticTimeIntegrat
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = output_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
+        element_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
         blk_conn = output_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_stress = stress[blk_index]
@@ -420,8 +423,8 @@ function write_step_exodus(params::Dict{Any,Any}, integrator::DynamicTimeIntegra
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = output_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
+        element_type = output_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
         blk_conn = output_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_stress = stress[blk_index]

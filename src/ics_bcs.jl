@@ -26,7 +26,7 @@ function SMNeumannBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
     SMNeumannBC(side_set_name, offset, side_set_id, num_nodes_per_side, side_set_node_indices, traction_num)
 end
 
-function SMSchwarzContactBC(coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
+function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
     num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
@@ -37,8 +37,32 @@ function SMSchwarzContactBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
     is_dirichlet = false
-    SMSchwarzContactBC(side_set_name, side_set_id, num_nodes_per_side, 
+    SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
         side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
+end
+
+function SMSchwarzDBC(subsim::SingleDomainSimulation, coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
+    node_set_name = bc_params["node set"]
+    node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+    node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+    coupled_block_name = bc_params["source block"]
+    coupled_mesh = coupled_subsim.params["input_mesh"]
+    coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
+    element_type = coupled_mesh.elem_type(coupled_block_id)
+    coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
+    interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
+    for node_index ∈ node_set_node_indices
+        point = subsim.model.reference[:, node_index]
+        node_indices, ξ, found = find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id)
+        if found == false
+            error("Could not find point: ", point, " in subdomain: ", coupled_subsim.name)
+        end
+        N, _, _ = interpolate(element_type, ξ)
+        push!(coupled_nodes_indices, node_indices)
+        push!(interpolation_function_values, N)
+    end
+    SMSchwarzDBC(node_set_name, node_set_id, node_set_node_indices,
+        coupled_subsim, coupled_mesh, coupled_block_id, coupled_nodes_indices, interpolation_function_values)
 end
 
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
@@ -75,14 +99,55 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     end
 end
 
-function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
+function find_in_mesh(point::Vector{Float64}, model::SolidMechanics, mesh::PyObject, blk_id::Int64)
+    element_type = mesh.elem_type(blk_id)
+    elem_blk_conn, num_blk_elems, num_elem_nodes = mesh.get_elem_connectivity(blk_id)
+    node_indices = Vector{Int64}()
+    found = false
+    for blk_elem_index ∈ 1:num_blk_elems
+        conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
+        node_indices = elem_blk_conn[conn_indices]
+        elem_ref_pos = model.reference[:, node_indices]
+        ξ = map_to_parametric(element_type, elem_ref_pos, point)
+        found = is_inside_parametric(element_type, ξ)
+        if found == true
+            return node_indices, ξ, true
+        end
+    end
+    return node_indices, ξ, false
+end
+
+function apply_bc_detail(model::SolidMechanics, bc::SMContactSchwarzBC)
+    if bc.is_dirichlet == true
+        apply_sm_schwarz_contact_dirichlet(model, bc)
+    else
+        apply_sm_schwarz_contact_neumann(model, bc)
+    end
+end
+
+function apply_bc_detail(model::SolidMechanics, bc::SMSchwarzDBC)
+    for i ∈ 1:length(bc.node_set_node_indices)
+        node_index = bc.node_set_node_indices[i]
+        coupled_node_indices = bc.coupled_nodes_indices[i]
+        N = bc.interpolation_function_values[i]
+        elem_posn = bc.coupled_subsim.model.current[:, coupled_node_indices]
+        elem_velo = bc.coupled_subsim.model.velocity[:, coupled_node_indices]
+        elem_acce = bc.coupled_subsim.model.acceleration[:, coupled_node_indices]
+        point_posn = elem_posn * N
+        point_velo = elem_velo * N
+        point_acce = elem_acce * N
+        model.current[:, node_index] = point_posn
+        model.velocity[:, node_index] = point_velo
+        model.acceleration[:, node_index] = point_acce
+        dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
+        model.free_dofs[dof_index] .= false
+    end
+end
+
+function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     global_sim = bc.coupled_subsim.params["global_simulation"]
     if length(global_sim.schwarz_controller.time_hist) == 0
-        if bc.is_dirichlet == true
-            apply_sm_schwarz_contact_dirichlet(model, bc)
-        else
-            apply_sm_schwarz_contact_neumann(model, bc)
-        end
+        apply_bc_detail(model, bc)
         return
     end
     # Save solution of coupled simulation
@@ -107,13 +172,7 @@ function apply_bc(model::SolidMechanics, bc::SMSchwarzContactBC)
     bc.coupled_subsim.integrator.acceleration = deepcopy(interp_acce)
     bc.coupled_subsim.model.internal_force = deepcopy(interp_traction_force)
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
-    if bc.is_dirichlet == true
-        println("Apply Schwarz contact Dirichlet BCs")
-        apply_sm_schwarz_contact_dirichlet(model, bc)
-    else
-        println("Apply Schwarz contact Neumann BCs")
-        apply_sm_schwarz_contact_neumann(model, bc)
-    end
+    apply_bc_detail(model, bc)
     bc.coupled_subsim.integrator.displacement = deepcopy(saved_disp)
     bc.coupled_subsim.integrator.velocity = deepcopy(saved_velo)
     bc.coupled_subsim.integrator.acceleration = deepcopy(saved_acce)
@@ -127,7 +186,7 @@ function transfer_normal_component!(source::Vector{Float64}, target::Vector{Floa
     target = tangent_projection * target + normal_projection * source
 end
 
-function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarzContactBC)
+function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContactSchwarzBC)
     ss_node_index = 1
     for side ∈ bc.num_nodes_per_side
         side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
@@ -151,7 +210,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMSchwarz
     end
 end
 
-function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMSchwarzContactBC)
+function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSchwarzBC)
     schwarz_tractions = get_dst_traction(model, bc)
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
@@ -172,7 +231,7 @@ function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::
     return local_traction
 end
 
-function get_dst_traction(dst_model::SolidMechanics, bc::SMSchwarzContactBC)
+function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_global_traction = -bc.coupled_subsim.model.internal_force
@@ -292,10 +351,18 @@ function create_bcs(params::Dict{Any,Any})
                 coupled_subsim_name = bc_setting_params["source"]
                 coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
-                boundary_condition = SMSchwarzContactBC(coupled_subsim, input_mesh, bc_setting_params)
+                boundary_condition = SMContactSchwarzBC(coupled_subsim, input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)                
             elseif bc_type == "Schwarz Dirichlet"
-            elseif bc_type == "Schwarz Neumann"
+                sim = params["global_simulation"]
+                subsim_name = params["name"]
+                subdomain_index = sim.subsim_name_index_map[subsim_name]
+                subsim = sim.subsims[subdomain_index]
+                coupled_subsim_name = bc_setting_params["source"]
+                coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
+                coupled_subsim = sim.subsims[coupled_subdomain_index]
+                boundary_condition = SMSchwarzDBC(subsim, coupled_subsim, input_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)                
             else
                 error("Unknown boundary condition type : ", bc_type)
             end
@@ -358,7 +425,10 @@ end
 function pair_bc(_::String, _::RegularBoundaryCondition)
 end
 
-function pair_bc(name::String, bc::SchwarzBoundaryCondition)
+function pair_bc(_::String, _::SchwarzBoundaryCondition)
+end
+
+function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
     coupled_model = bc.coupled_subsim.model
     coupled_bcs = coupled_model.boundary_conditions
     for coupled_bc ∈ coupled_bcs
@@ -372,6 +442,10 @@ function is_coupled_to_current(_::String, _::RegularBoundaryCondition)
     return false
 end
 
-function is_coupled_to_current(name::String, coupled_bc::SchwarzBoundaryCondition)
+function is_coupled_to_current(_::String, _::SchwarzBoundaryCondition)
+    return false
+end
+
+function is_coupled_to_current(name::String, coupled_bc::ContactSchwarzBoundaryCondition)
     return name == coupled_bc.coupled_subsim.name
 end

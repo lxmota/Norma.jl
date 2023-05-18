@@ -9,6 +9,8 @@ mutable struct QuasiStatic <: StaticTimeIntegrator
     time::Float64
     stop::Int64
     displacement::Vector{Float64}
+    velocity::Vector{Float64}
+    acceleration::Vector{Float64}
 end
 
 mutable struct Newmark <: DynamicTimeIntegrator

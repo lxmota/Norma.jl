@@ -57,8 +57,8 @@ function SolidMechanics(params::Dict{Any,Any})
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
+        element_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
         blk_conn = input_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_stress = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
@@ -116,8 +116,8 @@ function HeatConduction(params::Dict{Any,Any})
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
+        element_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
         blk_conn = input_mesh.get_elem_connectivity(blk_id)
         num_blk_elems = blk_conn[2]
         block_flux = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
@@ -201,9 +201,9 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
-        _, dNdξ, elem_weights = isoparametric(elem_type, num_points)
+        element_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
+        _, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
@@ -272,9 +272,9 @@ function evaluate(_::Newmark, model::SolidMechanics)
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
-        N, dNdξ, elem_weights = isoparametric(elem_type, num_points)
+        element_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
+        N, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
@@ -345,15 +345,15 @@ function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, edges::Vect
     return minimum_edge_length
 end
 
-function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, elem_type::String)
-    if elem_type == "TETRA4"
+function get_minimum_edge_length(nodal_coordinates::Matrix{Float64}, element_type::String)
+    if element_type == "TETRA4"
         edges = [(1,2), (1,3), (1,4), (2,3), (3,4), (2,4)]
         return get_minimum_edge_length(nodal_coordinates, edges)
-    elseif elem_type == "HEX8"
+    elseif element_type == "HEX8"
         edges = [(1,4), (1,5), (4,8), (5,8), (2,3), (2,6), (3,7), (6,7), (1,2), (3,4), (5,6), (7,8)]
         return get_minimum_edge_length(nodal_coordinates, edges)
     else
-        error("Invalid element type: ", elem_type)
+        error("Invalid element type: ", element_type)
     end
 end
 
@@ -370,13 +370,13 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
         wave_speed = sqrt(M / ρ)
         minimum_blk_edge_length = Inf
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh.elem_type(blk_id)
+        element_type = input_mesh.elem_type(blk_id)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             elem_cur_pos = model.current[:, node_indices]
-            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos, elem_type)
+            minimum_elem_edge_length = get_minimum_edge_length(elem_cur_pos, element_type)
             minimum_blk_edge_length = min(minimum_blk_edge_length, minimum_elem_edge_length)
         end
         blk_stable_time_step = integrator.CFL * minimum_blk_edge_length / wave_speed
@@ -405,9 +405,9 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
-        elem_type = input_mesh.elem_type(blk_id)
-        num_points = default_num_int_pts(elem_type)
-        N, dNdξ, elem_weights = isoparametric(elem_type, num_points)
+        element_type = input_mesh.elem_type(blk_id)
+        num_points = default_num_int_pts(element_type)
+        N, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)

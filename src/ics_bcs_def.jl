@@ -1,6 +1,8 @@
 abstract type BoundaryCondition end
 abstract type SchwarzBoundaryCondition <: BoundaryCondition end
 abstract type RegularBoundaryCondition <: BoundaryCondition end
+abstract type ContactSchwarzBoundaryCondition <: SchwarzBoundaryCondition end
+abstract type RegularSchwarzBoundaryCondition <: SchwarzBoundaryCondition end
 abstract type InitialCondition end
 
 using Symbolics
@@ -24,7 +26,7 @@ mutable struct SMNeumannBC <: RegularBoundaryCondition
     traction_num::Num
 end
 
-mutable struct SMSchwarzContactBC <: SchwarzBoundaryCondition
+mutable struct SMContactSchwarzBC <: ContactSchwarzBoundaryCondition
     side_set_name::String
     side_set_id::Int64
     num_nodes_per_side::Vector{Int64}
@@ -35,4 +37,15 @@ mutable struct SMSchwarzContactBC <: SchwarzBoundaryCondition
     coupled_block_id::Int64
     coupled_side_set_id::Int64
     is_dirichlet::Bool
+end
+
+mutable struct SMSchwarzDBC <: RegularSchwarzBoundaryCondition
+    node_set_name::String
+    node_set_id::Int64
+    node_set_node_indices::Vector{Int64}
+    coupled_subsim::Simulation
+    coupled_mesh::PyObject
+    coupled_block_id::Int64
+    coupled_nodes_indices::Vector{Vector{Int64}}
+    interpolation_function_values::Vector{Vector{Float64}}
 end
