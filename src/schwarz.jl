@@ -47,10 +47,10 @@ function schwarz(sim::MultiDomainSimulation)
     save_stop_solutions(sim)
     save_schwarz_solutions(sim)
     resize_histories(sim)
+    set_subcycle_times(sim)
     while true
         println("Schwarz iteration=", iteration_number)
         synchronize(sim)
-        set_subcycle_times(sim)
         subcycle(sim)
         iteration_number += 1
         ΔX = update_schwarz_convergence_criterion(sim)
@@ -58,7 +58,6 @@ function schwarz(sim::MultiDomainSimulation)
         if stop_schwarz(sim, iteration_number) == true
             break
         end
-        write_step(sim)
         save_schwarz_solutions(sim)
         restore_stop_solutions(sim)
     end
