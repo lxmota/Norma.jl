@@ -160,7 +160,7 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     saved_disp = bc.coupled_subsim.integrator.displacement
     saved_velo = bc.coupled_subsim.integrator.velocity
     saved_acce = bc.coupled_subsim.integrator.acceleration
-    saved_traction_force = bc.coupled_subsim.model.internal_force
+    saved_∂Ω_f = bc.coupled_subsim.model.internal_force
     time = model.time
     coupled_name = bc.coupled_subsim.name
     coupled_index = global_sim.subsim_name_index_map[coupled_name]
@@ -168,21 +168,21 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
     velo_hist = global_sim.schwarz_controller.velo_hist[coupled_index]
     acce_hist = global_sim.schwarz_controller.acce_hist[coupled_index]
-    traction_force_hist = global_sim.schwarz_controller.traction_force_hist[coupled_index]
+    ∂Ω_f_hist = global_sim.schwarz_controller.∂Ω_f_hist[coupled_index]
     interp_disp = same_step == true ? disp_hist[end] : interpolate(time_hist, disp_hist, time)
     interp_velo = same_step == true ? velo_hist[end] : interpolate(time_hist, velo_hist, time)
     interp_acce = same_step == true ? acce_hist[end] : interpolate(time_hist, acce_hist, time)
-    interp_traction_force = same_step == true ? traction_force_hist[end] : interpolate(time_hist, traction_force_hist, time)
+    interp_∂Ω_f = same_step == true ? ∂Ω_f_hist[end] : interpolate(time_hist, ∂Ω_f_hist, time)
     bc.coupled_subsim.integrator.displacement = interp_disp
     bc.coupled_subsim.integrator.velocity = interp_velo
     bc.coupled_subsim.integrator.acceleration = interp_acce
-    bc.coupled_subsim.model.internal_force = interp_traction_force
+    bc.coupled_subsim.model.internal_force = interp_∂Ω_f
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
     apply_bc_detail(model, bc)
     bc.coupled_subsim.integrator.displacement = saved_disp
     bc.coupled_subsim.integrator.velocity = saved_velo
     bc.coupled_subsim.integrator.acceleration = saved_acce
-    bc.coupled_subsim.model.internal_force = saved_traction_force
+    bc.coupled_subsim.model.internal_force = saved_∂Ω_f
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 
