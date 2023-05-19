@@ -184,10 +184,10 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     copy_solution_source_targets(bc.coupled_subsim.integrator, bc.coupled_subsim.solver, bc.coupled_subsim.model)
 end
 
-function transfer_normal_component!(source::Vector{Float64}, target::Vector{Float64}, normal::Vector{Float64})
+function transfer_normal_component(source::Vector{Float64}, target::Vector{Float64}, normal::Vector{Float64})
     normal_projection = normal * normal'
     tangent_projection = I(length(normal)) - normal_projection
-    target = tangent_projection * target + normal_projection * source
+    return tangent_projection * target + normal_projection * source
 end
 
 function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContactSchwarzBC)
@@ -206,8 +206,8 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
             N, _, _ = interpolate(element_type, ξ)
             source_velo = bc.coupled_subsim.model.velocity[:, closest_face_node_indices] * N
             source_acce = bc.coupled_subsim.model.acceleration[:, closest_face_node_indices] * N
-            transfer_normal_component!(source_velo, model.velocity[:, node_index], closest_normal)
-            transfer_normal_component!(source_acce, model.acceleration[:, node_index], closest_normal)
+            model.velocity[:, node_index] = transfer_normal_component(source_velo, model.velocity[:, node_index], closest_normal)
+            model.acceleration[:, node_index] = transfer_normal_component(source_acce, model.acceleration[:, node_index], closest_normal)
             dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
             model.free_dofs[dof_index] .= false
         end
