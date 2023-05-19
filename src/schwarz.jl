@@ -9,6 +9,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     time_step = params["time step"]
     absolute_error = relative_error = 0.0
     time = prev_time = initial_time
+    same_step = get(params, "same time step for domains", false)
     stop = 0
     converged = false
     stop_disp = Vector{Vector{Float64}}(undef, num_domains)
@@ -27,7 +28,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     active_contact = false
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        initial_time, final_time, time_step, time, prev_time, stop, converged,
+        initial_time, final_time, time_step, time, prev_time, same_step, stop, converged,
         stop_disp, stop_velo, stop_acce, stop_traction_force, schwarz_disp, schwarz_velo, schwarz_acce,
         time_hist, disp_hist, velo_hist, acce_hist, traction_force_hist, schwarz_contact, active_contact)
 end

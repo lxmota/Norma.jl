@@ -62,6 +62,8 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     subsims = Vector{SingleDomainSimulation}()
     initial_time = params["initial time"]
     final_time = params["final time"]
+    time_step = params["time step"]
+    same_step = get(params, "same time step for domains", false)
     exodus_interval = get(params, "Exodus output interval", 1)
     csv_interval = get(params, "CSV output interval", 0)
     sim_type = "none"
@@ -73,6 +75,9 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subparams["name"] = domain_name
         subparams["time integrator"]["initial time"] = initial_time
         subparams["time integrator"]["final time"] = final_time
+        if same_step == true
+            subparams["time integrator"]["time step"] = time_step
+        end
         subparams["Exodus output interval"] = exodus_interval
         subparams["CSV output interval"] = csv_interval
         subsim = SingleDomainSimulation(subparams)

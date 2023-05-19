@@ -150,7 +150,9 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     if schwarz_controller.schwarz_contact == true && schwarz_controller.active_contact == false
         return
     end
-    if length(global_sim.schwarz_controller.time_hist) == 0
+    empty_history = length(global_sim.schwarz_controller.time_hist) == 0
+    same_step = schwarz_controller.same_step == true
+    if empty_history == true
         apply_bc_detail(model, bc)
         return
     end
@@ -167,10 +169,10 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     velo_hist = global_sim.schwarz_controller.velo_hist[coupled_index]
     acce_hist = global_sim.schwarz_controller.acce_hist[coupled_index]
     traction_force_hist = global_sim.schwarz_controller.traction_force_hist[coupled_index]
-    interp_disp = interpolate(time_hist, disp_hist, time)
-    interp_velo = interpolate(time_hist, velo_hist, time)
-    interp_acce = interpolate(time_hist, acce_hist, time)
-    interp_traction_force = interpolate(time_hist, traction_force_hist, time)
+    interp_disp = same_step == true ? disp_hist[end] : interpolate(time_hist, disp_hist, time)
+    interp_velo = same_step == true ? velo_hist[end] : interpolate(time_hist, velo_hist, time)
+    interp_acce = same_step == true ? acce_hist[end] : interpolate(time_hist, acce_hist, time)
+    interp_traction_force = same_step == true ? traction_force_hist[end] : interpolate(time_hist, traction_force_hist, time)
     bc.coupled_subsim.integrator.displacement = interp_disp
     bc.coupled_subsim.integrator.velocity = interp_velo
     bc.coupled_subsim.integrator.acceleration = interp_acce

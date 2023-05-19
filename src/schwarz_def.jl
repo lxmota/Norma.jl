@@ -13,6 +13,7 @@ mutable struct SolidSchwarzController <: SchwarzController
     time_step::Float64
     time::Float64
     prev_time::Float64
+    same_step::Bool
     stop::Int64
     converged::Bool
     stop_disp::Vector{Vector{Float64}}
