@@ -8,7 +8,7 @@ mutable struct SolidMechanics <: Model
     velocity::Matrix{Float64}
     acceleration::Matrix{Float64}
     internal_force::Vector{Float64}
-    boundary_traction_force::Vector{Float64}
+    boundary_force::Vector{Float64}
     boundary_conditions::Vector{BoundaryCondition}
     stress::Vector{Vector{Vector{Vector{Float64}}}}
     free_dofs::BitVector

@@ -94,7 +94,7 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
             bc_val = nodal_force_component[side_node_index]
             side_node_index += 1
             dof_index = 3 * (node_index - 1) + bc.offset
-            model.boundary_traction_force[dof_index] += bc_val
+            model.boundary_force[dof_index] += bc_val
         end
     end
 end
@@ -222,7 +222,7 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
         global_node = local_to_global_map[local_node]
-        model.boundary_traction_force[3*global_node-2:3*global_node] += schwarz_tractions[3*local_node-2:3*local_node]
+        model.boundary_force[3*global_node-2:3*global_node] += schwarz_tractions[3*local_node-2:3*local_node]
     end
 end
 
@@ -380,7 +380,7 @@ end
 
 function apply_bcs(model::SolidMechanics)
     _, num_nodes = size(model.reference)
-    model.boundary_traction_force = zeros(3*num_nodes)
+    model.boundary_force = zeros(3*num_nodes)
     model.free_dofs = trues(3 * num_nodes)
     for boundary_condition ∈ model.boundary_conditions
         apply_bc(model, boundary_condition)
