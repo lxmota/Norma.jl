@@ -30,4 +30,5 @@ mutable struct SolidSchwarzController <: SchwarzController
     ∂Ω_f_hist::Vector{Vector{Vector{Float64}}}
     schwarz_contact::Bool
     active_contact::Bool
+    contact_hist::Vector{Bool}
 end

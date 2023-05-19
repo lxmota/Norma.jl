@@ -534,7 +534,6 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         N = cross(BA, CA)
         n = N / norm(N)
         trial_point, ξ, _, normal = closest_point_projection(parametric_dim, face_nodes, point)
-        #store the new point if the distance is minimal and the point is inside the element corresponding to this face
         element_type = get_element_type(parametric_dim, num_nodes_side)
         found = dot(n, point - trial_point) < 0.0 && is_inside_parametric(element_type, ξ)
         if found == true
@@ -609,10 +608,16 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
     src_num_nodes = length(src_global_to_local_map)
     src_coords = src_model.current
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
+    normals = zeros(space_dim, dst_num_nodes)
+    dst_local_indices = Array{Int64}(undef,0)
+    src_local_indices = Array{Int64}(undef,0)
     dst_side_set_node_index = 1
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
+        dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
         dst_side_coordinates = dst_coords[:, dst_side_nodes]
+        normal = compute_normal(dst_side_coordinates)
+        normals[:, dst_local_indices] .= normal
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
         dst_N, dst_dNdξ, dst_w, _ = isoparametric(dst_element_type, dst_num_int_points)
@@ -627,8 +632,6 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
             src_side_set_node_index = 1
             src_side_set_index = 1
             is_inside = false
-            dst_local_indices = Array{Int64}(undef,0)
-            src_local_indices = Array{Int64}(undef,0)
             for src_num_nodes_side ∈ src_num_nodes_sides
                 src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
                 src_side_coordinates = src_coords[:, src_side_nodes]
@@ -638,7 +641,6 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
                 if is_inside == true
                     src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
                     src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
-                    dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
                     src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
                     rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
                     break
@@ -652,7 +654,18 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
         end
         dst_side_set_node_index += dst_num_nodes_side
     end
-    return rectangular_projection_matrix
+    return rectangular_projection_matrix, normals
+end
+
+function compute_normal(coordinates::Matrix{Float64})
+    point_A = coordinates[:, 1]
+    point_B = coordinates[:, 2]
+    point_C = coordinates[:, end]
+    BA = point_B - point_A
+    CA = point_C - point_A
+    N = cross(BA, CA)
+    normal = N / norm(N)
+    return normal
 end
 
 function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
