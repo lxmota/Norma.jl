@@ -196,12 +196,10 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
     ss_node_index = 1
     for side ∈ bc.num_nodes_per_side
         side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
-        side_coords = model.current[:, side_nodes]
-        normal = compute_normal(side_coords)
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, ξ, closest_face_nodes, closest_face_node_indices, _, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            point_new, ξ, closest_face_nodes, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
             if found == false
                 continue
             end
@@ -210,8 +208,8 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
             N, _, _ = interpolate(element_type, ξ)
             source_velo = bc.coupled_subsim.model.velocity[:, closest_face_node_indices] * N
             source_acce = bc.coupled_subsim.model.acceleration[:, closest_face_node_indices] * N
-            model.velocity[:, node_index] = transfer_normal_component(source_velo, model.velocity[:, node_index], normal)
-            model.acceleration[:, node_index] = transfer_normal_component(source_acce, model.acceleration[:, node_index], normal)
+            model.velocity[:, node_index] = transfer_normal_component(source_velo, model.velocity[:, node_index], closest_normal)
+            model.acceleration[:, node_index] = transfer_normal_component(source_acce, model.acceleration[:, node_index], closest_normal)
             dof_index = [3 * node_index - 2]
             model.free_dofs[dof_index] .= false
         end
@@ -226,7 +224,7 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
         global_node = local_to_global_map[local_node]
         node_tractions = schwarz_tractions[3*local_node-2:3*local_node]
         normal = normals[:, local_node]
-        model.boundary_traction_force[3*global_node-2:3*global_node] += transfer_normal_component(node_tractions, model.boundary_traction_force[3*global_node-2:3*global_node], normal)
+        model.boundary_force[3*global_node-2:3*global_node] += transfer_normal_component(node_tractions, model.boundary_force[3*global_node-2:3*global_node], normal)
     end
 end
 

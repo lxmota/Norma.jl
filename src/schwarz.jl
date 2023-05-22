@@ -226,43 +226,44 @@ function detect_contact(sim::MultiDomainSimulation)
     num_domains = sim.schwarz_controller.num_domains
     contact_prev = sim.schwarz_controller.active_contact
     contact_domain = zeros(Bool, num_domains)
+    overlap = false
+    compress = false
     for i ∈ 1:sim.schwarz_controller.num_domains
         subsim = sim.subsims[i]
-        subsim_bc_params = subsim.params["boundary conditions"]
         mesh = subsim.params["input_mesh"]
-        Schwarz_bcs = subsim_bc_params["Schwarz contact"]
-        for bc_setting_params ∈ Schwarz_bcs
-            side_set_name = bc_setting_params["side set"]
-            side_set_id = side_set_id_from_name(side_set_name, mesh)
-            num_nodes_per_side, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
-            coupled_subsim_name = bc_setting_params["source"]
-            coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
-            coupled_subsim = sim.subsims[coupled_subdomain_index]
-            coupled_mesh = coupled_subsim.params["input_mesh"]
-            coupled_side_set_name = bc_setting_params["source side set"]
-            coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-            global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, side_set_id)
-            overlap_nodes = zeros(Bool,length(global_to_local_map))
-            normal_tractions = zeros(Bool,length(global_to_local_map))
-            ss_node_index = 1
-            for side ∈ num_nodes_per_side
-                side_nodes = side_set_node_indices[ss_node_index:ss_node_index+side-1]
-                side_coordinates = subsim.model.current[:, side_nodes]
-                normal = compute_normal(side_coordinates)
-                for node_index ∈ side_nodes
-                    point = subsim.model.current[:, node_index]
-                    _, _, _, _, _, found = find_and_project(point, coupled_mesh, coupled_side_set_id, coupled_subsim.model)
-                    node = get.(Ref(global_to_local_map), node_index, 0)
-                    overlap_nodes[node] = found
-                    reaction_node = subsim.model.internal_force[3*node_index-2:3*node_index]
-                    normal_tractions[node] = dot(reaction_node, normal) < 0.
+        bcs = subsim.model.boundary_conditions
+        for bc ∈ bcs
+            println(typeof(bc))
+            if typeof(bc) == SMContactSchwarzBC
+                global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, bc.side_set_id)
+                overlap_nodes = zeros(Bool,length(global_to_local_map))
+                ss_node_index = 1
+                for side ∈ bc.num_nodes_per_side
+                    side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
+                    for node_index ∈ side_nodes
+                        point = subsim.model.current[:, node_index]
+                        _, _, _, _, _, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+                        node = get.(Ref(global_to_local_map), node_index, 0)
+                        overlap_nodes[node] = found
+                    end
+                    ss_node_index += side
                 end
-                ss_node_index += side
+                overlap = any(overlap_nodes)
+                if contact_prev == true
+                    compression = zeros(Bool,length(global_to_local_map))
+                    reactions, normals = get_dst_traction(subsim.model, bc)
+                    local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
+                    num_local_nodes = length(local_to_global_map)
+                    for local_node ∈ 1:num_local_nodes
+                        reaction_node = reactions[3*local_node-2:3*local_node]
+                        normal = normals[:, local_node]
+                        compression[local_node] = dot(reaction_node, normal) < 0.
+                    end
+                    compress = any(compression)
+                end
+                persist = compress && contact_prev
+                contact_domain[i] = overlap || persist
             end
-            overlap = any(overlap_nodes)
-            compress = any(normal_tractions)
-            persist = compress && contact_prev
-            contact_domain[i] = overlap || persist
         end
     end
     sim.schwarz_controller.active_contact = any(contact_domain)
