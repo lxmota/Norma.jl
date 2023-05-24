@@ -552,7 +552,6 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_model = bc.coupled_subsim.model
-    #dst
     num_nodes_side = length(side_nodes)
     coordinates = model.current
     side_coordinates = coordinates[:, side_nodes]
@@ -570,11 +569,13 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
         _, _, closest_face_node_coords, closest_face_node_indices, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model)
         int_points_coords[:, int_point] = int_point_coord
         points_inside[int_point] = found
-        all_dst_face_node_coords[int_point] = closest_face_node_coords
-        all_dst_face_node_indices[int_point] = convert(Vector{Int64}, closest_face_node_indices)
+        if found == true
+            all_dst_face_node_coords[int_point] = closest_face_node_coords
+            all_dst_face_node_indices[int_point] = convert(Vector{Int64}, closest_face_node_indices)
+        end
     end
-    is_inside = length(findall(points_inside .> 0)) >= length(num_int_points) - 1
-    return is_inside, int_points_coords, all_dst_face_node_coords, all_dst_face_node_indices
+    is_inside = length(findall(points_inside .> 0)) >= num_int_points - 1
+    return is_inside, points_inside, int_points_coords, all_dst_face_node_coords, all_dst_face_node_indices
 end
 
 function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Integer)
