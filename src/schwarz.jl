@@ -233,7 +233,6 @@ function detect_contact(sim::MultiDomainSimulation)
         mesh = subsim.params["input_mesh"]
         bcs = subsim.model.boundary_conditions
         for bc ∈ bcs
-            println(typeof(bc))
             if typeof(bc) == SMContactSchwarzBC
                 global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, bc.side_set_id)
                 overlap_nodes = zeros(Bool,length(global_to_local_map))
