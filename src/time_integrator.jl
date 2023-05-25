@@ -304,23 +304,26 @@ function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     end
     csv_interval = get(params, "CSV output interval", 0)
     if csv_interval > 0 && stop % csv_interval == 0
-        write_step_csv(integrator)
+        sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
+        write_step_csv(integrator, sim_id)
     end
 end
 
-function write_step_csv(integrator::StaticTimeIntegrator)
+function write_step_csv(integrator::StaticTimeIntegrator, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad=4)
-    disp_filename = "disp" * index_string * ".csv"
+    sim_id_string = string(sim_id, pad=2) * "-"
+    disp_filename = sim_id_string * "disp" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
 end
 
-function write_step_csv(integrator::DynamicTimeIntegrator)
+function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad=4)
-    disp_filename = "disp" * index_string * ".csv"
-    velo_filename = "velo" * index_string * ".csv"
-    acce_filename = "acce" * index_string * ".csv"
+    sim_id_string = string(sim_id, pad=2) * "-"
+    disp_filename = sim_id_string * "disp" * index_string * ".csv"
+    velo_filename = sim_id_string * "velo" * index_string * ".csv"
+    acce_filename = sim_id_string * "acce" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
     writedlm(velo_filename, integrator.velocity, '\n')
     writedlm(acce_filename, integrator.acceleration, '\n')
