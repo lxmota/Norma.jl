@@ -236,18 +236,25 @@ function detect_contact(sim::MultiDomainSimulation)
             if typeof(bc) == SMContactSchwarzBC
                 global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, bc.side_set_id)
                 overlap_nodes = zeros(Bool,length(global_to_local_map))
+                int_points_inside = zeros(Bool, length(bc.num_nodes_per_side))
                 ss_node_index = 1
+                side_i = 1
                 for side ∈ bc.num_nodes_per_side
                     side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
                     for node_index ∈ side_nodes
                         point = subsim.model.current[:, node_index]
-                        _, _, _, _, _, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+                        tol = 1.0e-06
+                        _, _, _, _, _, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol)
                         node = get.(Ref(global_to_local_map), node_index, 0)
                         overlap_nodes[node] = found
+                        if any(overlap_nodes) == false
+                            int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc)
+                        end
                     end
                     ss_node_index += side
+                    side_i += 1
                 end
-                overlap = any(overlap_nodes)
+                overlap = any(overlap_nodes) || any(int_points_inside)
                 if contact_prev == true
                     compression = zeros(Bool,length(global_to_local_map))
                     reactions, normals = get_dst_traction(subsim.model, bc)

@@ -489,6 +489,10 @@ end
 
 function is_inside_parametric(element_type::String, ξ::Vector{Float64})
     tol = 1.0e-06
+    return is_inside_parametric(element_type, ξ, tol)
+end
+
+function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64)
     factor = 1.0 + tol
     if element_type == "BAR2"
         return -factor ≤ ξ ≤ factor
@@ -510,7 +514,7 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Integer, model::SolidMechanics)
+function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Integer, model::SolidMechanics, tol::Float64)
     #we assume that we know the contact surfaces in advance 
     num_nodes_per_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     ss_node_index = 1
@@ -533,9 +537,9 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         CA = point_C - point_A
         N = cross(BA, CA)
         n = N / norm(N)
-        trial_point, ξ, _, normal = closest_point_projection(parametric_dim, face_nodes, point)
+        trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
         element_type = get_element_type(parametric_dim, num_nodes_side)
-        found = dot(n, point - trial_point) < 0.0 && is_inside_parametric(element_type, ξ)
+        found = (dot(n, point - trial_point) < 0.0 || distance <= 1.0e-8) && is_inside_parametric(element_type, ξ, tol)
         if found == true
             point_new = trial_point
             closest_face_nodes = face_nodes
@@ -555,27 +559,19 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
     num_nodes_side = length(side_nodes)
     coordinates = model.current
     side_coordinates = coordinates[:, side_nodes]
-    space_dim, _ = size(side_coordinates)
     element_type = get_element_type(2, Int64(num_nodes_side))
     num_int_points = default_num_int_pts(element_type)
-    int_points_coords = zeros(space_dim, num_int_points)
-    points_inside = zeros(Bool, num_int_points)
-    all_dst_face_node_coords = Vector{Matrix{Float64}}(undef, num_int_points)
-    all_dst_face_node_indices = Vector{Vector{Int64}}(undef, num_int_points)
+    int_points_inside = zeros(Bool, num_int_points)
     N, _, _, _ = isoparametric(element_type, num_int_points)
     for int_point ∈ 1:num_int_points
         Nₚ = N[:, int_point]
         int_point_coord = side_coordinates * Nₚ
-        _, _, closest_face_node_coords, closest_face_node_indices, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model)
-        int_points_coords[:, int_point] = int_point_coord
-        points_inside[int_point] = found
-        if found == true
-            all_dst_face_node_coords[int_point] = closest_face_node_coords
-            all_dst_face_node_indices[int_point] = convert(Vector{Int64}, closest_face_node_indices)
-        end
+        tol = 1.0e-06
+        _, _, _, _, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, tol)
+        int_points_inside[int_point] = found
     end
-    is_inside = length(findall(points_inside .> 0)) >= num_int_points - 1
-    return is_inside, points_inside, int_points_coords, all_dst_face_node_coords, all_dst_face_node_indices
+    is_inside = any(int_points_inside)
+    return is_inside
 end
 
 function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Integer)
@@ -665,9 +661,11 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
             for src_num_nodes_side ∈ src_num_nodes_sides
                 src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
                 src_side_coordinates = src_coords[:, src_side_nodes]
-                _, ξ, _, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
-                src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
-                is_inside = is_inside_parametric(src_side_element_type, ξ)
+                tol = 1.0e-6
+                _, ξ, _, _, _, is_inside = find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model, tol)
+                #_, ξ, _, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
+                #src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
+                #is_inside = is_inside_parametric(src_side_element_type, ξ)
                 if is_inside == true
                     src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
                     src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)

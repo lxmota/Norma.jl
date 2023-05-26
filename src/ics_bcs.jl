@@ -36,7 +36,7 @@ function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    is_dirichlet = false
+    is_dirichlet = true
     SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
         side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
 end
@@ -199,7 +199,32 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, ξ, closest_face_node_coords, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            tol = 0.05
+            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol)
+            if found == false
+                continue 
+            end
+            model.current[:, node_index] = point_new
+            element_type = get_element_type(2, side)
+            N, _, _ = interpolate(element_type, ξ)
+            source_velo = bc.coupled_subsim.model.velocity[:, closest_face_node_indices] * N
+            source_acce = bc.coupled_subsim.model.acceleration[:, closest_face_node_indices] * N
+            model.velocity[:, node_index] = transfer_normal_component(source_velo, model.velocity[:, node_index], closest_normal)
+            model.acceleration[:, node_index] = transfer_normal_component(source_acce, model.acceleration[:, node_index], closest_normal)
+            dof_index = [3 * node_index - 2]
+            model.free_dofs[dof_index] .= false
+        end
+    end
+end
+
+function apply_sm_schwarz_contact_dirichlet_orig(model::SolidMechanics, bc::SMContactSchwarzBC)
+    ss_node_index = 1
+    for side ∈ bc.num_nodes_per_side
+        side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
+        ss_node_index += side
+        for node_index ∈ side_nodes
+            point = model.current[:, node_index]
+            point_new, ξ, closest_face_node_coords, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, 0.05)
             if found == false
                 is_inside, points_inside, int_points_coords, all_dst_face_node_coords, all_dst_face_node_indices = search_integration_points(side_nodes, model, bc)
                 space_dim, num_int_points = size(int_points_coords)
