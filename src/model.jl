@@ -71,7 +71,6 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         stress[blk_index] = block_stress
     end
-    create_elem_to_blk_map(input_mesh)
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
         internal_force, boundary_force, boundary_conditions, stress, free_dofs, time, failed)
 end
@@ -130,7 +129,6 @@ function HeatConduction(params::Dict{Any,Any})
         end
         flux[blk_index] = block_flux
     end
-    create_elem_to_blk_map(input_mesh)
     HeatConduction(input_mesh, materials, reference, temperature, rate, internal_heat_flux,
     boundary_heat_flux, boundary_conditions, flux, free_dofs, time, failed)
 end
