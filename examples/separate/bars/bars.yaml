@@ -1,5 +1,7 @@
 type: multi
 domains: ["bar-1.yaml", "bar-2.yaml"]
+Exodus output interval: 1
+CSV output interval: 1
 initial time: 0.
 time step: 1.0e-07
 final time: 6.e-06
