@@ -529,17 +529,9 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
     for num_nodes_side ∈ num_nodes_per_sides
         face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
-        #plane 
-        point_A = face_nodes[:, 1]
-        point_B = face_nodes[:, 2]
-        point_C = face_nodes[:, end]
-        BA = point_B - point_A
-        CA = point_C - point_A
-        N = cross(BA, CA)
-        n = N / norm(N)
         trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
         element_type = get_element_type(parametric_dim, num_nodes_side)
-        found = (dot(n, point - trial_point) < 0.0 || distance <= 1.0e-8) && is_inside_parametric(element_type, ξ, tol)
+        found = distance < 1.0e-12 && is_inside_parametric(element_type, ξ, tol)
         if found == true
             point_new = trial_point
             closest_face_nodes = face_nodes
@@ -552,7 +544,7 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
     return point_new, ξ, closest_face_nodes, closest_face_node_indices, closest_normal, found
 end
 
-function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechanics, bc::SMContactSchwarzBC)
+function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechanics, bc::SMContactSchwarzBC, tol::Float64)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_model = bc.coupled_subsim.model
@@ -566,7 +558,6 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
     for int_point ∈ 1:num_int_points
         Nₚ = N[:, int_point]
         int_point_coord = side_coordinates * Nₚ
-        tol = 1.0e-06
         _, _, _, _, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, tol)
         int_points_inside[int_point] = found
     end
@@ -629,7 +620,6 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_model.current
     space_dim, _ = size(dst_coords)
-    parametric_dim = space_dim - 1
     src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_global_to_local_map)
     src_coords = src_model.current
@@ -760,6 +750,6 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
     dxdξ = dN * nodes'
     perp_vec = cross(dxdξ[1, :], dxdξ[2, :])
     normal = perp_vec / norm(perp_vec)
-    distance = norm(yx)
+    distance = -copysign(norm(yx), dot(yx, normal))
     return y, ξ, distance, normal
 end

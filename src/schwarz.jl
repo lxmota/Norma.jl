@@ -248,7 +248,7 @@ function detect_contact(sim::MultiDomainSimulation)
                         node = get.(Ref(global_to_local_map), node_index, 0)
                         overlap_nodes[node] = found
                         if any(overlap_nodes) == false
-                            int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc)
+                            int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc, tol)
                         end
                     end
                     ss_node_index += side
