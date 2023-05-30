@@ -36,9 +36,11 @@ function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    is_dirichlet = true
+    _, coupled_side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
+    is_dirichlet = false
+    projection_operator = Matrix{Float64}(undef, length(side_set_node_indices), length(coupled_side_set_node_indices))
     SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
-        side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet)
+        side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet, projection_operator)
 end
 
 function SMSchwarzDBC(subsim::SingleDomainSimulation, coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
@@ -199,8 +201,9 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
+            tol_dist = 1.0e-6
             tol = 0.05
-            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol)
+            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)
             if found == false
                 continue 
             end
@@ -218,7 +221,8 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSchwarzBC)
-    schwarz_tractions, normals = get_dst_traction(model, bc)
+    schwarz_tractions = get_dst_traction(model, bc)
+    normals = compute_normal(model.mesh, bc.side_set_id, model)
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
@@ -241,19 +245,28 @@ function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::
 end
 
 function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
+    Schwarz_iteration = bc.coupled_subsim.params["global_simulation"].schwarz_controller.iteration_number
+    get_dst_traction(dst_model, bc, Schwarz_iteration)
+end
+
+function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC, Schwarz_iteration::Int64)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_global_traction = -bc.coupled_subsim.model.internal_force
     src_model = bc.coupled_subsim.model
     dst_mesh = dst_model.mesh
     dst_side_set_id = bc.side_set_id
-    square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
-    rectangular_projection_matrix, normals = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
+    projection_operator = bc.projection_operator
+    if Schwarz_iteration == 1 
+        square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
+        rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
+        projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
+        bc.projection_operator = projection_operator
+    end
     src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
     src_traction_x = src_local_traction[1:3:end]
     src_traction_y = src_local_traction[2:3:end]
     src_traction_z = src_local_traction[3:3:end]
-    projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
     dst_traction_x = projection_operator * src_traction_x
     dst_traction_y = projection_operator * src_traction_y
     dst_traction_z = projection_operator * src_traction_z
@@ -261,7 +274,7 @@ function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
     dst_traction[1:3:end] = dst_traction_x
     dst_traction[2:3:end] = dst_traction_y
     dst_traction[3:3:end] = dst_traction_z
-    return dst_traction, normals
+    return dst_traction
 end    
 
 function node_set_id_from_name(node_set_name::String, mesh::PyObject)

@@ -514,7 +514,7 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Integer, model::SolidMechanics, tol::Float64)
+function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Integer, model::SolidMechanics, tol_dist::Float64, tol::Float64)
     #we assume that we know the contact surfaces in advance 
     num_nodes_per_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
     ss_node_index = 1
@@ -531,7 +531,7 @@ function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::I
         face_nodes = model.current[:, face_node_indices]
         trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
         element_type = get_element_type(parametric_dim, num_nodes_side)
-        found = distance < 1.0e-12 && is_inside_parametric(element_type, ξ, tol)
+        found = distance < tol_dist && is_inside_parametric(element_type, ξ, tol)
         if found == true
             point_new = trial_point
             closest_face_nodes = face_nodes
@@ -558,7 +558,8 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
     for int_point ∈ 1:num_int_points
         Nₚ = N[:, int_point]
         int_point_coord = side_coordinates * Nₚ
-        _, _, _, _, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, tol)
+        tol_dist = 1.0e-12
+        _, _, _, _, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, tol_dist, tol)
         int_points_inside[int_point] = found
     end
     is_inside = any(int_points_inside)
@@ -619,12 +620,9 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_model.current
-    space_dim, _ = size(dst_coords)
-    src_global_to_local_map, src_num_nodes_sides, src_side_set_node_indices = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
+    src_global_to_local_map, _, _ = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_global_to_local_map)
-    src_coords = src_model.current
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
-    normals = zeros(space_dim, dst_num_nodes)
     dst_local_indices = Array{Int64}(undef,0)
     src_local_indices = Array{Int64}(undef,0)
     dst_side_set_node_index = 1
@@ -632,8 +630,6 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
         dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
         dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
         dst_side_coordinates = dst_coords[:, dst_side_nodes]
-        normal = compute_normal(dst_side_coordinates)
-        normals[:, dst_local_indices] .= normal
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
         dst_N, dst_dNdξ, dst_w, _ = isoparametric(dst_element_type, dst_num_int_points)
@@ -644,46 +640,46 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
             dst_j = norm(cross(dst_dXdξ[1, :], dst_dXdξ[2, :]))
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
-            # loop over the sides of the destination side set
-            src_side_set_node_index = 1
-            src_side_set_index = 1
             is_inside = false
-            for src_num_nodes_side ∈ src_num_nodes_sides
-                src_side_nodes = src_side_set_node_indices[src_side_set_node_index:src_side_set_node_index+src_num_nodes_side-1]
-                src_side_coordinates = src_coords[:, src_side_nodes]
-                tol = 1.0e-6
-                _, ξ, _, _, _, is_inside = find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model, tol)
-                #_, ξ, _, _ = closest_point_projection(parametric_dim, src_side_coordinates, dst_int_point_coord)
-                #src_side_element_type = get_element_type(2, Int64(src_num_nodes_side))
-                #is_inside = is_inside_parametric(src_side_element_type, ξ)
-                if is_inside == true
-                    src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
-                    src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
-                    src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
-                    rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
-                    break
-                end
-                src_side_set_index += 1
-                src_side_set_node_index += src_num_nodes_side
-            end
-            if is_inside == false
+            tol_dist = 1.0e-6
+            tol = 1.0e-6
+            _, ξ, src_side_coordinates, src_side_nodes, _, is_inside = find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model, tol_dist, tol)
+            if is_inside == true
+                src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
+                src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
+                src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
+                rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
+            else
                 println("Point : ", dst_point, " not in contact")
             end
         end
         dst_side_set_node_index += dst_num_nodes_side
     end
-    return rectangular_projection_matrix, normals
+    return rectangular_projection_matrix
 end
 
-function compute_normal(coordinates::Matrix{Float64})
-    point_A = coordinates[:, 1]
-    point_B = coordinates[:, 2]
-    point_C = coordinates[:, end]
-    BA = point_B - point_A
-    CA = point_C - point_A
-    N = cross(BA, CA)
-    normal = N / norm(N)
-    return normal
+function compute_normal(mesh::PyObject, side_set_id::Int64, model::SolidMechanics)
+    global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
+    coords = model.current
+    num_nodes = length(global_to_local_map)
+    space_dim, _ = size(coords)
+    normals = zeros(space_dim, num_nodes)
+    local_indices = Array{Int64}(undef,0)
+    side_set_node_index = 1
+    for num_nodes_side ∈ num_nodes_sides
+        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        coordinates = coords[:, side_nodes]
+        point_A = coordinates[:, 1]
+        point_B = coordinates[:, 2]
+        point_C = coordinates[:, end]
+        BA = point_B - point_A
+        CA = point_C - point_A
+        N = cross(BA, CA)
+        normals[:, local_indices] .= N / norm(N)
+        side_set_node_index += num_nodes_side
+    end
+    return normals
 end
 
 function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
