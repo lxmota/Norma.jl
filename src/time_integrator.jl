@@ -304,7 +304,10 @@ function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     end
     csv_interval = get(params, "CSV output interval", 0)
     if csv_interval > 0 && stop % csv_interval == 0
-        sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
+        sim_id = 1
+        if haskey(params, "global_simulation") == true
+            sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
+        end
         write_step_csv(integrator, sim_id)
     end
 end

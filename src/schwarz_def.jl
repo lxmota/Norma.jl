@@ -16,6 +16,7 @@ mutable struct SolidSchwarzController <: SchwarzController
     same_step::Bool
     stop::Int64
     converged::Bool
+    iteration_number::Int64
     stop_disp::Vector{Vector{Float64}}
     stop_velo::Vector{Vector{Float64}}
     stop_acce::Vector{Vector{Float64}}

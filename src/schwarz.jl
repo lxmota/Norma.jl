@@ -12,6 +12,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     same_step = get(params, "same time step for domains", false)
     stop = 0
     converged = false
+    iteration_number = 1
     stop_disp = Vector{Vector{Float64}}(undef, num_domains)
     stop_velo = Vector{Vector{Float64}}(undef, num_domains)
     stop_acce = Vector{Vector{Float64}}(undef, num_domains)
@@ -29,7 +30,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     contact_hist = Vector{Bool}()
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        initial_time, final_time, time_step, time, prev_time, same_step, stop, converged,
+        initial_time, final_time, time_step, time, prev_time, same_step, stop, converged, iteration_number, 
         stop_disp, stop_velo, stop_acce, stop_∂Ω_f, schwarz_disp, schwarz_velo, schwarz_acce,
         time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, schwarz_contact, active_contact, contact_hist)
 end
@@ -51,6 +52,7 @@ function schwarz(sim::MultiDomainSimulation)
     set_subcycle_times(sim)
     while true
         println("Schwarz iteration=", iteration_number)
+        sim.schwarz_controller.iteration_number = iteration_number
         synchronize(sim)
         subcycle(sim)
         iteration_number += 1
@@ -236,21 +238,30 @@ function detect_contact(sim::MultiDomainSimulation)
             if typeof(bc) == SMContactSchwarzBC
                 global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, bc.side_set_id)
                 overlap_nodes = zeros(Bool,length(global_to_local_map))
+                int_points_inside = zeros(Bool, length(bc.num_nodes_per_side))
                 ss_node_index = 1
+                side_i = 1
                 for side ∈ bc.num_nodes_per_side
                     side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
                     for node_index ∈ side_nodes
                         point = subsim.model.current[:, node_index]
-                        _, _, _, _, _, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+                        tol_dist = 1.0e-12
+                        tol = 1.0e-06
+                        _, _, _, _, _, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)
                         node = get.(Ref(global_to_local_map), node_index, 0)
                         overlap_nodes[node] = found
+                        if any(overlap_nodes) == false
+                            int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc, tol)
+                        end
                     end
                     ss_node_index += side
+                    side_i += 1
                 end
-                overlap = any(overlap_nodes)
+                overlap = any(overlap_nodes) || any(int_points_inside)
                 if contact_prev == true
                     compression = zeros(Bool,length(global_to_local_map))
-                    reactions, normals = get_dst_traction(subsim.model, bc)
+                    reactions = get_dst_traction(subsim.model, bc, 1)
+                    normals = compute_normal(mesh, bc.side_set_id, subsim.model)
                     local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
                     num_local_nodes = length(local_to_global_map)
                     for local_node ∈ 1:num_local_nodes
