@@ -37,7 +37,7 @@ function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
     _, coupled_side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
-    is_dirichlet = false
+    is_dirichlet = true
     projection_operator = Matrix{Float64}(undef, length(side_set_node_indices), length(coupled_side_set_node_indices))
     SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
         side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet, projection_operator)
@@ -205,6 +205,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
             tol = 0.05
             point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)
             if found == false
+                println("node : ", node_index, " not in contact")
                 continue 
             end
             model.current[:, node_index] = point_new

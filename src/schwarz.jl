@@ -44,17 +44,26 @@ function create_schwarz_controller(params::Dict{Any,Any})
     end
 end
 
+function advance_independent(sim::MultiDomainSimulation)
+    save_stop_solutions(sim)
+    set_subcycle_times(sim)
+    synchronize(sim)
+    is_schwarz = false
+    subcycle(sim, is_schwarz)
+end
+
 function schwarz(sim::MultiDomainSimulation)
     iteration_number = 1
     save_stop_solutions(sim)
     save_schwarz_solutions(sim)
     resize_histories(sim)
     set_subcycle_times(sim)
+    is_schwarz = true
     while true
         println("Schwarz iteration=", iteration_number)
         sim.schwarz_controller.iteration_number = iteration_number
         synchronize(sim)
-        subcycle(sim)
+        subcycle(sim, is_schwarz)
         iteration_number += 1
         ΔX = update_schwarz_convergence_criterion(sim)
         println("Schwarz criterion |ΔX|=", ΔX)
@@ -115,7 +124,7 @@ function set_subcycle_times(sim::MultiDomainSimulation)
     end
 end
 
-function subcycle(sim::MultiDomainSimulation)
+function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
     subsim_index = 1
     for subsim ∈ sim.subsims
         println("subcycle ", subsim.name)
@@ -129,7 +138,9 @@ function subcycle(sim::MultiDomainSimulation)
             apply_bcs(subsim)
             advance(subsim)
             stop_index += 1
-            save_history_snapshot(sim.schwarz_controller, sim.subsims, subsim_index, stop_index)
+            if is_schwarz == true
+                save_history_snapshot(sim.schwarz_controller, sim.subsims, subsim_index, stop_index)
+            end    
         end
         subsim_index +=1
     end
@@ -277,6 +288,7 @@ function detect_contact(sim::MultiDomainSimulation)
         end
     end
     sim.schwarz_controller.active_contact = any(contact_domain)
+    println("contact ", sim.schwarz_controller.active_contact)
     resize!(sim.schwarz_controller.contact_hist, sim.schwarz_controller.stop + 1)
     sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop + 1] = sim.schwarz_controller.active_contact
     return sim.schwarz_controller.active_contact

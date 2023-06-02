@@ -34,10 +34,7 @@ end
 
 function advance(sim::MultiDomainSimulation)
     if sim.schwarz_controller.schwarz_contact == true && sim.schwarz_controller.active_contact == false
-        for subsim ∈ sim.subsims
-            println("Solve domain ", subsim.name)
-            solve(subsim)
-        end
+        advance_independent(sim)
     else
         schwarz(sim)
     end    
