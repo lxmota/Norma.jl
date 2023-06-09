@@ -554,12 +554,12 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
     element_type = get_element_type(2, Int64(num_nodes_side))
     num_int_points = default_num_int_pts(element_type)
     int_points_inside = zeros(Bool, num_int_points)
-    N, _, _, _ = isoparametric(element_type, num_int_points)
+    N = isoparametric(element_type, num_int_points)[1]
     for int_point ∈ 1:num_int_points
         Nₚ = N[:, int_point]
         int_point_coord = side_coordinates * Nₚ
         tol_dist = 1.0e-12
-        _, _, _, _, _, found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, tol_dist, tol)
+        found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, tol_dist, tol)[6]
         int_points_inside[int_point] = found
     end
     is_inside = any(int_points_inside)

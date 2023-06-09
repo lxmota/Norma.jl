@@ -259,7 +259,7 @@ function detect_contact(sim::MultiDomainSimulation)
                         point = subsim.model.current[:, node_index]
                         tol_dist = 1.0e-12
                         tol = 1.0e-06
-                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)[5]
+                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)[6]
                         node = get.(Ref(global_to_local_map), node_index, 0)
                         overlap_nodes[node] = found
                     end
