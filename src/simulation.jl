@@ -98,8 +98,8 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     return sim
 end
 
-function get_block_connectivity(mesh::ExodusDatabase, blk_id::Int32)
-    _, num_elems, num_nodes, _, _, _ = Exodus.read_element_block_parameters(mesh, blk_id)
-    conn = Exodus.read_block_connectivity(mesh, blk_id)
+function get_block_connectivity(mesh::ExodusDatabase, blk_id::Integer)
+    _, num_elems, num_nodes, _, _, _ = Exodus.read_element_block_parameters(mesh, Int32(blk_id))
+    conn = Exodus.read_block_connectivity(mesh, Int32(blk_id))
     return reshape(conn, (num_elems, num_nodes))
 end

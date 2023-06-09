@@ -101,10 +101,10 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     end
 end
 
-function find_in_mesh(point::Vector{Float64}, model::SolidMechanics, mesh::ExodusDatabase, blk_id::Int64)
-    element_type = mesh.elem_type(blk_id)
-    elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-    num_elem_nodes, num_blk_elems = size(elem_blk_conn)
+function find_in_mesh(point::Vector{Float64}, model::SolidMechanics, mesh::ExodusDatabase, blk_id::Int)
+    element_type = Exodus.read_element_block_parameters(mesh, Int32(blk_id))[1]
+    elem_blk_conn = get_block_connectivity(mesh, blk_id)
+    num_blk_elems, num_elem_nodes = size(elem_blk_conn)
     node_indices = Vector{Int64}()
     found = false
     for blk_elem_index ∈ 1:num_blk_elems

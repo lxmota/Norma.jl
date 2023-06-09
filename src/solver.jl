@@ -12,8 +12,7 @@ end
 function HessianMinimizer(params::Dict{Any,Any})
     solver_params = params["solver"]
     input_mesh = params["input_mesh"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    num_nodes = input_mesh.init.num_nodes
     num_dof = 3 * num_nodes
     minimum_iterations = solver_params["minimum iterations"]
     maximum_iterations = solver_params["maximum iterations"]
@@ -38,8 +37,7 @@ end
 function ExplicitSolver(params::Dict{Any,Any})
     solver_params = params["solver"]
     input_mesh = params["input_mesh"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    num_nodes = input_mesh.init.num_nodes
     num_dof = 3 * num_nodes
     value = 0.0
     gradient = zeros(num_dof)

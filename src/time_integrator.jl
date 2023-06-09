@@ -9,8 +9,7 @@ function QuasiStatic(params::Dict{Any,Any})
     time = initial_time
     stop = 0
     input_mesh = params["input_mesh"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    num_nodes = input_mesh.init.num_nodes
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
@@ -29,8 +28,7 @@ function Newmark(params::Dict{Any,Any})
     γ = integrator_params["γ"]
     input_mesh = params["input_mesh"]
     input_mesh = params["input_mesh"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    num_nodes = input_mesh.init.num_nodes
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
@@ -53,8 +51,7 @@ function CentralDifference(params::Dict{Any,Any})
     γ = integrator_params["γ"]
     input_mesh = params["input_mesh"]
     input_mesh = params["input_mesh"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    num_nodes = input_mesh.init.num_nodes
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)

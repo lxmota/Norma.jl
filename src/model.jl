@@ -5,8 +5,8 @@ include("ics_bcs.jl")
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    coords = read_coordinates(input_mesh)
+    num_nodes = input_mesh.init.num_nodes
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
     velocity = Matrix{Float64}(undef, 3, num_nodes)
@@ -63,8 +63,8 @@ end
 function HeatConduction(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
-    coords = read_coordinates(input_mesh)'
-    num_nodes = size(coords)[2]
+    coords = read_coordinates(input_mesh)
+    num_nodes = input_mesh.init.num_nodes
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
     rate = Vector{Float64}(undef, num_nodes)
@@ -185,7 +185,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
         num_points = default_num_int_pts(element_type)
         _, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
+        num_blk_elems, num_elem_nodes = size(elem_blk_conn)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1:num_blk_elems
@@ -256,7 +256,7 @@ function evaluate(_::Newmark, model::SolidMechanics)
         num_points = default_num_int_pts(element_type)
         N, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
+        num_blk_elems, num_elem_nodes = size(elem_blk_conn)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1:num_blk_elems
@@ -353,7 +353,7 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
         blk_id = elem_blk_ids[blk_index]
         element_type = Exodus.read_element_block_parameters(input_mesh, blk_id)[1]
         elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
+        num_blk_elems, num_elem_nodes = size(elem_blk_conn)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
@@ -390,7 +390,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
         num_points = default_num_int_pts(element_type)
         N, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
+        num_blk_elems, num_elem_nodes = size(elem_blk_conn)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1:num_blk_elems
