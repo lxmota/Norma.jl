@@ -514,9 +514,9 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, mesh::PyObject, side_set_id::Integer, model::SolidMechanics, tol_dist::Float64, tol::Float64)
+function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set_id::Integer, model::SolidMechanics, tol_dist::Float64, tol::Float64)
     #we assume that we know the contact surfaces in advance 
-    num_nodes_per_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+    num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
     point_new = point
     closest_face_nodes = Array{Float64}(undef,0)
@@ -566,19 +566,19 @@ function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechan
     return is_inside
 end
 
-function get_side_set_global_to_local_map(mesh::PyObject, side_set_id::Integer)
-    num_nodes_sides, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Integer)
+    num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
     global_to_local_map = Dict{Int64,Int64}()
     for i ∈ 1:num_nodes
         global_to_local_map[Int64(unique_node_indices[i])] = i
     end
-    return global_to_local_map, num_nodes_sides, side_set_node_indices
+    return global_to_local_map, num_nodes_per_sides, side_set_node_indices
 end
 
-function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Integer)
-    _, side_set_node_indices = mesh.get_side_set_node_list(side_set_id)
+function get_side_set_local_to_global_map(mesh::ExodusDatabase, side_set_id::Integer)
+    side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)[2]
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
     local_to_global_map = zeros(Int64, num_nodes)
@@ -588,7 +588,7 @@ function get_side_set_local_to_global_map(mesh::PyObject, side_set_id::Integer)
     return local_to_global_map
 end
 
-function get_square_projection_matrix(mesh::PyObject, model::SolidMechanics, side_set_id::Integer)
+function get_square_projection_matrix(mesh::ExodusDatabase, model::SolidMechanics, side_set_id::Integer)
     global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
     coords = model.current
@@ -616,7 +616,7 @@ function get_square_projection_matrix(mesh::PyObject, model::SolidMechanics, sid
     return square_projection_matrix
 end
 
-function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidMechanics, dst_side_set_id::Integer, src_mesh::PyObject, src_model::SolidMechanics, src_side_set_id::Integer)
+function get_rectangular_projection_matrix(dst_mesh::ExodusDatabase, dst_model::SolidMechanics, dst_side_set_id::Integer, src_mesh::ExodusDatabase, src_model::SolidMechanics, src_side_set_id::Integer)
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_model.current
@@ -658,7 +658,7 @@ function get_rectangular_projection_matrix(dst_mesh::PyObject, dst_model::SolidM
     return rectangular_projection_matrix
 end
 
-function compute_normal(mesh::PyObject, side_set_id::Int64, model::SolidMechanics)
+function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMechanics)
     global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
     coords = model.current
     num_nodes = length(global_to_local_map)

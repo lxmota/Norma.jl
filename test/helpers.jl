@@ -43,16 +43,16 @@ function average_components(stress::Vector{Vector{Vector{Vector{Float64}}}})
     return [xx yy zz yz xz xy] ./ num_stress
 end
 
-using PyCall
+using Exodus
 using Symbolics
 @variables t
 
-function get_boundary_traction_force(mesh::PyObject, side_set_id::Int64)
+function get_boundary_traction_force(mesh::ExodusDatabase, side_set_id::Int64)
     expression = "1. * t" 
     t = 1.
     traction_num = eval(Meta.parse(expression))
-    coordinates = mesh.get_coords()
-    num_nodes = length(coordinates[1])
+    coords = read_coordinates(input_mesh)'
+    num_nodes = size(coords)[2]
     global_to_local_map, num_nodes_sides, side_set_node_indices = Norma.get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
     boundary_tractions_force = zeros(num_nodes)

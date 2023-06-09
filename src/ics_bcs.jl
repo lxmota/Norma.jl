@@ -1,12 +1,12 @@
 @variables t, x, y, z
 D = Differential(t)
 
-function SMDirichletBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
+function SMDirichletBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     node_set_name = bc_params["node set"]
     expression = bc_params["function"]
     offset = component_offset_from_string(bc_params["component"])
     node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-    node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+    node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
     # expression is an arbitrary function of t, x, y, z in the input file
     disp_num = eval(Meta.parse(expression))
     velo_num = expand_derivatives(D(disp_num))
@@ -15,42 +15,42 @@ function SMDirichletBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
         disp_num, velo_num, acce_num)
 end
 
-function SMNeumannBC(input_mesh::PyObject, bc_params::Dict{Any,Any})
+function SMNeumannBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     side_set_name = bc_params["side set"]
     expression = bc_params["function"]
     offset = component_offset_from_string(bc_params["component"])
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
+    num_nodes_per_side, side_set_node_indices = Exodus.read_side_set_node_list(input_mesh, side_set_id)
     # expression is an arbitrary function of t, x, y, z in the input file
     traction_num = eval(Meta.parse(expression))
     SMNeumannBC(side_set_name, offset, side_set_id, num_nodes_per_side, side_set_node_indices, traction_num)
 end
 
-function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
+function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    num_nodes_per_side, side_set_node_indices = input_mesh.get_side_set_node_list(side_set_id)
+    num_nodes_per_side, side_set_node_indices = Exodus.read_side_set_node_list(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    _, coupled_side_set_node_indices = coupled_mesh.get_side_set_node_list(coupled_side_set_id)
+    coupled_side_set_node_indices = Exodus.get_side_set_node_list(coupled_mesh, coupled_side_set_id)[2]
     is_dirichlet = true
     projection_operator = Matrix{Float64}(undef, length(side_set_node_indices), length(coupled_side_set_node_indices))
     SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
         side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet, projection_operator)
 end
 
-function SMSchwarzDBC(subsim::SingleDomainSimulation, coupled_subsim::SingleDomainSimulation, input_mesh::PyObject, bc_params::Dict{Any,Any})
+function SMSchwarzDBC(subsim::SingleDomainSimulation, coupled_subsim::SingleDomainSimulation, input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     node_set_name = bc_params["node set"]
     node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-    node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+    node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
-    element_type = coupled_mesh.elem_type(coupled_block_id)
+    element_type = Exodus.read_element_block_parameters(coupled_mesh, coupled_block_id)[1]
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     for node_index ∈ node_set_node_indices
@@ -59,7 +59,7 @@ function SMSchwarzDBC(subsim::SingleDomainSimulation, coupled_subsim::SingleDoma
         if found == false
             error("Could not find point: ", point, " in subdomain: ", coupled_subsim.name)
         end
-        N, _, _ = interpolate(element_type, ξ)
+        N = interpolate(element_type, ξ)[1]
         push!(coupled_nodes_indices, node_indices)
         push!(interpolation_function_values, N)
     end
@@ -101,9 +101,10 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     end
 end
 
-function find_in_mesh(point::Vector{Float64}, model::SolidMechanics, mesh::PyObject, blk_id::Int64)
+function find_in_mesh(point::Vector{Float64}, model::SolidMechanics, mesh::ExodusDatabase, blk_id::Int64)
     element_type = mesh.elem_type(blk_id)
-    elem_blk_conn, num_blk_elems, num_elem_nodes = mesh.get_elem_connectivity(blk_id)
+    elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
+    num_elem_nodes, num_blk_elems = size(elem_blk_conn)
     node_indices = Vector{Int64}()
     found = false
     for blk_elem_index ∈ 1:num_blk_elems
@@ -234,7 +235,7 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
     end
 end
 
-function reduce_traction(mesh::PyObject, side_set_id::Integer, global_traction::Vector{Float64})
+function reduce_traction(mesh::ExodusDatabase, side_set_id::Integer, global_traction::Vector{Float64})
     local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
     num_local_nodes = length(local_to_global_map)
     local_traction = zeros(3*num_local_nodes)
@@ -278,8 +279,8 @@ function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC, Sch
     return dst_traction
 end    
 
-function node_set_id_from_name(node_set_name::String, mesh::PyObject)
-    node_set_names = mesh.get_node_set_names()
+function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
+    node_set_names = Exodus.read_node_set_names(mesh)
     num_names = length(node_set_names)
     node_set_index = 0
     for index ∈ 1:num_names
@@ -291,13 +292,13 @@ function node_set_id_from_name(node_set_name::String, mesh::PyObject)
     if (node_set_index == 0)
         error("node set ", node_set_name, " cannot be found in mesh")
     end
-    node_set_ids = mesh.get_node_set_ids()
+    node_set_ids = Exodus.read_node_set_ids(mesh)
     node_set_id = node_set_ids[node_set_index]
     return Int64(node_set_id)
 end
 
-function side_set_id_from_name(side_set_name::String, mesh::PyObject)
-    side_set_names = mesh.get_side_set_names()
+function side_set_id_from_name(side_set_name::String, mesh::ExodusDatabase)
+    side_set_names = Exodus.read_side_set_names(mesh)
     num_names = length(side_set_names)
     side_set_index = 0
     for index ∈ 1:num_names
@@ -309,13 +310,13 @@ function side_set_id_from_name(side_set_name::String, mesh::PyObject)
     if (side_set_index == 0)
         error("side set ", side_set_name, " cannot be found in mesh")
     end
-    side_set_ids = mesh.get_side_set_ids()
+    side_set_ids = Exodus.read_side_set_ids(mesh)
     side_set_id = side_set_ids[side_set_index]
     return Int64(side_set_id)
 end
 
-function block_id_from_name(block_name::String, mesh::PyObject)
-    block_names = mesh.get_elem_blk_names()
+function block_id_from_name(block_name::String, mesh::ExodusDatabase)
+    block_names = Exodus.read_block_names(mesh)
     num_names = length(block_names)
     block_index = 0
     for index ∈ 1:num_names
@@ -327,7 +328,7 @@ function block_id_from_name(block_name::String, mesh::PyObject)
     if (block_index == 0)
         error("block ", block_name, " cannot be found in mesh")
     end
-    block_ids = mesh.get_elem_blk_ids()
+    block_ids = Exodus.read_block_ids(mesh)
     block_id = block_ids[block_index]
     return Int64(block_id)
 end
@@ -417,7 +418,7 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
             component = ic["component"]
             offset = component_offset_from_string(component)
             node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-            node_set_node_indices = input_mesh.get_node_set_nodes(node_set_id)
+            node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
             # expr_str is an arbitrary function of x, y, z in the input file
             ic_expr = Meta.parse(expr_str)
             ic_eval = eval(ic_expr)

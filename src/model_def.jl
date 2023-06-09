@@ -1,7 +1,7 @@
 abstract type Model end
 
 mutable struct SolidMechanics <: Model
-    mesh::PyObject
+    mesh::ExodusDatabase
     materials::Vector{Solid}
     reference::Matrix{Float64}
     current::Matrix{Float64}
@@ -17,7 +17,7 @@ mutable struct SolidMechanics <: Model
 end
 
 mutable struct HeatConduction <: Model
-    mesh::PyObject
+    mesh::ExodusDatabase
     materials::Vector{Vector}
     reference::Matrix{Float64}
     temperature::Vector{Float64}

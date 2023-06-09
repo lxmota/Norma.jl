@@ -1,7 +1,6 @@
 abstract type Simulation end
 
 include("constitutive_def.jl")
-include("exodus_def.jl")
 include("ics_bcs_def.jl")
 include("model_def.jl")
 include("time_integrator_def.jl")

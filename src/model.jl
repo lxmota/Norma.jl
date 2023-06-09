@@ -2,45 +2,32 @@ include("constitutive.jl")
 include("interpolation.jl")
 include("ics_bcs.jl")
 
-function create_elem_to_blk_map(mesh::PyObject)
-    num_blks = mesh.num_blks()
-    num_elem = mesh.num_elems()
-    elem_to_blk_map = zeros(Int64,num_elem)
-    for blk_id ∈ 1:num_blks
-        blk_elem_to_blk_map = mesh.get_block_id_map("EX_ELEM_BLOCK", blk_id)
-        for elem_id ∈ blk_elem_to_blk_map
-            elem_to_blk_map[elem_id] = blk_id
-        end
-    end
-    mesh.elem_to_blk_map = elem_to_blk_map
-end
-
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
-    x, y, z = input_mesh.get_coords()
-    num_nodes = length(x)
+    coords = read_coordinates(input_mesh)'
+    num_nodes = size(coords)[2]
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
     velocity = Matrix{Float64}(undef, 3, num_nodes)
     acceleration = Matrix{Float64}(undef, 3, num_nodes)
     for node ∈ 1:num_nodes
-        reference[:, node] = [x[node], y[node], z[node]]
-        current[:, node] = [x[node], y[node], z[node]]
+        reference[:, node] = coords[:, node]
+        current[:, node] = coords[:, node]
         velocity[:, node] = [0.0, 0.0, 0.0]
         acceleration[:, node] = [0.0, 0.0, 0.0]
     end
     material_params = model_params["material"]
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    elem_blk_ids = Exodus.read_block_ids(input_mesh)
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", model_params["mesh"], " (", num_blks,
             ") must be equal to number of blocks in materials file ", model_params["material"],
             " (", num_blks_params, ")")
     end
-    elem_blk_names = input_mesh.get_elem_blk_names()
+    elem_blk_names = Exodus.read_block_names(input_mesh)
     materials = Vector{Solid}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
@@ -57,10 +44,8 @@ function SolidMechanics(params::Dict{Any,Any})
     stress = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        element_type = input_mesh.elem_type(blk_id)
+        element_type, num_blk_elems, _, _, _, _ = Exodus.read_element_block_parameters(input_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
-        blk_conn = input_mesh.get_elem_connectivity(blk_id)
-        num_blk_elems = blk_conn[2]
         block_stress = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
         for blk_elem_index ∈ 1:num_blk_elems
             element_stress = Vector{Vector{Float64}}(undef, num_points)
@@ -78,27 +63,27 @@ end
 function HeatConduction(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
-    x, y, z = input_mesh.get_coords()
-    num_nodes = length(x)
+    coords = read_coordinates(input_mesh)'
+    num_nodes = size(coords)[2]
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
     rate = Vector{Float64}(undef, num_nodes)
     for node ∈ 1:num_nodes
-        reference[:, node] = [x[node], y[node], z[node]]
+        reference[:, node] = coords[:, node]
         temperature[node] = 0.0
         rate[node] = 0.0
     end
     material_params = model_params["material"]
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    elem_blk_ids = Exodus.read_block_ids(input_mesh)
     num_blks = length(elem_blk_ids)
     if (num_blks_params ≠ num_blks)
         error("number of blocks in mesh ", model_params["mesh"], " (", num_blks,
             ") must be equal to number of blocks in materials file ", model_params["material"],
             " (", num_blks_params, ")")
     end
-    elem_blk_names = input_mesh.get_elem_blk_names()
+    elem_blk_names = Exodus.read_block_names(input_mesh)
     materials = Vector{Thermal}(undef, 0)
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
@@ -115,10 +100,8 @@ function HeatConduction(params::Dict{Any,Any})
     flux = Vector{Vector{Vector{Vector{Float64}}}}(undef, num_blks)
     for blk_index ∈ 1:num_blks
         blk_id = elem_blk_ids[blk_index]
-        element_type = input_mesh.elem_type(blk_id)
+        element_type, num_blk_elems, _, _, _, _ = Exodus.read_element_block_parameters(input_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
-        blk_conn = input_mesh.get_elem_connectivity(blk_id)
-        num_blk_elems = blk_conn[2]
         block_flux = Vector{Vector{Vector{Float64}}}(undef, num_blk_elems)
         for blk_elem_index ∈ 1:num_blk_elems
             element_flux = Vector{Vector{Float64}}(undef, num_points)
@@ -184,8 +167,7 @@ end
 function evaluate(_::QuasiStatic, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
-    x, _, _ = input_mesh.get_coords()
-    num_nodes = length(x)
+    num_nodes = size(model.reference)[2]
     num_dof = 3 * num_nodes
     energy = 0.0
     internal_force = zeros(num_dof)
@@ -193,16 +175,17 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     rows = Vector{Int64}()
     cols = Vector{Int64}()
     stiffness = Vector{Float64}()
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    elem_blk_ids = Exodus.read_block_ids(input_mesh)
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
-        element_type = input_mesh.elem_type(blk_id)
+        element_type = Exodus.read_element_block_parameters(input_mesh, blk_id)[1]
         num_points = default_num_int_pts(element_type)
         _, dNdξ, elem_weights = isoparametric(element_type, num_points)
-        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
+        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1:num_blk_elems
@@ -254,8 +237,7 @@ end
 function evaluate(_::Newmark, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
-    x, _, _ = input_mesh.get_coords()
-    num_nodes = length(x)
+    num_nodes = size(model.reference)[2]
     num_dof = 3 * num_nodes
     energy = 0.0
     internal_force = zeros(num_dof)
@@ -264,16 +246,17 @@ function evaluate(_::Newmark, model::SolidMechanics)
     cols = Vector{Int64}()
     stiffness = Vector{Float64}()
     mass = Vector{Float64}()
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    elem_blk_ids = Exodus.read_block_ids(input_mesh)
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
-        element_type = input_mesh.elem_type(blk_id)
+        element_type = Exodus.read_element_block_parameters(input_mesh, blk_id)[1]
         num_points = default_num_int_pts(element_type)
         N, dNdξ, elem_weights = isoparametric(element_type, num_points)
-        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
+        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1:num_blk_elems
@@ -358,7 +341,7 @@ end
 function set_time_step(integrator::CentralDifference, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    elem_blk_ids = Exodus.read_block_ids(input_mesh)
     num_blks = length(elem_blk_ids)
     stable_time_step = Inf
     for blk_index ∈ 1:num_blks
@@ -368,8 +351,9 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
         wave_speed = sqrt(M / ρ)
         minimum_blk_edge_length = Inf
         blk_id = elem_blk_ids[blk_index]
-        element_type = input_mesh.elem_type(blk_id)
-        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        element_type = Exodus.read_element_block_parameters(input_mesh, blk_id)[1]
+        elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
+        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
@@ -390,23 +374,23 @@ end
 function evaluate(_::CentralDifference, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
-    x, _, _ = input_mesh.get_coords()
-    num_nodes = length(x)
+    num_nodes = size(model.reference)[2]
     num_dof = 3 * num_nodes
     energy = 0.0
     internal_force = zeros(num_dof)
     body_force = zeros(num_dof)
     lumped_mass = zeros(num_dof)
-    elem_blk_ids = input_mesh.get_elem_blk_ids()
+    elem_blk_ids = Exodus.read_block_ids(input_mesh)
     num_blks = length(elem_blk_ids)
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
         blk_id = elem_blk_ids[blk_index]
-        element_type = input_mesh.elem_type(blk_id)
+        element_type = Exodus.read_element_block_parameters(input_mesh, blk_id)[1]
         num_points = default_num_int_pts(element_type)
         N, dNdξ, elem_weights = isoparametric(element_type, num_points)
-        elem_blk_conn, num_blk_elems, num_elem_nodes = input_mesh.get_elem_connectivity(blk_id)
+        elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
+        num_elem_nodes, num_blk_elems = size(elem_blk_conn)
         num_elem_dofs = 3 * num_elem_nodes
         elem_dofs = zeros(Int64, num_elem_dofs)
         for blk_elem_index ∈ 1:num_blk_elems

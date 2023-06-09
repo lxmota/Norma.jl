@@ -1,15 +1,10 @@
 import YAML
 
 include("simulation_def.jl")
-include("exodus.jl")
 include("model.jl")
 include("time_integrator.jl")
 include("solver.jl")
 include("schwarz.jl")
-
-
-Exodus = exodus_module()
-Exodus.SHOW_BANNER = false
 
 function create_simulation(input_file::String)
     println("Reading simulation file: ", input_file)
@@ -46,9 +41,10 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     input_mesh_file = params["input mesh file"]
     output_mesh_file = params["output mesh file"]
     rm(output_mesh_file, force=true)
-    output_mesh = Exodus.copy_mesh(input_mesh_file, output_mesh_file)
+    input_mesh = Exodus.ExodusDatabase(input_mesh_file, "r")
+    Exodus.copy(input_mesh, output_mesh_file)
+    output_mesh = Exodus.ExodusDatabase(output_mesh_file, "rw")
     params["output_mesh"] = output_mesh
-    input_mesh = Exodus.exodus(input_mesh_file)
     params["input_mesh"] = input_mesh
     integrator = create_time_integrator(params)
     solver = create_solver(params)
@@ -100,4 +96,10 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subsim.params["global_simulation"] = sim
     end
     return sim
+end
+
+function get_block_connectivity(mesh::ExodusDatabase, blk_id::Int32)
+    _, num_elems, num_nodes, _, _, _ = Exodus.read_element_block_parameters(mesh, blk_id)
+    conn = Exodus.read_block_connectivity(mesh, blk_id)
+    return reshape(conn, (num_elems, num_nodes))
 end
