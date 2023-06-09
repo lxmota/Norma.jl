@@ -248,7 +248,8 @@ function detect_contact(sim::MultiDomainSimulation)
         for bc ∈ bcs
             if typeof(bc) == SMContactSchwarzBC
                 global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, bc.side_set_id)
-                overlap_nodes = zeros(Bool,length(global_to_local_map))
+                num_local_nodes = length(global_to_local_map)
+                overlap_nodes = falses(num_local_nodes)
                 int_points_inside = zeros(Bool, length(bc.num_nodes_per_side))
                 ss_node_index = 1
                 side_i = 1
@@ -261,9 +262,9 @@ function detect_contact(sim::MultiDomainSimulation)
                         found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)[5]
                         node = get.(Ref(global_to_local_map), node_index, 0)
                         overlap_nodes[node] = found
-                        if any(overlap_nodes) == false
-                            int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc, tol)
-                        end
+                    end
+                    if any(overlap_nodes) == false
+                        int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc, tol)
                     end
                     ss_node_index += side
                     side_i += 1

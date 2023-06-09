@@ -36,7 +36,7 @@ function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_side_set_node_indices = Exodus.get_side_set_node_list(coupled_mesh, coupled_side_set_id)[2]
+    coupled_side_set_node_indices = Exodus.read_side_set_node_list(coupled_mesh, coupled_side_set_id)[2]
     is_dirichlet = true
     projection_operator = Matrix{Float64}(undef, length(side_set_node_indices), length(coupled_side_set_node_indices))
     SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
