@@ -1,3 +1,6 @@
+# This is needed for now on Mac but let's hope it goes away.
+ENV["JULIA_PKG_IGNORE_HASHES"] = 1
+
 using Pkg
 
 Pkg.add("DelimitedFiles")
