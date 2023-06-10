@@ -202,9 +202,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            tol_dist = 1.0e-6
-            tol = 0.05
-            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)
+            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
             if found == false
                 println("node : ", node_index, " not in contact")
                 continue 

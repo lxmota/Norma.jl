@@ -238,7 +238,7 @@ function detect_contact(sim::MultiDomainSimulation)
     end
     num_domains = sim.schwarz_controller.num_domains
     contact_prev = sim.schwarz_controller.active_contact
-    contact_domain = zeros(Bool, num_domains)
+    contact_domain = falses(num_domains)
     overlap = false
     compress = false
     for i ∈ 1:sim.schwarz_controller.num_domains
@@ -247,31 +247,30 @@ function detect_contact(sim::MultiDomainSimulation)
         bcs = subsim.model.boundary_conditions
         for bc ∈ bcs
             if typeof(bc) == SMContactSchwarzBC
-                global_to_local_map, _, _ = get_side_set_global_to_local_map(mesh, bc.side_set_id)
+                global_to_local_map = get_side_set_global_to_local_map(mesh, bc.side_set_id)[1]
                 num_local_nodes = length(global_to_local_map)
-                overlap_nodes = falses(num_local_nodes)
-                int_points_inside = zeros(Bool, length(bc.num_nodes_per_side))
+                found = false
                 ss_node_index = 1
-                side_i = 1
                 for side ∈ bc.num_nodes_per_side
                     side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
                     for node_index ∈ side_nodes
                         point = subsim.model.current[:, node_index]
-                        tol_dist = 1.0e-12
-                        tol = 1.0e-06
-                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, tol_dist, tol)[6]
-                        node = get.(Ref(global_to_local_map), node_index, 0)
-                        overlap_nodes[node] = found
+                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)[6]
+                        if found == true
+                            break
+                        end
                     end
-                    if any(overlap_nodes) == false
-                        int_points_inside[side_i] = search_integration_points(side_nodes, subsim.model, bc, tol)
+                    if found == false
+                        found = search_integration_points(side_nodes, subsim.model, bc)
+                        if found == true
+                            break
+                        end
                     end
                     ss_node_index += side
-                    side_i += 1
                 end
-                overlap = any(overlap_nodes) || any(int_points_inside)
+                overlap = found
                 if contact_prev == true
-                    compression = zeros(Bool,length(global_to_local_map))
+                    compression = falses(length(global_to_local_map))
                     reactions = get_dst_traction(subsim.model, bc, 1)
                     normals = compute_normal(mesh, bc.side_set_id, subsim.model)
                     local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
