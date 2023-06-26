@@ -1,8 +1,8 @@
 type: multi
 domains: ["cube-1.yaml", "cube-2.yaml"]
 initial time: 0.0
-final time: 0.2
-time step: 0.02
+final time: 0.1
+time step: 0.01
 same time step for domains: true
 minimum iterations: 1
 maximum iterations: 16
