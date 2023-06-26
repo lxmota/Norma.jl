@@ -1,7 +1,6 @@
-function evolve(sim::Simulation)
+function evolve(sim::SingleDomainSimulation)
     watch_keep_time(sim)
     apply_ics(sim)
-    detect_contact(sim)
     apply_bcs(sim)
     initialize(sim)
     initialize_writing(sim)
@@ -12,8 +11,27 @@ function evolve(sim::Simulation)
             break
         end
         watch_keep_time(sim)
-        detect_contact(sim)
         apply_bcs(sim)
+        advance(sim)
+        write_step(sim)
+    end
+    finalize_writing(sim)
+end
+
+function evolve(sim::MultiDomainSimulation)
+    watch_keep_time(sim)
+    apply_ics(sim)
+    detect_contact(sim)
+    initialize(sim)
+    initialize_writing(sim)
+    write_step(sim)
+    while true
+        advance_time(sim)
+        if stop_evolve(sim) == true
+            break
+        end
+        watch_keep_time(sim)
+        detect_contact(sim)
         advance(sim)
         write_step(sim)
     end
@@ -66,6 +84,7 @@ end
 
 function initialize(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
+        apply_bcs(subsim)
         initialize(subsim)
     end
 end
@@ -116,12 +135,12 @@ end
 
 function watch_keep_time(sim::SingleDomainSimulation)
     synchronize(sim)
-    println("stop ", sim.integrator.stop, ", t=", sim.integrator.time)
+    println("Advancing to stop ", sim.integrator.stop, " with time = ", sim.integrator.time)
 end
 
 function watch_keep_time(sim::MultiDomainSimulation)
     synchronize(sim)
-    println("stop ", sim.schwarz_controller.stop, ", t=", sim.schwarz_controller.time)
+    println("Advancing to stop ", sim.schwarz_controller.stop, " with time = ", sim.schwarz_controller.time)
 end
 
 function synchronize(sim::SingleDomainSimulation)
