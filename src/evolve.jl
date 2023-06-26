@@ -139,7 +139,7 @@ end
 
 function advance_time(sim::SingleDomainSimulation)
     next_time = round(sim.integrator.time + sim.integrator.time_step; digits=10)
-    sim.integrator.time = next_time
+    sim.integrator.time = sim.model.time = next_time
     sim.integrator.stop += 1
 end
 
