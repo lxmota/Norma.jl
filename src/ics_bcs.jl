@@ -196,13 +196,15 @@ function transfer_normal_component(source::Vector{Float64}, target::Vector{Float
 end
 
 function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContactSchwarzBC)
+    distance_tol = 1.0e-09
+    parametric_tol = 1.0e-03
     ss_node_index = 1
     for side ∈ bc.num_nodes_per_side
         side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
         ss_node_index += side
         for node_index ∈ side_nodes
             point = model.current[:, node_index]
-            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+            point_new, ξ, _, closest_face_node_indices, closest_normal, found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, distance_tol, parametric_tol)
             if found == false
                 println("node : ", node_index, " not in contact")
                 continue 

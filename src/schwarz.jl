@@ -196,7 +196,7 @@ function update_schwarz_convergence_criterion(schwarz_controller::SolidSchwarzCo
         Δt = schwarz_controller.time_step
         xᵖʳᵉᵛ = schwarz_controller.schwarz_disp[i] + Δt * schwarz_controller.schwarz_velo[i]
         xᶜᵘʳʳ = sims[i].integrator.displacement + Δt * sims[i].integrator.velocity
-        norms_disp[i] = norm(xᵖʳᵉᵛ)
+        norms_disp[i] = norm(xᶜᵘʳʳ)
         norms_diff[i] = norm(xᶜᵘʳʳ - xᵖʳᵉᵛ)
     end
     norm_disp = norm(norms_disp)
@@ -233,6 +233,8 @@ function detect_contact(sim::MultiDomainSimulation)
     if sim.schwarz_controller.schwarz_contact == false
         return
     end
+    distance_tol = 1.0e-09
+    parametric_tol = 1.0e-06
     num_domains = sim.schwarz_controller.num_domains
     contact_prev = sim.schwarz_controller.active_contact
     contact_domain = falses(num_domains)
@@ -252,7 +254,7 @@ function detect_contact(sim::MultiDomainSimulation)
                     side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
                     for node_index ∈ side_nodes
                         point = subsim.model.current[:, node_index]
-                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)[6]
+                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, distance_tol, parametric_tol)[6]
                         if found == true
                             break
                         end

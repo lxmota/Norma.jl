@@ -21,7 +21,6 @@ end
 function evolve(sim::MultiDomainSimulation)
     watch_keep_time(sim)
     apply_ics(sim)
-    detect_contact(sim)
     initialize(sim)
     initialize_writing(sim)
     write_step(sim)
