@@ -183,10 +183,6 @@ function gauss_legendreD2(n::Integer)
     end
 end
 
-function gauss_legendreD1(n::Integer)
-    return gauss_legendre(n)
-end
-
 function lagrangianD1N2(ξ::Float64)
     N = [0.5 * (1.0 - ξ), 0.5 * (1.0 + ξ)]
     dN = [-0.5, 0.5]
