@@ -229,9 +229,6 @@ function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
     return sim.schwarz_controller.converged
 end
 
-function detect_contact(_::SingleDomainSimulation)
-end
-
 function detect_contact(sim::MultiDomainSimulation)
     if sim.schwarz_controller.schwarz_contact == false
         return
