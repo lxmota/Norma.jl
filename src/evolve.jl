@@ -67,6 +67,11 @@ function advance(sim::MultiDomainSimulation)
     was_in_contact = sim.schwarz_controller.active_contact
     detect_contact(sim)
     if sim.schwarz_controller.active_contact ≠ was_in_contact
+        if was_in_contact == true
+            println("Contact release detected, redoing control step")
+        else
+            println("Contact initiation detected, redoing control step")
+        end
         restore_stop_solutions(sim)
         solve_contact(sim)
     end

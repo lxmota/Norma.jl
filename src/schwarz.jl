@@ -263,13 +263,11 @@ function detect_contact(sim::MultiDomainSimulation)
                     side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
                     for node_index ∈ side_nodes
                         point = subsim.model.current[:, node_index]
-                        found = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model, distance_tol, parametric_tol)[6]
-                        if found == true
-                            break
-                        end
-                    end
-                    if found == false
-                        found = search_integration_points(side_nodes, subsim.model, bc)
+                        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+                        num_nodes_coupled_side = length(coupled_face_node_indices)
+                        parametric_dim = length(ξ)
+                        element_type = get_element_type(parametric_dim, num_nodes_coupled_side)
+                        found = distance < distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
                         if found == true
                             break
                         end

@@ -510,7 +510,7 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set_id::Integer, model::SolidMechanics, distance_tol::Float64, parametric_tol::Float64)
+function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set_id::Integer, model::SolidMechanics)
     #we assume that we know the contact surfaces in advance 
     num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
@@ -519,48 +519,26 @@ function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set
     closest_face_node_indices = Array{Int64}(undef,0)
     space_dim = length(point)
     parametric_dim = space_dim - 1
-    ξ = zeros(parametric_dim)
+    closest_ξ = zeros(parametric_dim)
     closest_normal = zeros(space_dim)
-    found = false
+    minimum_absolute_distance = Inf
+    closest_distance = 0.0
     for num_nodes_side ∈ num_nodes_per_sides
         face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
         trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
-        element_type = get_element_type(parametric_dim, num_nodes_side)
-        found = distance < distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
-        if found == true
+        if abs(distance) < minimum_absolute_distance
+            minimum_absolute_distance = abs(distance)
             point_new = trial_point
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
             closest_normal = normal
-            break
-        end    
+            closest_ξ = ξ
+            closest_distance = distance
+        end
         ss_node_index += num_nodes_side
     end
-    return point_new, ξ, closest_face_nodes, closest_face_node_indices, closest_normal, found
-end
-
-function search_integration_points(side_nodes::Vector{Int64}, model::SolidMechanics, bc::SMContactSchwarzBC)
-    distance_tol = 1.0e-09
-    parametric_tol = 1.0e-06
-    src_mesh = bc.coupled_subsim.model.mesh
-    src_side_set_id = bc.coupled_side_set_id
-    src_model = bc.coupled_subsim.model
-    num_nodes_side = length(side_nodes)
-    coordinates = model.current
-    side_coordinates = coordinates[:, side_nodes]
-    element_type = get_element_type(2, Int64(num_nodes_side))
-    num_int_points = default_num_int_pts(element_type)
-    is_int_point_inside = falses(num_int_points)
-    N = isoparametric(element_type, num_int_points)[1]
-    for int_point ∈ 1:num_int_points
-        Nₚ = N[:, int_point]
-        int_point_coord = side_coordinates * Nₚ
-        found = find_and_project(int_point_coord, src_mesh, src_side_set_id, src_model, distance_tol, parametric_tol)[6]
-        is_int_point_inside[int_point] = found
-    end
-    is_any_point_inside = any(is_int_point_inside)
-    return is_any_point_inside
+    return point_new, closest_ξ, closest_face_nodes, closest_face_node_indices, closest_normal, closest_distance
 end
 
 function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Integer)
@@ -614,8 +592,6 @@ function get_square_projection_matrix(mesh::ExodusDatabase, model::SolidMechanic
 end
 
 function get_rectangular_projection_matrix(dst_mesh::ExodusDatabase, dst_model::SolidMechanics, dst_side_set_id::Integer, src_mesh::ExodusDatabase, src_model::SolidMechanics, src_side_set_id::Integer)
-    distance_tol = 1.0e-09
-    parametric_tol = 1.0e-03
     dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_model.current
@@ -640,15 +616,11 @@ function get_rectangular_projection_matrix(dst_mesh::ExodusDatabase, dst_model::
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
             is_inside = false
-            _, ξ, src_side_coordinates, src_side_nodes, _, is_inside = find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model, distance_tol, parametric_tol)
-            if is_inside == true
-                src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
-                src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
-                src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
-                rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
-            else
-                println("Point : ", dst_point, " not in contact")
-            end
+            _, ξ, src_side_coordinates, src_side_nodes, _, _ = find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
+            src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
+            src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
+            src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
+            rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
         end
         dst_side_set_node_index += dst_num_nodes_side
     end
