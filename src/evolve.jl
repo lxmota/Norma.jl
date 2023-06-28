@@ -30,7 +30,6 @@ function evolve(sim::MultiDomainSimulation)
             break
         end
         watch_keep_time(sim)
-        detect_contact(sim)
         advance(sim)
         write_step(sim)
     end
@@ -49,12 +48,28 @@ function advance(sim::SingleDomainSimulation)
     solve(sim)
 end
 
-function advance(sim::MultiDomainSimulation)
-    if sim.schwarz_controller.schwarz_contact == true && sim.schwarz_controller.active_contact == false
-        advance_independent(sim)
-    else
+function solve_contact(sim::MultiDomainSimulation)
+    if sim.schwarz_controller.active_contact == true
         schwarz(sim)
-    end    
+    else
+        advance_independent(sim)
+    end
+end
+
+function advance(sim::MultiDomainSimulation)
+    if sim.schwarz_controller.schwarz_contact == false
+        schwarz(sim)
+        return
+    end
+    save_stop_solutions(sim)
+    detect_contact(sim)
+    solve_contact(sim)
+    was_in_contact = sim.schwarz_controller.active_contact
+    detect_contact(sim)
+    if sim.schwarz_controller.active_contact ≠ was_in_contact
+        restore_stop_solutions(sim)
+        solve_contact(sim)
+    end
 end
 
 function apply_ics(sim::SingleDomainSimulation)
@@ -132,14 +147,30 @@ function finalize_writing(sim::MultiDomainSimulation)
     end
 end
 
+using Printf
+
 function watch_keep_time(sim::SingleDomainSimulation)
     synchronize(sim)
-    println("Advancing to stop ", sim.integrator.stop, " with time = ", sim.integrator.time)
+    stop = sim.integrator.stop
+    initial_time = sim.integrator.time - sim.integrator.time_step
+    final_time = sim.integrator.time
+    if stop == 0
+        @printf("Initializing run at stop 0 with time = %6.2e\n", final_time)
+    else
+        @printf("Advancing from stop %d with time = %6.2e to stop %d with time = %6.2e\n", stop - 1, initial_time, stop, final_time)
+    end
 end
 
 function watch_keep_time(sim::MultiDomainSimulation)
     synchronize(sim)
-    println("Advancing to stop ", sim.schwarz_controller.stop, " with time = ", sim.schwarz_controller.time)
+    stop = sim.schwarz_controller.stop
+    initial_time = sim.schwarz_controller.time - sim.schwarz_controller.time_step
+    final_time = sim.schwarz_controller.time
+    if stop == 0
+        @printf("Initializing run at stop 0 with time = %6.2e\n", final_time)
+    else
+        @printf("Advancing from stop %d with time = %6.2e to stop %d with time = %6.2e\n", stop - 1, initial_time, stop, final_time)
+    end
 end
 
 function synchronize(sim::SingleDomainSimulation)
