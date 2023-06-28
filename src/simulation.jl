@@ -1,4 +1,4 @@
-import YAML
+using YAML
 
 include("simulation_def.jl")
 include("model.jl")
