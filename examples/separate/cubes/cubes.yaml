@@ -4,6 +4,7 @@ initial time: -0.5
 final time: 1.5
 time step: 1.0
 same time step for domains: true
+relaxation parameter: 0.5
 minimum iterations: 1
 maximum iterations: 16
 relative tolerance: 1.0e-12

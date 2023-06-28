@@ -25,6 +25,14 @@ function SolidSchwarzController(params::Dict{Any,Any})
     velo_hist = Vector{Vector{Vector{Float64}}}()
     acce_hist = Vector{Vector{Vector{Float64}}}()
     ∂Ω_f_hist = Vector{Vector{Vector{Float64}}}()
+    if haskey(params, "relaxation parameter") == true
+        relaxation_parameter = params["relaxation parameter"]
+    else
+        relaxation_parameter = 1.
+    end
+    lambda_disp = Vector{Vector{Float64}}(undef, num_domains)
+    lambda_velo = Vector{Vector{Float64}}(undef, num_domains)
+    lambda_acce = Vector{Vector{Float64}}(undef, num_domains)
     schwarz_contact = false
     active_contact = false
     contact_hist = Vector{Bool}()
@@ -32,7 +40,8 @@ function SolidSchwarzController(params::Dict{Any,Any})
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, same_step, stop, converged, iteration_number, 
         stop_disp, stop_velo, stop_acce, stop_∂Ω_f, schwarz_disp, schwarz_velo, schwarz_acce,
-        time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, schwarz_contact, active_contact, contact_hist)
+        time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, relaxation_parameter, lambda_disp, lambda_velo, lambda_acce, 
+        schwarz_contact, active_contact, contact_hist)
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
