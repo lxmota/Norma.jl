@@ -17,7 +17,7 @@ boundary conditions:
   Dirichlet:
     - node set: nsx+
       component: x
-      function: "-0.01 * t"
+      function: "0.01 * (abs(t) - 1.0)"
     - node set: nsy-
       component: y
       function: "0.0"

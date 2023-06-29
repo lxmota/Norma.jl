@@ -1,7 +1,7 @@
 type: multi
 domains: ["cube-1.yaml", "cube-2.yaml"]
-initial time: -0.5
-final time: 1.5
+initial time: -2.0
+final time: 2.0
 time step: 1.0
 same time step for domains: true
 relaxation parameter: 0.5

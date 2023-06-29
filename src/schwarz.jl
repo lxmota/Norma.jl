@@ -242,7 +242,7 @@ function detect_contact(sim::MultiDomainSimulation)
     if sim.schwarz_controller.schwarz_contact == false
         return
     end
-    distance_tol = 1.0e-09
+    distance_tol = 0.0
     parametric_tol = 1.0e-06
     num_domains = sim.schwarz_controller.num_domains
     contact_prev = sim.schwarz_controller.active_contact
@@ -275,19 +275,17 @@ function detect_contact(sim::MultiDomainSimulation)
                     ss_node_index += side
                 end
                 overlap = found
-                if contact_prev == true
-                    compression = falses(length(global_to_local_map))
-                    reactions = get_dst_traction(subsim.model, bc, 1)
-                    normals = compute_normal(mesh, bc.side_set_id, subsim.model)
-                    local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
-                    num_local_nodes = length(local_to_global_map)
-                    for local_node ∈ 1:num_local_nodes
-                        reaction_node = reactions[3*local_node-2:3*local_node]
-                        normal = normals[:, local_node]
-                        compression[local_node] = dot(reaction_node, normal) < 0.
-                    end
-                    compress = any(compression)
+                compression = falses(length(global_to_local_map))
+                reactions = get_dst_traction(subsim.model, bc, 1)
+                normals = compute_normal(mesh, bc.side_set_id, subsim.model)
+                local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
+                num_local_nodes = length(local_to_global_map)
+                for local_node ∈ 1:num_local_nodes
+                    reaction_node = reactions[3*local_node-2:3*local_node]
+                    normal = normals[:, local_node]
+                    compression[local_node] = dot(reaction_node, normal) < -1.0e-02
                 end
+                compress = any(compression)
                 persist = compress && contact_prev
                 contact_domain[i] = overlap || persist
             end
