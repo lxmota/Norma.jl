@@ -274,7 +274,7 @@ function detect_contact(sim::MultiDomainSimulation)
                     ss_node_index += side
                 end
                 compression = false
-                reactions = get_dst_traction(subsim.model, bc, 1)
+                reactions = get_dst_traction(subsim.model, bc)
                 normals = compute_normal(mesh, bc.side_set_id, subsim.model)
                 local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
                 num_local_nodes = length(local_to_global_map)

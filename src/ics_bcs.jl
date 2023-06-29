@@ -258,11 +258,8 @@ function reduce_traction(mesh::ExodusDatabase, side_set_id::Integer, global_trac
 end
 
 function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
-    Schwarz_iteration = bc.coupled_subsim.params["global_simulation"].schwarz_controller.iteration_number
-    get_dst_traction(dst_model, bc, Schwarz_iteration)
-end
-
-function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC, Schwarz_iteration::Int64)
+    schwarz_iteration = bc.coupled_subsim.params["global_simulation"].schwarz_controller.iteration_number
+    initialize_projection = schwarz_iteration == 1
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_global_traction = -bc.coupled_subsim.model.internal_force
@@ -270,7 +267,7 @@ function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC, Sch
     dst_mesh = dst_model.mesh
     dst_side_set_id = bc.side_set_id
     projection_operator = bc.projection_operator
-    if Schwarz_iteration == 1 
+    if initialize_projection == true 
         square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
         rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
         projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
@@ -288,7 +285,7 @@ function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC, Sch
     dst_traction[2:3:end] = dst_traction_y
     dst_traction[3:3:end] = dst_traction_z
     return dst_traction
-end    
+end
 
 function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
     node_set_names = Exodus.read_node_set_names(mesh)
