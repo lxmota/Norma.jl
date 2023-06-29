@@ -244,11 +244,11 @@ function detect_contact(sim::MultiDomainSimulation)
     end
     distance_tol = 0.0
     parametric_tol = 1.0e-06
+    compression_tol = 1.0e-02
     num_domains = sim.schwarz_controller.num_domains
-    contact_prev = sim.schwarz_controller.active_contact
+    persistence = sim.schwarz_controller.active_contact
     contact_domain = falses(num_domains)
     overlap = false
-    compress = false
     for i ∈ 1:sim.schwarz_controller.num_domains
         subsim = sim.subsims[i]
         mesh = subsim.params["input_mesh"]
@@ -257,7 +257,6 @@ function detect_contact(sim::MultiDomainSimulation)
             if typeof(bc) == SMContactSchwarzBC
                 global_to_local_map = get_side_set_global_to_local_map(mesh, bc.side_set_id)[1]
                 num_local_nodes = length(global_to_local_map)
-                found = false
                 ss_node_index = 1
                 for side ∈ bc.num_nodes_per_side
                     side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
@@ -267,15 +266,14 @@ function detect_contact(sim::MultiDomainSimulation)
                         num_nodes_coupled_side = length(coupled_face_node_indices)
                         parametric_dim = length(ξ)
                         element_type = get_element_type(parametric_dim, num_nodes_coupled_side)
-                        found = distance < distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
-                        if found == true
+                        overlap = distance ≤ distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
+                        if overlap == true
                             break
                         end
                     end
                     ss_node_index += side
                 end
-                overlap = found
-                compression = falses(length(global_to_local_map))
+                compression = false
                 reactions = get_dst_traction(subsim.model, bc, 1)
                 normals = compute_normal(mesh, bc.side_set_id, subsim.model)
                 local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
@@ -283,11 +281,18 @@ function detect_contact(sim::MultiDomainSimulation)
                 for local_node ∈ 1:num_local_nodes
                     reaction_node = reactions[3*local_node-2:3*local_node]
                     normal = normals[:, local_node]
-                    compression[local_node] = dot(reaction_node, normal) < -1.0e-02
+                    normal_traction = dot(reaction_node, normal)
+                    compressive_traction = normal_traction ≤ compression_tol
+                    if compressive_traction == true
+                        compression = true
+                        break
+                    end
                 end
-                compress = any(compression)
-                persist = compress && contact_prev
-                contact_domain[i] = overlap || persist
+                if persistence == true
+                    contact_domain[i] = compression == true
+                else
+                    contact_domain[i] = overlap == true
+                end
             end
         end
     end

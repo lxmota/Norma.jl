@@ -62,7 +62,6 @@ function advance(sim::MultiDomainSimulation)
         return
     end
     save_stop_solutions(sim)
-    detect_contact(sim)
     solve_contact(sim)
     was_in_contact = sim.schwarz_controller.active_contact
     detect_contact(sim)
@@ -106,6 +105,7 @@ function initialize(sim::MultiDomainSimulation)
         apply_bcs(subsim)
         initialize(subsim)
     end
+    detect_contact(sim)
 end
 
 function solve(sim::SingleDomainSimulation)
