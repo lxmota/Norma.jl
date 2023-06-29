@@ -685,6 +685,8 @@ function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Floa
     end
 end
 
+using Einsum
+
 function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64}, x::Vector{Float64})
     space_dim, num_nodes = size(nodes)
     element_type = get_element_type(parametric_dim, num_nodes)
@@ -695,20 +697,26 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
     yx = zeros(space_dim)
     tol = 1.0e-12
     normal = zeros(space_dim)
+    iteration = 1
+    max_iterations = 64
     while true
         N, dN, ddN = interpolate(element_type, ξ)
         y = nodes * N
         dydξ = dN * nodes'
         yx = y - x
         residual = dydξ * yx
-        ddyddξ = MiniTensor.dot_last_first(ddN, nodes')
-        ddyddξyx = MiniTensor.dot_last_first(ddyddξ, yx)
+        @einsum ddyddξ[i, j, k] := ddN[i, j, l] * nodes[k, l]
+        @einsum ddyddξyx[i, j] := ddyddξ[i, j, k] * yx[k]
         hessian = ddyddξyx + dydξ * dydξ'
         δ = - hessian \ residual
         ξ = ξ + δ
         error = norm(δ)
         if error <= tol
             break
+        end
+        iteration += 1
+        if iteration > max_iterations
+            error("Closest point projection failed to converge")
         end
     end
     _, dN, _ = interpolate(element_type, ξ)
