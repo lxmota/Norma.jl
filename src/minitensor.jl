@@ -435,48 +435,4 @@ function RVcontin(old::AbstractVector{Float64}, prev::AbstractVector{Float64})
     return new
 end
 
-function dot_last_first(A::Array{Float64, 3}, b::Vector{Float64})
-    first_dims = size(A)
-    test_dim = length(b)
-    I = first_dims[1]
-    J = first_dims[2]
-    K = first_dims[3]
-    @assert test_dim == K
-    result = zeros(I, J)
-    for i ∈ 1:I
-        for j ∈ 1:J
-            sum = 0.0
-            for k ∈ 1:K
-                sum = A[i, j, k] * b[k]
-            end
-            result[i, j] = sum
-        end
-    end
-    return result    
-end
-
-function dot_last_first(A::Array{Float64, 3}, B::AbstractMatrix{Float64})
-    first_dims = size(A)
-    last_dims = size(B)
-    I = first_dims[1]
-    J = first_dims[2]
-    P = first_dims[3]
-    test_dim = last_dims[1]
-    K = last_dims[2]
-    @assert test_dim == P
-    result = zeros(I, J, K)
-    for i ∈ 1:I
-        for j ∈ 1:J
-            for k ∈ 1:K
-                sum = 0.0
-                for p ∈ 1:P
-                    sum = A[i, j, p] * B[p, k]
-                end
-                result[i, j, k] = sum
-            end
-        end
-    end
-    return result    
-end
-
 end
