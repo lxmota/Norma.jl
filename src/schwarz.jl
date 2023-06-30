@@ -238,59 +238,62 @@ function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
     return sim.schwarz_controller.converged
 end
 
+function check_overlap(model::SolidMechanics, bc::SMContactSchwarzBC)
+    distance_tol = 0.0
+    parametric_tol = 1.0e-06
+    overlap = false
+    for node_index ∈ bc.side_set_node_indices
+        point = model.current[:, node_index]
+        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+        num_nodes_coupled_side = length(coupled_face_node_indices)
+        parametric_dim = length(ξ)
+        element_type = get_element_type(parametric_dim, num_nodes_coupled_side)
+        overlap = distance ≤ distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
+        if overlap == true
+            break
+        end
+    end
+    return overlap
+end
+
+function check_compression(mesh::ExodusDatabase, model::SolidMechanics, bc::SMContactSchwarzBC)
+    compression_tol = 0.0
+    compression = false
+    reactions = get_dst_traction(model, bc)
+    normals = compute_normal(mesh, bc.side_set_id, model)
+    local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
+    num_local_nodes = length(local_to_global_map)
+    for local_node ∈ 1:num_local_nodes
+        reaction_node = reactions[3*local_node-2:3*local_node]
+        normal = normals[:, local_node]
+        normal_traction = dot(reaction_node, normal)
+        compressive_traction = normal_traction ≤ compression_tol
+        if compressive_traction == true
+            compression = true
+            break
+        end
+    end
+    return compression
+end
+
 function detect_contact(sim::MultiDomainSimulation)
     if sim.schwarz_controller.schwarz_contact == false
         return
     end
-    distance_tol = 0.0
-    parametric_tol = 1.0e-06
-    compression_tol = 1.0e-02
     num_domains = sim.schwarz_controller.num_domains
     persistence = sim.schwarz_controller.active_contact
     contact_domain = falses(num_domains)
-    overlap = false
     for i ∈ 1:sim.schwarz_controller.num_domains
         subsim = sim.subsims[i]
         mesh = subsim.params["input_mesh"]
         bcs = subsim.model.boundary_conditions
         for bc ∈ bcs
             if typeof(bc) == SMContactSchwarzBC
-                global_to_local_map = get_side_set_global_to_local_map(mesh, bc.side_set_id)[1]
-                num_local_nodes = length(global_to_local_map)
-                ss_node_index = 1
-                for side ∈ bc.num_nodes_per_side
-                    side_nodes = bc.side_set_node_indices[ss_node_index:ss_node_index+side-1]
-                    for node_index ∈ side_nodes
-                        point = subsim.model.current[:, node_index]
-                        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
-                        num_nodes_coupled_side = length(coupled_face_node_indices)
-                        parametric_dim = length(ξ)
-                        element_type = get_element_type(parametric_dim, num_nodes_coupled_side)
-                        overlap = distance ≤ distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
-                        if overlap == true
-                            break
-                        end
-                    end
-                    ss_node_index += side
-                end
-                compression = false
-                reactions = get_dst_traction(subsim.model, bc)
-                normals = compute_normal(mesh, bc.side_set_id, subsim.model)
-                local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
-                num_local_nodes = length(local_to_global_map)
-                for local_node ∈ 1:num_local_nodes
-                    reaction_node = reactions[3*local_node-2:3*local_node]
-                    normal = normals[:, local_node]
-                    normal_traction = dot(reaction_node, normal)
-                    compressive_traction = normal_traction ≤ compression_tol
-                    if compressive_traction == true
-                        compression = true
-                        break
-                    end
-                end
                 if persistence == true
+                    compression = check_compression(mesh, subsim.model, bc)
                     contact_domain[i] = compression == true
                 else
+                    overlap = check_overlap(subsim.model, bc)
                     contact_domain[i] = overlap == true
                 end
             end

@@ -1,10 +1,10 @@
-${side = 1.0e-04}
+${side = 1.0e-05}
 ${length = 1.0e-03}
 ${separation = 0.0}
-${nel_fine = 20}
-${nel_coarse = 20}
-${h_fine = length / nel_fine}
-${h_coarse = length / nel_coarse}
+${nel_fine = 1}
+${nel_coarse = 1}
+${h_fine = 1.0e-05}
+${h_coarse = 1.0e-05}
 
 ${area = side * side}
 ${offset = (length + separation) / 2.0}
