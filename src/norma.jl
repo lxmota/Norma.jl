@@ -9,6 +9,12 @@ function run(input_file::String)
     return sim
 end
 
+function run(params::Dict{Any,Any}, name::String)
+    sim = create_simulation(params, name)
+    evolve(sim)
+    return sim
+end
+
 for input_file ∈ ARGS
     run(input_file)
 end

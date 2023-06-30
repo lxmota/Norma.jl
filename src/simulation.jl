@@ -6,10 +6,8 @@ include("time_integrator.jl")
 include("solver.jl")
 include("schwarz.jl")
 
-function create_simulation(input_file::String)
-    println("Reading simulation file: ", input_file)
-    params = YAML.load_file(input_file)
-    params["name"] = input_file
+function create_simulation(params::Dict{Any,Any}, name::String)
+    params["name"] = name
     sim_type = params["type"]
     if sim_type == "single"
         sim = SingleDomainSimulation(params)
@@ -22,6 +20,12 @@ function create_simulation(input_file::String)
     else
         error("Unknown type of simulation: ", sim_type)
     end
+end
+
+function create_simulation(input_file::String)
+    println("Reading simulation file: ", input_file)
+    params = YAML.load_file(input_file)
+    return create_simulation(params, input_file)
 end
 
 function create_delayed_bcs(sim::SingleDomainSimulation)
