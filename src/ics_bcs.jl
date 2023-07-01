@@ -29,16 +29,16 @@ end
 function SMContactSchwarzBC(coupled_subsim::SingleDomainSimulation, input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    num_nodes_per_side, side_set_node_indices = Exodus.read_side_set_node_list(input_mesh, side_set_id)
+    global_to_local_map, num_nodes_per_side, side_set_node_indices = get_side_set_global_to_local_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_side_set_node_indices = Exodus.read_side_set_node_list(coupled_mesh, coupled_side_set_id)[2]
+    coupled_global_to_local_map = get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
     is_dirichlet = true
-    projection_operator = Matrix{Float64}(undef, length(side_set_node_indices), length(coupled_side_set_node_indices))
+    projection_operator = zeros(length(global_to_local_map), length(coupled_global_to_local_map))
     SMContactSchwarzBC(side_set_name, side_set_id, num_nodes_per_side, 
         side_set_node_indices, coupled_subsim, coupled_bc_index, coupled_mesh, coupled_block_id, coupled_side_set_id, is_dirichlet, projection_operator)
 end
@@ -266,20 +266,18 @@ function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
     src_model = bc.coupled_subsim.model
     dst_mesh = dst_model.mesh
     dst_side_set_id = bc.side_set_id
-    projection_operator = bc.projection_operator
     if initialize_projection == true 
         square_projection_matrix = get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
         rectangular_projection_matrix = get_rectangular_projection_matrix(dst_mesh, dst_model, dst_side_set_id, src_mesh, src_model, src_side_set_id)
-        projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
-        bc.projection_operator = projection_operator
+        bc.projection_operator = rectangular_projection_matrix * inv(square_projection_matrix)
     end
     src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
     src_traction_x = src_local_traction[1:3:end]
     src_traction_y = src_local_traction[2:3:end]
     src_traction_z = src_local_traction[3:3:end]
-    dst_traction_x = projection_operator * src_traction_x
-    dst_traction_y = projection_operator * src_traction_y
-    dst_traction_z = projection_operator * src_traction_z
+    dst_traction_x = bc.projection_operator * src_traction_x
+    dst_traction_y = bc.projection_operator * src_traction_y
+    dst_traction_z = bc.projection_operator * src_traction_z
     dst_traction = zeros(3*length(dst_traction_x))
     dst_traction[1:3:end] = dst_traction_x
     dst_traction[2:3:end] = dst_traction_y
