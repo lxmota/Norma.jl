@@ -283,18 +283,19 @@ function detect_contact(sim::MultiDomainSimulation)
     num_domains = sim.schwarz_controller.num_domains
     persistence = sim.schwarz_controller.active_contact
     contact_domain = falses(num_domains)
-    for i ∈ 1:sim.schwarz_controller.num_domains
-        subsim = sim.subsims[i]
+    for domain ∈ 1:num_domains
+        subsim = sim.subsims[domain]
         mesh = subsim.params["input_mesh"]
         bcs = subsim.model.boundary_conditions
         for bc ∈ bcs
             if typeof(bc) == SMContactSchwarzBC
+                compute_transfer_operator(subsim.model, bc)
                 if persistence == true
                     compression = check_compression(mesh, subsim.model, bc)
-                    contact_domain[i] = compression == true
+                    contact_domain[domain] = compression == true
                 else
                     overlap = check_overlap(subsim.model, bc)
-                    contact_domain[i] = overlap == true
+                    contact_domain[domain] = overlap == true
                 end
             end
         end

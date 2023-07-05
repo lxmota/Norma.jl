@@ -38,7 +38,7 @@ mutable struct SMContactSchwarzBC <: ContactSchwarzBoundaryCondition
     coupled_block_id::Int64
     coupled_side_set_id::Int64
     is_dirichlet::Bool
-    projection_operator::Matrix{Float64}
+    transfer_operator::Matrix{Float64}
 end
 
 mutable struct SMSchwarzDBC <: RegularSchwarzBoundaryCondition
