@@ -527,8 +527,9 @@ function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set
         face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
         trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
-        if abs(distance) < minimum_absolute_distance
-            minimum_absolute_distance = abs(distance)
+        distance_centr = get_distance_to_centroid(face_nodes, point)
+        if abs(distance_centr) < minimum_absolute_distance
+            minimum_absolute_distance = abs(distance_centr)
             point_new = trial_point
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
@@ -539,6 +540,24 @@ function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set
         ss_node_index += num_nodes_side
     end
     return point_new, closest_ξ, closest_face_nodes, closest_face_node_indices, closest_normal, closest_distance
+end
+
+function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
+    _, num_nodes = size(nodes)
+    x_coords = 0.
+    y_coords = 0.
+    z_coords = 0.
+    for i ∈ 1:num_nodes
+        x_coords = x_coords + nodes[1, i]
+        y_coords = y_coords + nodes[2, i]
+        z_coords = z_coords + nodes[3, i]
+    end
+    x_centroid = x_coords / num_nodes
+    y_centroid = y_coords / num_nodes
+    z_centroid = z_coords / num_nodes
+    centroid = [x_centroid, y_centroid, z_centroid]
+    distance = norm(centroid - x)
+    return distance
 end
 
 function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Integer)
