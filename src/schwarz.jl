@@ -36,12 +36,18 @@ function SolidSchwarzController(params::Dict{Any,Any})
     schwarz_contact = false
     active_contact = false
     contact_hist = Vector{Bool}()
+    potential_energy = Vector{Vector{Float64}}(undef, num_domains)
+    kinetic_energy = Vector{Vector{Float64}}(undef, num_domains)
+    for domain ∈ 1:num_domains
+        potential_energy[domain] = Vector{Float64}(undef, 1)
+        kinetic_energy[domain] = Vector{Float64}(undef, 1)
+    end
     SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, same_step, stop, converged, iteration_number, 
         stop_disp, stop_velo, stop_acce, stop_∂Ω_f, schwarz_disp, schwarz_velo, schwarz_acce,
         time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, relaxation_parameter, lambda_disp, lambda_velo, lambda_acce, 
-        schwarz_contact, active_contact, contact_hist)
+        schwarz_contact, active_contact, contact_hist, potential_energy, kinetic_energy)
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
@@ -305,4 +311,15 @@ function detect_contact(sim::MultiDomainSimulation)
     resize!(sim.schwarz_controller.contact_hist, sim.schwarz_controller.stop + 1)
     sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop + 1] = sim.schwarz_controller.active_contact
     return sim.schwarz_controller.active_contact
+end
+
+function store_energies(sim::MultiDomainSimulation)
+    num_domains = sim.schwarz_controller.num_domains
+    for domain ∈ 1:num_domains
+        subsim = sim.subsims[domain]
+        resize!(sim.schwarz_controller.potential_energy[domain], sim.schwarz_controller.stop + 1)
+        resize!(sim.schwarz_controller.kinetic_energy[domain], sim.schwarz_controller.stop + 1)
+        sim.schwarz_controller.potential_energy[domain][sim.schwarz_controller.stop + 1] = subsim.model.strain_energy
+        sim.schwarz_controller.kinetic_energy[domain][sim.schwarz_controller.stop + 1] = subsim.model.kinetic_energy
+    end
 end

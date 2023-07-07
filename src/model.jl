@@ -56,8 +56,10 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         stress[blk_index] = block_stress
     end
+    strain_energy = 0.
+    kinetic_energy = 0.
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
-        internal_force, boundary_force, boundary_conditions, stress, free_dofs, time, failed)
+        internal_force, boundary_force, boundary_conditions, stress, strain_energy, kinetic_energy, free_dofs, time, failed)
 end
 
 function HeatConduction(params::Dict{Any,Any})

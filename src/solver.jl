@@ -192,10 +192,12 @@ end
 
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     strain_energy, internal_force, body_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
+    model.strain_energy = strain_energy
     β = integrator.β
     Δt = integrator.time_step
     inertial_force = mass_matrix * integrator.acceleration
     kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
+    model.kinetic_energy = kinetic_energy
     external_force = body_force + model.boundary_force
     solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
     solver.value = strain_energy - external_force ⋅ integrator.displacement + kinetic_energy

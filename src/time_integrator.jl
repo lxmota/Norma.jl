@@ -104,8 +104,11 @@ function initialize(integrator::Newmark, solver::HessianMinimizer, model::SolidM
     println("Computing initial acceleration")
     copy_solution_source_targets(model, integrator, solver)
     free = model.free_dofs
-    _, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
+    strain_energy, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
     inertial_force = external_force - internal_force
+    kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
+    model.kinetic_energy = kinetic_energy
+    model.strain_energy = strain_energy
     integrator.acceleration[free] = mass_matrix[free, free] \ inertial_force[free]
     copy_solution_source_targets(integrator, solver, model)
 end

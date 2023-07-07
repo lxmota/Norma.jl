@@ -36,4 +36,6 @@ mutable struct SolidSchwarzController <: SchwarzController
     schwarz_contact::Bool
     active_contact::Bool
     contact_hist::Vector{Bool}
+    potential_energy::Vector{Vector{Float64}}
+    kinetic_energy::Vector{Vector{Float64}}
 end

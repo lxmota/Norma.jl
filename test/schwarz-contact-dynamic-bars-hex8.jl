@@ -1,9 +1,18 @@
+using CSV
+using DataFrames
+using YAML
+using Plots
+using Formatting
+using LinearAlgebra
+
 @testset "schwarz-contact-dynamic-bars-hex8" begin
-    cp("../examples/separate/bars/bars.yaml", "bars.yaml", force=true)
-    cp("../examples/separate/bars/bar-1.yaml", "bar-1.yaml", force=true)
-    cp("../examples/separate/bars/bar-2.yaml", "bar-2.yaml", force=true)
-    cp("../examples/separate/bars/bar-1.g", "bar-1.g", force=true)
-    cp("../examples/separate/bars/bar-2.g", "bar-2.g", force=true)
+    cp("../examples/contact/dynamic/bars/bars.yaml", "bars.yaml", force=true)
+    cp("../examples/contact/dynamic/bars/bar-1.yaml", "bar-1.yaml", force=true)
+    cp("../examples/contact/dynamic/bars/bar-2.yaml", "bar-2.yaml", force=true)
+    cp("../examples/contact/dynamic/bars/bar-1.g", "bar-1.g", force=true)
+    cp("../examples/contact/dynamic/bars/bar-2.g", "bar-2.g", force=true)
+    input_file = "bars.yaml"
+    params = YAML.load_file(input_file)
     sim = Norma.run("bars.yaml")
     subsims = sim.subsims
     model_fine = subsims[1].model
@@ -14,7 +23,8 @@
     rm("bar-1.g")
     rm("bar-2.g")
     rm("bar-1.e")
-    rm("bar-2.e")
+    rm("bar-2.e")       
+
     dt = sim.schwarz_controller.time_step
     t0 = sim.schwarz_controller.initial_time
     tend = sim.schwarz_controller.final_time
@@ -22,12 +32,34 @@
     nt = Int(nt)
     time = LinRange(t0, tend, nt)
 
+    disp_x1 = zeros(nt)
+    velo_x1 = zeros(nt)
+    acce_x1 = zeros(nt)
+
+    for i = 1:nt
+        stop = i - 1
+        index_string = "-" * string(stop, pad=4)
+        disp_tot = CSV.read("01-disp" * index_string *  ".csv", DataFrame,  header=false)[!,1]
+        velo_tot = CSV.read("01-velo" * index_string *  ".csv", DataFrame,  header=false)[!,1]
+        acce_tot = CSV.read("01-acce" * index_string *  ".csv", DataFrame,  header=false)[!,1]
+        dof = size(disp_tot)
+        disp_x1[i] = disp_tot[3*183-2]
+        velo_x1[i] = velo_tot[3*183-2]
+        acce_x1[i] = acce_tot[3*183-2]
+        rm("01-disp" * index_string *  ".csv")
+        rm("02-disp" * index_string *  ".csv")
+        rm("01-velo" * index_string *  ".csv")
+        rm("02-velo" * index_string *  ".csv")
+        rm("01-acce" * index_string *  ".csv")
+        rm("02-acce" * index_string *  ".csv")
+    end
+
     #  Analytical solution
     g = 1.e-4
-    A = 1.0e-06
+    A = 1.0e-08
     rho = 1000
     E = 1.0e+09
-    L1 = 2.e-3
+    L1 =1.e-3
     M1 = rho * A * L1
     V1 = 100
     t_imp = t0 + g / V1
@@ -48,9 +80,9 @@
     velocity[c] .= 0.
     velocity[a] .= -V1
     position = zeros(nt_fine, 1)
-    position[b] .= V1 .* (time_fine[b] .- t0) .- g
+    position[b] .= V1 .* (time_fine[b] .- t0) .- g  
     position[c] .= 0.
-    position[a] .= -V1 .* (time_fine[a] .- t_rel)
+    position[a] .= -V1 .* (time_fine[a] .- t_rel) 
     kinetic_energy = zeros(nt_fine, 1)
     t1 = t_imp + L1 * sqrt(rho / E)
     t2 = findall(time_fine .<= t1)
@@ -66,25 +98,72 @@
     total_energy = zeros(nt_fine, 1)
     total_energy .= ke_start
     potential_energy = total_energy - kinetic_energy
+    total_en = zeros(nt, 1)
+    total_en .= ke_start  
     
-    #plot(time_fine, contact, label="Analytical solution", linewidth=2)
-    #plot!(time, sim.schwarz_controller.contact_hist, linecolor=:crimson, label="Schwarz", linewidth = 2)
-    #title!("Contact") plot!(legend=:best) xlabel!("Time") ylabel!("Contact") xlims!(0.,8.e-6) xticks!(0:1.e-6:8.e-6) plot!(xformatter = :scientific)
-    #savefig("contact.pdf")
+    plot_figs = false
 
-    #plot(time_fine, contact_force, label="Analytical solution", linewidth=2)
-    #plot!(time, sim.schwarz_controller.contact_hist, linecolor=:crimson, label="Schwarz", linewidth = 2)
-    #title!("Contact force") plot!(legend=:best) xlabel!("Time") ylabel!("Contact force") xlims!(0.,8.e-6) xticks!(0:1.e-6:8.e-6) plot!(xformatter = :scientific)
-    #savefig("contact_force.pdf")
+    if plot_figs == true
+        plot(time_fine, contact, label="Analytical solution", linewidth=2)
+        plot!(time, sim.schwarz_controller.contact_hist, linecolor=:crimson, label="Schwarz", linewidth = 2)
+        title!("Contact") 
+        plot!(legend=:bottom) 
+        xlabel!("Time") 
+        ylabel!("Contact") 
+        plot!(xformatter = :scientific)
+        savefig("contact.pdf")
 
-    #plot(tV, velocity, label="Analytical solution", linewidth=2)
-    #plot!(time, sim.schwarz_controller.contact_hist, linecolor=:crimson, label="Schwarz", linewidth = 2)
-    #title!("Velocity") plot!(legend=:best) xlabel!("Time") ylabel!("Velocity") xlims!(0.,8.e-6) xticks!(0:1.e-6:8.e-6) plot!(xformatter = :scientific)
-    #savefig("velocity.pdf")
+        plot(time_fine, velocity, label="Analytical solution", linewidth=2)
+        plot!(time, velo_x1, linecolor=:crimson, label="Schwarz point 1", linewidth = 2)
+        title!("Velocity") 
+        plot!(legend=:bottom) 
+        xlabel!("Time") 
+        ylabel!("Velocity") 
+        plot!(xformatter = :scientific)
+        savefig("velocity.pdf")
 
-    #plot(tV, position, label="Analytical solution", linewidth=2)
-    #plot!(time, sim.schwarz_controller.contact_hist, linecolor=:crimson, label="Schwarz", linewidth = 2)
-    #title!("Position") plot!(legend=:best) xlabel!("Time") ylabel!("Position") xlims!(0.,8.e-6) xticks!(0:1.e-6:8.e-6) plot!(xformatter = :scientific)
-    #savefig("position.pdf")
-    
+        plot(time_fine, position, label="Analytical solution", linewidth=2)
+        plot!(time, disp_x1,  linecolor=:crimson, label="Schwarz point 1" , linewidth = 2)
+        title!("displacement") 
+        plot!(legend=:bottom) 
+        xlabel!("Time") 
+        ylabel!("displacement")
+        plot!(xformatter = :scientific)
+        savefig("displacement.pdf")
+
+        plot(time_fine, kinetic_energy, label="Analytical solution", linewidth=2)
+        plot!(time, sim.schwarz_controller.kinetic_energy[1],  linecolor=:crimson, label="Schwarz point 1" , linewidth = 2)
+        title!("kinetic energy") 
+        plot!(legend=:top) 
+        xlabel!("Time") 
+        ylabel!("kinetic energy") 
+        plot!(xformatter = :scientific)
+        savefig("kinetic.pdf")
+
+        plot(time_fine, potential_energy, label="Analytical solution", linewidth=2)
+        plot!(time, sim.schwarz_controller.potential_energy[1],  linecolor=:crimson, label="Schwarz point 1" , linewidth = 2)
+        title!("potential energy") 
+        plot!(legend=:bottom) 
+        xlabel!("Time") 
+        ylabel!("potential energy") 
+        plot!(xformatter = :scientific)
+        savefig("potential.pdf")
+
+        plot(time_fine, total_energy, label="Analytical solution", linewidth=2)
+        plot!(time, (sim.schwarz_controller.potential_energy[1]+sim.schwarz_controller.kinetic_energy[1]),  linecolor=:crimson, label="Schwarz point 1" , linewidth = 2)
+        title!("total energy") 
+        plot!(legend=:bottom) 
+        xlabel!("Time") 
+        ylabel!("total energy") 
+        plot!(xformatter = :scientific)
+        savefig("total.pdf")
+
+        plot(time, (sim.schwarz_controller.potential_energy[1]+sim.schwarz_controller.kinetic_energy[1] - total_en) ./ total_en,  linecolor=:crimson, label="Schwarz point 1" , linewidth = 2)
+        title!("total energy") 
+        plot!(legend=:bottom) 
+        xlabel!("Time") 
+        ylabel!("total energy") 
+        plot!(xformatter = :scientific)
+        savefig("total_energy_error.pdf")
+    end
 end
