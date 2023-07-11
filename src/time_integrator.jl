@@ -14,7 +14,8 @@ function QuasiStatic(params::Dict{Any,Any})
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
-    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement, velocity, acceleration)
+    strain_energy = 0.
+    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement, velocity, acceleration, strain_energy)
 end
 
 function Newmark(params::Dict{Any,Any})
@@ -35,7 +36,9 @@ function Newmark(params::Dict{Any,Any})
     acceleration = zeros(num_dof)
     disp_pre = zeros(num_dof)
     velo_pre = zeros(num_dof)
-    Newmark(initial_time, final_time, time_step, time, stop, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre)
+    strain_energy = 0.
+    kinetic_energy = 0.
+    Newmark(initial_time, final_time, time_step, time, stop, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre, strain_energy, kinetic_energy)
 end
 
 function CentralDifference(params::Dict{Any,Any})
@@ -56,7 +59,9 @@ function CentralDifference(params::Dict{Any,Any})
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
-    CentralDifference(initial_time, final_time, time_step, user_time_step, stable_time_step, time, stop, CFL, γ, displacement, velocity, acceleration)
+    strain_energy = 0.
+    kinetic_energy = 0.
+    CentralDifference(initial_time, final_time, time_step, user_time_step, stable_time_step, time, stop, CFL, γ, displacement, velocity, acceleration, strain_energy, kinetic_energy)
 end
 
 function create_time_integrator(params::Dict{Any,Any})
@@ -107,8 +112,8 @@ function initialize(integrator::Newmark, solver::HessianMinimizer, model::SolidM
     strain_energy, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
     inertial_force = external_force - internal_force
     kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
-    model.kinetic_energy = kinetic_energy
-    model.strain_energy = strain_energy
+    integrator.kinetic_energy = kinetic_energy
+    integrator.strain_energy = strain_energy
     integrator.acceleration[free] = mass_matrix[free, free] \ inertial_force[free]
     copy_solution_source_targets(integrator, solver, model)
 end
@@ -319,7 +324,9 @@ function write_step_csv(integrator::StaticTimeIntegrator, sim_id::Integer)
     index_string = "-" * string(stop, pad=4)
     sim_id_string = string(sim_id, pad=2) * "-"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
+    potential_filename = sim_id_string * "potential" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
+    writedlm(potential_filename, integrator.strain_energy, '\n')
 end
 
 function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
@@ -329,9 +336,13 @@ function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     velo_filename = sim_id_string * "velo" * index_string * ".csv"
     acce_filename = sim_id_string * "acce" * index_string * ".csv"
+    potential_filename = sim_id_string * "potential" * index_string * ".csv"
+    kinetic_filename = sim_id_string * "kinetic" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
     writedlm(velo_filename, integrator.velocity, '\n')
     writedlm(acce_filename, integrator.acceleration, '\n')
+    writedlm(potential_filename, integrator.strain_energy, '\n')
+    writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
 end
 
 function write_step_exodus(params::Dict{Any,Any}, integrator::StaticTimeIntegrator, model::SolidMechanics)

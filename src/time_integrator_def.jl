@@ -11,6 +11,7 @@ mutable struct QuasiStatic <: StaticTimeIntegrator
     displacement::Vector{Float64}
     velocity::Vector{Float64}
     acceleration::Vector{Float64}
+    strain_energy::Float64
 end
 
 mutable struct Newmark <: DynamicTimeIntegrator
@@ -26,6 +27,8 @@ mutable struct Newmark <: DynamicTimeIntegrator
     acceleration::Vector{Float64}
     disp_pre::Vector{Float64}
     velo_pre::Vector{Float64}
+    strain_energy::Float64
+    kinetic_energy::Float64
 end
 
 mutable struct CentralDifference <: DynamicTimeIntegrator
@@ -41,4 +44,6 @@ mutable struct CentralDifference <: DynamicTimeIntegrator
     displacement::Vector{Float64}
     velocity::Vector{Float64}
     acceleration::Vector{Float64}
+    strain_energy::Float64
+    kinetic_energy::Float64
 end
