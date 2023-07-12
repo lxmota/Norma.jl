@@ -259,7 +259,7 @@ end
 function check_compression(mesh::ExodusDatabase, model::SolidMechanics, bc::SMContactSchwarzBC)
     compression_tol = 0.0
     compression = false
-    reactions = get_dst_traction(model, bc)
+    reactions = get_dst_traction(bc)
     normals = compute_normal(mesh, bc.side_set_id, model)
     local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)

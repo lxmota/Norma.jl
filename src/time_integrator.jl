@@ -155,7 +155,10 @@ function initialize(integrator::CentralDifference, solver::ExplicitSolver, model
     copy_solution_source_targets(model, integrator, solver)
     free = model.free_dofs
     set_time_step(integrator, model)
-    _, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+    strain_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+    kinetic_energy = 0.5 * lumped_mass ⋅ (integrator.velocity .* integrator.velocity)
+    integrator.kinetic_energy = kinetic_energy
+    integrator.strain_energy = strain_energy
     inertial_force = external_force - internal_force
     integrator.acceleration[free] = inertial_force[free] ./ lumped_mass[free]
     copy_solution_source_targets(integrator, solver, model)

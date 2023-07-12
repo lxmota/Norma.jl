@@ -212,8 +212,9 @@ function transfer_normal_component(source::Vector{Float64}, target::Vector{Float
     return tangent_projection * target + normal_projection * source
 end
 
-function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContactSchwarzBC) 
-    for node_index ∈ bc.side_set_node_indices
+function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContactSchwarzBC)
+    side_set_node_indices = unique(bc.side_set_node_indices)
+    for node_index ∈ side_set_node_indices
         point = model.current[:, node_index]
         point_new, ξ, _, closest_face_node_indices, closest_normal, _ = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
         model.current[:, node_index] = point_new
@@ -230,7 +231,7 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
 end
 
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSchwarzBC)
-    schwarz_tractions = get_dst_traction(model, bc)
+    schwarz_tractions = get_dst_traction(bc)
     normals = compute_normal(model.mesh, bc.side_set_id, model)
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
@@ -264,7 +265,7 @@ function compute_transfer_operator(dst_model::SolidMechanics, bc::SMContactSchwa
     bc.transfer_operator = rectangular_projection_matrix * inv(square_projection_matrix)
 end
 
-function get_dst_traction(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
+function get_dst_traction(bc::SMContactSchwarzBC)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_global_traction = -bc.coupled_subsim.model.internal_force
