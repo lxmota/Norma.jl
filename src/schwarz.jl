@@ -304,5 +304,13 @@ function detect_contact(sim::MultiDomainSimulation)
     println("contact ", sim.schwarz_controller.active_contact)
     resize!(sim.schwarz_controller.contact_hist, sim.schwarz_controller.stop + 1)
     sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop + 1] = sim.schwarz_controller.active_contact
+    write_contact_csv(sim)
     return sim.schwarz_controller.active_contact
+end
+
+function write_contact_csv(sim::MultiDomainSimulation)
+    stop = sim.schwarz_controller.stop
+    index_string = "-" * string(stop, pad=4)
+    filename = "contact" * index_string * ".csv"
+    writedlm(filename, sim.schwarz_controller.active_contact, '\n')
 end
