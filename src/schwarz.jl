@@ -12,7 +12,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     same_step = get(params, "same time step for domains", false)
     stop = 0
     converged = false
-    iteration_number = 1
+    iteration_number = 0
     stop_disp = Vector{Vector{Float64}}(undef, num_domains)
     stop_velo = Vector{Vector{Float64}}(undef, num_domains)
     stop_acce = Vector{Vector{Float64}}(undef, num_domains)
@@ -304,13 +304,18 @@ function detect_contact(sim::MultiDomainSimulation)
     println("contact ", sim.schwarz_controller.active_contact)
     resize!(sim.schwarz_controller.contact_hist, sim.schwarz_controller.stop + 1)
     sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop + 1] = sim.schwarz_controller.active_contact
-    write_contact_csv(sim)
+    write_scharz_params_csv(sim)
     return sim.schwarz_controller.active_contact
 end
 
-function write_contact_csv(sim::MultiDomainSimulation)
+function write_scharz_params_csv(sim::MultiDomainSimulation)
     stop = sim.schwarz_controller.stop
-    index_string = "-" * string(stop, pad=4)
-    filename = "contact" * index_string * ".csv"
-    writedlm(filename, sim.schwarz_controller.active_contact, '\n')
+    csv_interval = get(sim.params, "CSV output interval", 0)
+    if csv_interval > 0 && stop % csv_interval == 0
+        index_string = "-" * string(stop, pad=4)
+        contact_filename = "contact" * index_string * ".csv"
+        writedlm(contact_filename, sim.schwarz_controller.active_contact, '\n')
+        iters_filename = "iterations" * index_string * ".csv"
+        writedlm(iters_filename, sim.schwarz_controller.iteration_number, '\n')
+    end
 end
