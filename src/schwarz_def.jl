@@ -30,6 +30,7 @@ mutable struct SolidSchwarzController <: SchwarzController
     acce_hist::Vector{Vector{Vector{Float64}}}
     ∂Ω_f_hist::Vector{Vector{Vector{Float64}}}
     relaxation_parameter::Float64
+    naive_stabilized::Bool
     lambda_disp::Vector{Vector{Float64}}
     lambda_velo::Vector{Vector{Float64}}
     lambda_acce::Vector{Vector{Float64}}

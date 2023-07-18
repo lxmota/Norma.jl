@@ -30,6 +30,11 @@ function SolidSchwarzController(params::Dict{Any,Any})
     else
         relaxation_parameter = 1.
     end
+    if haskey(params, "naive stabilized") == true
+        naive_stabilized = params["naive stabilized"]
+    else
+        naive_stabilized = false
+    end
     lambda_disp = Vector{Vector{Float64}}(undef, num_domains)
     lambda_velo = Vector{Vector{Float64}}(undef, num_domains)
     lambda_acce = Vector{Vector{Float64}}(undef, num_domains)
@@ -40,7 +45,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
         absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         initial_time, final_time, time_step, time, prev_time, same_step, stop, converged, iteration_number, 
         stop_disp, stop_velo, stop_acce, stop_∂Ω_f, schwarz_disp, schwarz_velo, schwarz_acce,
-        time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, relaxation_parameter, lambda_disp, lambda_velo, lambda_acce, 
+        time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, relaxation_parameter, naive_stabilized, lambda_disp, lambda_velo, lambda_acce, 
         schwarz_contact, active_contact, contact_hist)
 end
 
@@ -54,6 +59,7 @@ function create_schwarz_controller(params::Dict{Any,Any})
 end
 
 function advance_independent(sim::MultiDomainSimulation)
+    sim.schwarz_controller.iteration_number = 0
     save_stop_solutions(sim)
     set_subcycle_times(sim)
     synchronize(sim)
@@ -146,6 +152,9 @@ function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
             subsim.model.time = subsim.integrator.time
             apply_bcs(subsim)
             advance(subsim)
+            if sim.schwarz_controller.active_contact == true && sim.schwarz_controller.naive_stabilized == true
+                apply_naive_stabilized_bcs(subsim)
+            end
             stop_index += 1
             if is_schwarz == true
                 save_history_snapshot(sim.schwarz_controller, sim.subsims, subsim_index, stop_index)

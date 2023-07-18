@@ -24,7 +24,6 @@ function evolve(sim::MultiDomainSimulation)
     initialize(sim)
     initialize_writing(sim)
     write_step(sim)
-    #store_energies(sim)
     while true
         advance_time(sim)
         if stop_evolve(sim) == true
@@ -33,7 +32,6 @@ function evolve(sim::MultiDomainSimulation)
         watch_keep_time(sim)
         advance(sim)
         write_step(sim)
-        #store_energies(sim)
     end
     finalize_writing(sim)
 end

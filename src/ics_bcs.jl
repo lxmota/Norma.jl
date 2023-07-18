@@ -230,6 +230,19 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
     end
 end
 
+function apply_naive_stabilized_bcs(subsim::SingleDomainSimulation)
+    bcs = subsim.model.boundary_conditions
+    for bc ∈ bcs
+        if typeof(bc) == SMContactSchwarzBC
+            side_set_node_indices = unique(bc.side_set_node_indices)
+            for node_index ∈ side_set_node_indices
+                subsim.model.acceleration[:, node_index] = zeros(3)
+            end
+        end
+    end
+    copy_solution_source_targets(subsim.model, subsim.integrator, subsim.solver)
+end
+
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSchwarzBC)
     schwarz_tractions = get_dst_traction(bc)
     normals = compute_normal(model.mesh, bc.side_set_id, model)
