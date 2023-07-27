@@ -15,3 +15,7 @@ To install within the package manager (press `]` in the Julia REPL):
 On MacOS, it is necessary to ignore package hashes for the dependence on Exodus.jl:
 
     ENV["JULIA_PKG_IGNORE_HASHES"] = 1
+
+To run the code, assiming that Julia is in the executable path:
+
+    julia /path/to/src/norma.jl input.yaml
