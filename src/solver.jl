@@ -218,15 +218,11 @@ function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::
 end
 
 function compute_step(solver::HessianMinimizer, _::NewtonStep, free::BitVector)
-    step = zeros(length(solver.gradient))
-    step[free] = -solver.hessian[free, free] \ solver.gradient[free]
-    return step
+    return -solver.hessian[free, free] \ solver.gradient[free]
 end
 
 function compute_step(solver::ExplicitSolver, _::ExplicitStep, free::BitVector)
-    step = zeros(length(solver.gradient))
-    step[free] = -solver.gradient[free] ./ solver.lumped_hessian[free]
-    return step
+    return -solver.gradient[free] ./ solver.lumped_hessian[free]
 end
 
 function update_solver_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
@@ -275,7 +271,7 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
     step_type = solver.step
     while true
         step = compute_step(solver, step_type, model.free_dofs)
-        solver.solution += step
+        solver.solution[model.free_dofs] += step
         correct(integrator, solver, model)
         evaluate(integrator, solver, model)
         residual = solver.gradient
