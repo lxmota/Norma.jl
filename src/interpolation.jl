@@ -49,7 +49,7 @@ function barycentricD3N10(ξ::Vector{Float64})
          t2 * (2 * t2 - 1),
          t3 * (2 * t3 - 1),
          4 * t0 * t1,
-         4 * t2 * t2,
+         4 * t1 * t2,
          4 * t2 * t0,
          4 * t0 * t3,
          4 * t1 * t3,
