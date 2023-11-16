@@ -50,7 +50,7 @@ function SMSchwarzDBC(subsim::SingleDomainSimulation, coupled_subsim::SingleDoma
     coupled_block_name = bc_params["source block"]
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
-    element_type = Exodus.read_element_block_parameters(coupled_mesh, coupled_block_id)[1]
+    element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     for node_index ∈ node_set_node_indices
@@ -102,7 +102,7 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
 end
 
 function find_in_mesh(point::Vector{Float64}, model::SolidMechanics, mesh::ExodusDatabase, blk_id::Int)
-    element_type = Exodus.read_element_block_parameters(mesh, Int32(blk_id))[1]
+    element_type = Exodus.read_block_parameters(mesh, Int32(blk_id))[1]
     elem_blk_conn = get_block_connectivity(mesh, blk_id)
     num_blk_elems, num_elem_nodes = size(elem_blk_conn)
     node_indices = Vector{Int64}()
@@ -297,7 +297,7 @@ function get_dst_traction(bc::SMContactSchwarzBC)
 end
 
 function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
-    node_set_names = Exodus.read_node_set_names(mesh)
+    node_set_names = Exodus.read_names(mesh, NodeSet)
     num_names = length(node_set_names)
     node_set_index = 0
     for index ∈ 1:num_names
@@ -309,13 +309,13 @@ function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
     if (node_set_index == 0)
         error("node set ", node_set_name, " cannot be found in mesh")
     end
-    node_set_ids = Exodus.read_node_set_ids(mesh)
+    node_set_ids = Exodus.read_ids(mesh, NodeSet)
     node_set_id = node_set_ids[node_set_index]
     return Int64(node_set_id)
 end
 
 function side_set_id_from_name(side_set_name::String, mesh::ExodusDatabase)
-    side_set_names = Exodus.read_side_set_names(mesh)
+    side_set_names = Exodus.read_names(mesh, SideSet)
     num_names = length(side_set_names)
     side_set_index = 0
     for index ∈ 1:num_names
@@ -327,13 +327,13 @@ function side_set_id_from_name(side_set_name::String, mesh::ExodusDatabase)
     if (side_set_index == 0)
         error("side set ", side_set_name, " cannot be found in mesh")
     end
-    side_set_ids = Exodus.read_side_set_ids(mesh)
+    side_set_ids = Exodus.read_ids(mesh, SideSet)
     side_set_id = side_set_ids[side_set_index]
     return Int64(side_set_id)
 end
 
 function block_id_from_name(block_name::String, mesh::ExodusDatabase)
-    block_names = Exodus.read_block_names(mesh)
+    block_names = Exodus.read_names(mesh, Block)
     num_names = length(block_names)
     block_index = 0
     for index ∈ 1:num_names
@@ -345,7 +345,7 @@ function block_id_from_name(block_name::String, mesh::ExodusDatabase)
     if (block_index == 0)
         error("block ", block_name, " cannot be found in mesh")
     end
-    block_ids = Exodus.read_block_ids(mesh)
+    block_ids = Exodus.read_ids(mesh, Block)
     block_id = block_ids[block_index]
     return Int64(block_id)
 end

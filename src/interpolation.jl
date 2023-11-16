@@ -544,9 +544,9 @@ end
 
 function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
     _, num_nodes = size(nodes)
-    x_coords = 0.
-    y_coords = 0.
-    z_coords = 0.
+    x_coords = 0.0
+    y_coords = 0.0
+    z_coords = 0.0
     for i ∈ 1:num_nodes
         x_coords = x_coords + nodes[1, i]
         y_coords = y_coords + nodes[2, i]
