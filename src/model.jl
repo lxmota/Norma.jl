@@ -100,7 +100,7 @@ function HeatConduction(params::Dict{Any,Any})
     flux = Vector{Vector{Vector{Vector{Float64}}}}()
     for block ∈ blocks
         blk_id = block.id
-        element_type, num_blk_elems, _, _, _, _ = Exodus.read_element_block_parameters(input_mesh, blk_id)
+        element_type, num_blk_elems, _, _, _, _ = Exodus.read_block_parameters(input_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
         block_flux = Vector{Vector{Vector{Float64}}}()
         for _ ∈ 1:num_blk_elems
@@ -254,7 +254,7 @@ function evaluate(_::Newmark, model::SolidMechanics)
         ρ = material.ρ
         block = blocks[blk_index]
         blk_id = block.id
-        element_type = Exodus.read_element_block_parameters(input_mesh, blk_id)[1]
+        element_type = Exodus.read_block_parameters(input_mesh, blk_id)[1]
         num_points = default_num_int_pts(element_type)
         N, dNdξ, elem_weights = isoparametric(element_type, num_points)
         elem_blk_conn = get_block_connectivity(input_mesh, blk_id)

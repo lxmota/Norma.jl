@@ -367,11 +367,10 @@ function write_step_exodus(params::Dict{Any,Any}, integrator::StaticTimeIntegrat
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_z", disp_z)
     stress = model.stress
     blocks = Exodus.read_sets(output_mesh, Block)
-    for block ∈ blocks
+    for (block, block_stress) ∈ zip(blocks, stress)
         blk_id = block.id
         element_type, num_blk_elems, _, _, _, _ = Exodus.read_block_parameters(output_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
-        block_stress = stress[blk_index]
         stress_xx = zeros(num_blk_elems, num_points)
         stress_yy = zeros(num_blk_elems, num_points)
         stress_zz = zeros(num_blk_elems, num_points)
@@ -437,11 +436,10 @@ function write_step_exodus(params::Dict{Any,Any}, integrator::DynamicTimeIntegra
     Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_z", acce_z)
     stress = model.stress
     blocks = Exodus.read_sets(output_mesh, Block)
-    for block ∈ blocks
+    for (block, block_stress) ∈ zip(blocks, stress)
         blk_id = block.id
         element_type, num_blk_elems, _, _, _, _ = Exodus.read_block_parameters(output_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
-        block_stress = stress[blk_index]
         stress_xx = zeros(num_blk_elems, num_points)
         stress_yy = zeros(num_blk_elems, num_points)
         stress_zz = zeros(num_blk_elems, num_points)
