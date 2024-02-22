@@ -6,7 +6,7 @@ function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     coords = read_coordinates(input_mesh)
-    num_nodes = input_mesh.init.num_nodes
+    num_nodes = Exodus.num_nodes(input_mesh.init)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
     velocity = Matrix{Float64}(undef, 3, num_nodes)
@@ -64,7 +64,7 @@ function HeatConduction(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     coords = read_coordinates(input_mesh)
-    num_nodes = input_mesh.init.num_nodes
+    num_nodes = Exodus.num_nodes(input_mesh.init)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
     rate = Vector{Float64}(undef, num_nodes)
