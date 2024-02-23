@@ -1,6 +1,7 @@
 name = "Norma"
 uuid = "b933802f-98f0-4369-86cc-558227202cec"
-authors = ["Alejandro Mota <amota@sandia.gov>"]
+authors = ["Alejandro Mota <amota@sandia.gov>",
+           "Daria Koliesnikova <daria.koliesnikova@cea.fr>"]
 version = "0.1.0"
 
 [deps]
@@ -13,3 +14,4 @@ Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 YAML = "ddb6d928-2868-570f-bddf-ab3f9cf99eb6"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
