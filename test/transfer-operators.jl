@@ -3,7 +3,7 @@ using Statistics
 using Test
 using Exodus
 
-include("../src/norma.jl")
+include("../src/Norma.jl")
 include("helpers.jl")
 
 @testset "transfer-operators" begin
