@@ -14,6 +14,7 @@ mutable struct SolidMechanics <: Model
     free_dofs::BitVector
     time::Float64
     failed::Bool
+    mesh_smoothing::Bool
 end
 
 mutable struct HeatConduction <: Model

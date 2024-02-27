@@ -56,8 +56,9 @@ function SolidMechanics(params::Dict{Any,Any})
         end
         push!(stress, block_stress)
     end
+    mesh_smoothing = params["mesh smoothing"]
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
-        internal_force, boundary_force, boundary_conditions, stress, free_dofs, time, failed)
+        internal_force, boundary_force, boundary_conditions, stress, free_dofs, time, failed, mesh_smoothing)
 end
 
 function HeatConduction(params::Dict{Any,Any})
@@ -120,11 +121,31 @@ function create_model(params::Dict{Any,Any})
     model_params = params["model"]
     model_name = model_params["type"]
     if model_name == "solid mechanics"
+        params["mesh smoothing"] = false
+        return SolidMechanics(params)
+    elseif model_name == "mesh smoothing"
+        params["mesh smoothing"] = true
         return SolidMechanics(params)
     elseif model_name == "heat conduction"
         return HeatConduction(params)
     else
         error("Unknown type of model : ", model_name)
+    end
+end
+
+function create_smooth_reference(element_type::String, elem_ref_pos::Matrix{Float64})
+    if element_type == "TETRA4"
+        u = elem_ref_pos[:, 2] - elem_ref_pos[:, 1]
+        v = elem_ref_pos[:, 3] - elem_ref_pos[:, 1]
+        w = elem_ref_pos[:, 4] - elem_ref_pos[:, 1]
+        h = cbrt(sqrt(2.0) * dot(u, cross(v, w)))
+        c = h * 0.5 /sqrt(2.0)
+        A = [1  -1  -1   1
+             1  -1   1  -1
+             1   1  -1  -1]
+        return c * A
+    else
+        error("Unknown element type")
     end
 end
 
@@ -167,6 +188,7 @@ end
 function evaluate(_::QuasiStatic, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
+    mesh_smoothing = model.mesh_smoothing
     num_nodes = size(model.reference)[2]
     num_dof = 3 * num_nodes
     energy = 0.0
@@ -192,7 +214,11 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
-            elem_ref_pos = model.reference[:, node_indices]
+            if mesh_smoothing == true
+                elem_ref_pos = create_smooth_reference(element_type, model.reference[:, node_indices])
+            else
+                elem_ref_pos = model.reference[:, node_indices]
+            end
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
@@ -238,6 +264,7 @@ end
 function evaluate(_::Newmark, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
+    mesh_smoothing = model.mesh_smoothing
     num_nodes = size(model.reference)[2]
     num_dof = 3 * num_nodes
     energy = 0.0
@@ -264,7 +291,11 @@ function evaluate(_::Newmark, model::SolidMechanics)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
-            elem_ref_pos = model.reference[:, node_indices]
+            if mesh_smoothing == true
+                elem_ref_pos = create_smooth_reference(element_type, model.reference[:, node_indices])
+            else
+                elem_ref_pos = model.reference[:, node_indices]
+            end
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
