@@ -373,7 +373,7 @@ function oxI(A::Matrix{Float64})
 end
 
 function Iox(B::Matrix{Float64})
-    n, _ = size(A)
+    n, _ = size(B)
     C = zeros(n, n, n, n)
     for a ∈ 1:n
         for b ∈ 1:n
