@@ -4,6 +4,8 @@ function create_step(solver_params::Dict{Any,Any})
         return NewtonStep()
     elseif step_name == "explicit"
         return ExplicitStep()
+    elseif step_name == "steepest descent"
+        return SteepestDescentStep()
     else
         error("Unknown type of solver step: ", step_name)
     end
@@ -51,12 +53,33 @@ function ExplicitSolver(params::Dict{Any,Any})
         initial_norm, converged, failed, step)
 end
 
+function SteepestDescent(params::Dict{Any,Any})
+    solver_params = params["solver"]
+    input_mesh = params["input_mesh"]
+    num_nodes = Exodus.num_nodes(input_mesh.init)
+    num_dof = 3 * num_nodes
+    value = 0.0
+    gradient = zeros(num_dof)
+    solution = zeros(num_dof)
+    prev_gradient = zeros(num_dof)
+    prev_solution = zeros(num_dof)
+    initial_norm = 0.0
+    γ = 1.0
+    converged = false
+    failed = false
+    step = create_step(solver_params)
+    SteepestDescent(value, gradient, solution, prev_gradient, prev_solution,
+        initial_norm, γ, converged, failed, step)
+end
+
 function create_solver(params::Dict{Any,Any})
     solver_params = params["solver"]
     solver_name = solver_params["type"]
     if solver_name == "Hessian minimizer"
         return HessianMinimizer(params)
     elseif solver_name == "explicit solver"
+        return ExplicitSolver(params)
+    elseif solver_name == "steepest descent"
         return ExplicitSolver(params)
     else
         error("Unknown type of solver : ", solver_name)
@@ -80,6 +103,23 @@ function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMech
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
         model.current[:, node] = model.reference[:, node] + nodal_displacement
+    end
+end
+
+function copy_solution_source_target(solver::Any, model::SolidMechanics)
+    displacement = solver.solution
+    _, num_nodes = size(model.reference)
+    for node ∈ 1:num_nodes
+        nodal_displacement = displacement[3*node-2:3*node]
+        model.current[:, node] = model.reference[:, node] + nodal_displacement
+    end
+end
+
+function copy_solution_source_target(model::SolidMechanics, solver::Any)
+    _, num_nodes = size(model.reference)
+    for node ∈ 1:num_nodes
+        nodal_displacement = model.current[:, node] - model.reference[:, node]
+        solver.solution[3*node-2:3*node] = nodal_displacement
     end
 end
 
@@ -217,12 +257,29 @@ function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::
     solver.lumped_hessian = lumped_mass
 end
 
-function compute_step(solver::HessianMinimizer, _::NewtonStep, free::BitVector)
+function backtrack_line_search(solver::Any, model::SolidMechanics, direction::Vector{Float64})
+    step = direction
+    resid = solver.gradient
+end
+
+function compute_step(_::QuasiStatic, model::SolidMechanics, solver::HessianMinimizer, _::NewtonStep)
+    free = model.free_dofs
     return -solver.hessian[free, free] \ solver.gradient[free]
 end
 
-function compute_step(solver::ExplicitSolver, _::ExplicitStep, free::BitVector)
+function compute_step(_::Newmark, model::SolidMechanics, solver::HessianMinimizer, _::NewtonStep)
+    free = model.free_dofs
+    return -solver.hessian[free, free] \ solver.gradient[free]
+end
+
+function compute_step(_::CentralDifference, model::SolidMechanics, solver::ExplicitSolver, _::ExplicitStep)
+    free = model.free_dofs
     return -solver.gradient[free] ./ solver.lumped_hessian[free]
+end
+
+function compute_step(_::QuasiStatic, model::SolidMechanics, solver::SteepestDescent, _::SteepestDescentStep)
+    free = model.free_dofs
+    return -solver.γ * solver.gradient[free]
 end
 
 function update_solver_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
@@ -270,7 +327,7 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
     solver.failed = solver.failed || model.failed
     step_type = solver.step
     while true
-        step = compute_step(solver, step_type, model.free_dofs)
+        step = compute_step(integrator, model, solver, step_type)
         solver.solution[model.free_dofs] += step
         correct(integrator, solver, model)
         evaluate(integrator, solver, model)

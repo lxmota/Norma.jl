@@ -32,8 +32,24 @@ mutable struct ExplicitSolver <: Solver
     step::Step
 end
 
+mutable struct SteepestDescent <: Solver
+    value::Float64
+    gradient::Vector{Float64}
+    solution::Vector{Float64}
+    prev_gradient::Vector{Float64}
+    prev_solution::Vector{Float64}
+    initial_norm::Float64
+    γ::Float64
+    converged::Bool
+    failed::Bool
+    step::Step
+end
+
 struct NewtonStep <: Step
 end
 
 struct ExplicitStep <: Step
+end
+
+struct SteepestDescentStep <: Step
 end

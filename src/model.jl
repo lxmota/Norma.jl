@@ -261,7 +261,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     return energy, internal_force, body_force, stiffness_matrix
 end
 
-function evaluate(_::Newmark, model::SolidMechanics)
+function evaluate(integrator::Newmark, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
     mesh_smoothing = model.mesh_smoothing
@@ -343,6 +343,9 @@ function evaluate(_::Newmark, model::SolidMechanics)
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
     mass_matrix = sparse(rows, cols, mass)
+    if mesh_smoothing == true
+        internal_force -= 1.0e+00 * integrator.velocity
+    end
     model.internal_force = internal_force
     return energy, internal_force, body_force, stiffness_matrix, mass_matrix
 end
@@ -405,9 +408,10 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
     integrator.time_step = min(stable_time_step, integrator.user_time_step)
 end
 
-function evaluate(_::CentralDifference, model::SolidMechanics)
+function evaluate(integrator::CentralDifference, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
+    mesh_smoothing = model.mesh_smoothing
     num_nodes = size(model.reference)[2]
     num_dof = 3 * num_nodes
     energy = 0.0
@@ -431,7 +435,11 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
-            elem_ref_pos = model.reference[:, node_indices]
+            if mesh_smoothing == true
+                elem_ref_pos = create_smooth_reference(element_type, model.reference[:, node_indices])
+            else
+                elem_ref_pos = model.reference[:, node_indices]
+            end
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
@@ -474,6 +482,9 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             internal_force[elem_dofs] += element_internal_force
             lumped_mass[elem_dofs] += element_lumped_mass
         end
+    end
+    if mesh_smoothing == true
+        internal_force -= 1.0e+01 * integrator.velocity
     end
     model.internal_force = internal_force
     return energy, internal_force, body_force, lumped_mass
