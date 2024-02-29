@@ -33,13 +33,16 @@ mutable struct ExplicitSolver <: Solver
 end
 
 mutable struct SteepestDescent <: Solver
+    minimum_iterations::Int64
+    maximum_iterations::Int64
+    absolute_tolerance::Float64
+    relative_tolerance::Float64
+    absolute_error::Float64
+    relative_error::Float64
     value::Float64
     gradient::Vector{Float64}
     solution::Vector{Float64}
-    prev_gradient::Vector{Float64}
-    prev_solution::Vector{Float64}
     initial_norm::Float64
-    γ::Float64
     converged::Bool
     failed::Bool
     step::Step

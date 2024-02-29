@@ -58,18 +58,22 @@ function SteepestDescent(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     num_nodes = Exodus.num_nodes(input_mesh.init)
     num_dof = 3 * num_nodes
+    minimum_iterations = solver_params["minimum iterations"]
+    maximum_iterations = solver_params["maximum iterations"]
+    absolute_tolerance = solver_params["absolute tolerance"]
+    relative_tolerance = solver_params["relative tolerance"]
+    absolute_error = 0.0
+    relative_error = 0.0
     value = 0.0
     gradient = zeros(num_dof)
     solution = zeros(num_dof)
-    prev_gradient = zeros(num_dof)
-    prev_solution = zeros(num_dof)
     initial_norm = 0.0
-    γ = 1.0
     converged = false
     failed = false
     step = create_step(solver_params)
-    SteepestDescent(value, gradient, solution, prev_gradient, prev_solution,
-        initial_norm, γ, converged, failed, step)
+    SteepestDescent(minimum_iterations, maximum_iterations,
+    absolute_tolerance, relative_tolerance, absolute_error, relative_error,
+        value, gradient, solution, initial_norm, converged, failed, step)
 end
 
 function create_solver(params::Dict{Any,Any})
@@ -80,13 +84,13 @@ function create_solver(params::Dict{Any,Any})
     elseif solver_name == "explicit solver"
         return ExplicitSolver(params)
     elseif solver_name == "steepest descent"
-        return ExplicitSolver(params)
+        return SteepestDescent(params)
     else
         error("Unknown type of solver : ", solver_name)
     end
 end
 
-function copy_solution_source_targets(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
+function copy_solution_source_targets(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
     displacement = integrator.displacement
     solver.solution = displacement
     _, num_nodes = size(model.reference)
@@ -96,7 +100,7 @@ function copy_solution_source_targets(integrator::QuasiStatic, solver::HessianMi
     end
 end
 
-function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMechanics, integrator::QuasiStatic)
+function copy_solution_source_targets(solver::Any, model::SolidMechanics, integrator::QuasiStatic)
     displacement = solver.solution
     integrator.displacement = displacement
     _, num_nodes = size(model.reference)
@@ -106,24 +110,7 @@ function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMech
     end
 end
 
-function copy_solution_source_target(solver::Any, model::SolidMechanics)
-    displacement = solver.solution
-    _, num_nodes = size(model.reference)
-    for node ∈ 1:num_nodes
-        nodal_displacement = displacement[3*node-2:3*node]
-        model.current[:, node] = model.reference[:, node] + nodal_displacement
-    end
-end
-
-function copy_solution_source_target(model::SolidMechanics, solver::Any)
-    _, num_nodes = size(model.reference)
-    for node ∈ 1:num_nodes
-        nodal_displacement = model.current[:, node] - model.reference[:, node]
-        solver.solution[3*node-2:3*node] = nodal_displacement
-    end
-end
-
-function copy_solution_source_targets(model::SolidMechanics, integrator::QuasiStatic, solver::HessianMinimizer)
+function copy_solution_source_targets(model::SolidMechanics, integrator::QuasiStatic, solver::Any)
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = model.current[:, node] - model.reference[:, node]
@@ -231,6 +218,14 @@ function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::Soli
     solver.hessian = stiffness_matrix
 end
 
+function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::SolidMechanics)
+    strain_energy, internal_force, body_force, _ = evaluate(integrator, model)
+    integrator.strain_energy = strain_energy
+    solver.value = strain_energy
+    external_force = body_force + model.boundary_force
+    solver.gradient = internal_force - external_force
+end
+
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     strain_energy, internal_force, body_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
     integrator.strain_energy = strain_energy
@@ -257,9 +252,32 @@ function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::
     solver.lumped_hessian = lumped_mass
 end
 
-function backtrack_line_search(solver::Any, model::SolidMechanics, direction::Vector{Float64})
-    step = direction
+# Taken from ELASTOPLASITICITY—PART II: GLOBALLY CONVERGENT SCHEMES, Perez-Foguet & Armero, 2002
+function backtrack_line_search(integrator::TimeIntegrator, solver::Any, model::SolidMechanics, direction::Vector{Float64})
+    backtrack_factor = 0.1
+    decrease_factor = 1.0e-04
+    free = model.free_dofs
     resid = solver.gradient
+    merit = 0.5 * dot(resid, resid)
+    merit_prime = -2.0 * merit
+    step_size = 1.0e-04
+    step = step_size * direction
+    initial_solution = 1.0 * solver.solution
+    max_ls_iters = 20
+    for _ ∈ 1:max_ls_iters
+        merit_old = merit
+        step = step_size * direction
+        solver.solution[free] = initial_solution[free] + step[free]
+        copy_solution_source_targets(solver, model, integrator)
+        evaluate(integrator, solver, model)
+        resid = solver.gradient
+        merit = 0.5 * dot(resid, resid)
+        if merit ≤ (1.0 - 2.0 * decrease_factor * step_size) * merit_old
+            break
+        end
+        step_size = max(backtrack_factor * step_size, -0.5 * step_size * step_size * merit_prime) / (merit - merit_old - step_size * merit_prime)
+    end
+    return step
 end
 
 function compute_step(_::QuasiStatic, model::SolidMechanics, solver::HessianMinimizer, _::NewtonStep)
@@ -277,12 +295,21 @@ function compute_step(_::CentralDifference, model::SolidMechanics, solver::Expli
     return -solver.gradient[free] ./ solver.lumped_hessian[free]
 end
 
-function compute_step(_::QuasiStatic, model::SolidMechanics, solver::SteepestDescent, _::SteepestDescentStep)
+function compute_step(integrator::QuasiStatic, model::SolidMechanics, solver::SteepestDescent, _::SteepestDescentStep)
     free = model.free_dofs
-    return -solver.γ * solver.gradient[free]
+    step = backtrack_line_search(integrator, solver, model, -solver.gradient)
+    return step[free]
 end
 
 function update_solver_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
+    solver.absolute_error = absolute_error
+    solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
+    converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
+    converged_relative = solver.relative_error ≤ solver.relative_tolerance
+    solver.converged = converged_absolute || converged_relative
+end
+
+function update_solver_convergence_criterion(solver::SteepestDescent, absolute_error::Float64)
     solver.absolute_error = absolute_error
     solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
     converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
@@ -295,6 +322,25 @@ function update_solver_convergence_criterion(solver::ExplicitSolver, _::Float64)
 end
 
 function stop_solve(solver::HessianMinimizer, iteration_number::Int64)
+    if solver.failed == true
+        return true
+    end
+    zero_residual = solver.absolute_error == 0.0
+    if zero_residual == true
+        return true
+    end
+    exceeds_minimum_iterations = iteration_number > solver.minimum_iterations
+    if exceeds_minimum_iterations == false
+        return false
+    end
+    exceeds_maximum_iterations = iteration_number > solver.maximum_iterations
+    if exceeds_maximum_iterations == true
+        return true
+    end
+    return solver.converged
+end
+
+function stop_solve(solver::SteepestDescent, iteration_number::Int64)
     if solver.failed == true
         return true
     end

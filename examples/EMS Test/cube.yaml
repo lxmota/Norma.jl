@@ -25,13 +25,18 @@ model:
 #  time step: 1.0e-02
 #  β: 0.45
 #  γ: 0.9  
+#time integrator:
+#  type: central difference
+#  initial time: 0.0
+#  final time: 1.0e-00
+#  time step: 1.0e-02
+#  CFL: 0.1
+#  γ: 0.5  
 time integrator:
-  type: central difference
+  type: quasi static
   initial time: 0.0
   final time: 1.0e-00
   time step: 1.0e-02
-  CFL: 0.1
-  γ: 0.5  
 boundary conditions:
   Dirichlet:
     - node set: nsx-
@@ -60,6 +65,10 @@ boundary conditions:
 #  relative tolerance: 1.0e-10
 #  absolute tolerance: 1.0e-06
 solver:
-  type: explicit solver
-  step: explicit
+  type: steepest descent
+  step:  steepest descent
+  minimum iterations: 1
+  maximum iterations: 16
+  relative tolerance: 1.0e-12
+  absolute tolerance: 1.0e-08
 
