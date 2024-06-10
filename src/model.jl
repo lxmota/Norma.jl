@@ -42,23 +42,28 @@ function SolidMechanics(params::Dict{Any,Any})
     boundary_conditions = Vector{BoundaryCondition}()
     free_dofs = trues(3 * num_nodes)
     stress = Vector{Vector{Vector{Vector{Float64}}}}()
+    potential_energy = Vector{Vector{Float64}}()
     for block ∈ blocks
         blk_id = block.id
         element_type, num_blk_elems, _, _, _, _ = Exodus.read_block_parameters(input_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
         block_stress = Vector{Vector{Vector{Float64}}}()
+        block_potential_energy = Vector{Float64}()
         for _ ∈ 1:num_blk_elems
             element_stress = Vector{Vector{Float64}}()
             for _ ∈ 1:num_points
                 push!(element_stress, zeros(6))
             end
             push!(block_stress, element_stress)
+            element_potential_energy = 0.0
+            push!(block_potential_energy, element_potential_energy)
         end
         push!(stress, block_stress)
+        push!(potential_energy, block_potential_energy)
     end
     mesh_smoothing = params["mesh smoothing"]
     SolidMechanics(input_mesh, materials, reference, current, velocity, acceleration,
-        internal_force, boundary_force, boundary_conditions, stress, free_dofs, time, failed, mesh_smoothing)
+        internal_force, boundary_force, boundary_conditions, stress, potential_energy, free_dofs, time, failed, mesh_smoothing)
 end
 
 function HeatConduction(params::Dict{Any,Any})
@@ -252,6 +257,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
             energy += element_energy
+            model.potential_energy[blk_index][blk_elem_index] = element_energy
             internal_force[elem_dofs] += element_internal_force
             assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
         end
@@ -261,6 +267,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     return energy, internal_force, body_force, stiffness_matrix
 end
 
+# TODO: Store element potential energy as above for other evaluators
 function evaluate(integrator::Newmark, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
