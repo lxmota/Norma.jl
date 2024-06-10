@@ -1,11 +1,11 @@
 function create_step(solver_params::Dict{Any,Any})
     step_name = solver_params["step"]
     if step_name == "full Newton"
-        return NewtonStep()
+        return NewtonStep(solver_params)
     elseif step_name == "explicit"
-        return ExplicitStep()
+        return ExplicitStep(solver_params)
     elseif step_name == "steepest descent"
-        return SteepestDescentStep()
+        return SteepestDescentStep(solver_params)
     else
         error("Unknown type of solver step: ", step_name)
     end
@@ -74,6 +74,33 @@ function SteepestDescent(params::Dict{Any,Any})
     SteepestDescent(minimum_iterations, maximum_iterations,
     absolute_tolerance, relative_tolerance, absolute_error, relative_error,
         value, gradient, solution, initial_norm, converged, failed, step)
+end
+
+function NewtonStep(params::Dict{Any,Any})
+    if haskey(params, "step length") == true
+        step_length = params["step length"]
+    else
+        step_length = 1.0
+    end
+    NewtonStep(step_length)
+end
+
+function ExplicitStep(params::Dict{Any,Any})
+    if haskey(params, "step length") == true
+        step_length = params["step length"]
+    else
+        step_length = 1.0
+    end
+    ExplicitStep(step_length)
+end
+
+function SteepestDescentStep(params::Dict{Any,Any})
+    if haskey(params, "step length") == true
+        step_length = params["step length"]
+    else
+        step_length = 1.0
+    end
+    SteepestDescentStep(step_length)
 end
 
 function create_solver(params::Dict{Any,Any})
@@ -260,22 +287,22 @@ function backtrack_line_search(integrator::TimeIntegrator, solver::Any, model::S
     resid = solver.gradient
     merit = 0.5 * dot(resid, resid)
     merit_prime = -2.0 * merit
-    step_size = 1.0e-04
-    step = step_size * direction
+    step_length = solver.step.step_length
+    step = step_length * direction
     initial_solution = 1.0 * solver.solution
     max_ls_iters = 20
     for _ ∈ 1:max_ls_iters
         merit_old = merit
-        step = step_size * direction
+        step = step_length * direction
         solver.solution[free] = initial_solution[free] + step[free]
         copy_solution_source_targets(solver, model, integrator)
         evaluate(integrator, solver, model)
         resid = solver.gradient
         merit = 0.5 * dot(resid, resid)
-        if merit ≤ (1.0 - 2.0 * decrease_factor * step_size) * merit_old
+        if merit ≤ (1.0 - 2.0 * decrease_factor * step_length) * merit_old
             break
         end
-        step_size = max(backtrack_factor * step_size, -0.5 * step_size * step_size * merit_prime) / (merit - merit_old - step_size * merit_prime)
+        step_length = max(backtrack_factor * step_length, -0.5 * step_length * step_length * merit_prime) / (merit - merit_old - step_length * merit_prime)
     end
     return step
 end
