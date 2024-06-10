@@ -16,4 +16,4 @@ On MacOS, it is necessary to ignore package hashes for the dependence on Exodus.
 
 To run the code, assuming that Julia is in the executable path:
 
-    julia --project=@. /path/to/src/norma.jl input.yaml
+    julia --project=@. /path/to/src/Norma.jl input.yaml
