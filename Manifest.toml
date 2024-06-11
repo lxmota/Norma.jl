@@ -202,9 +202,9 @@ version = "0.9.3"
 
 [[deps.DomainSets]]
 deps = ["CompositeTypes", "IntervalSets", "LinearAlgebra", "Random", "StaticArrays"]
-git-tree-sha1 = "f30fd5d8e898141f19cc564f00072bb8e2d97d7d"
+git-tree-sha1 = "960a5e022afe8a3a1078dd5dcbb8bf6d428d6e32"
 uuid = "5b8099bc-c8ec-5219-889f-1d9e522a28bf"
-version = "0.7.5"
+version = "0.7.6"
 
 [[deps.Downloads]]
 deps = ["ArgTools", "FileWatching", "LibCURL", "NetworkOptions"]

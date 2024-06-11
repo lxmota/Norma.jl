@@ -143,7 +143,8 @@ function create_smooth_reference(element_type::String, elem_ref_pos::Matrix{Floa
         u = elem_ref_pos[:, 2] - elem_ref_pos[:, 1]
         v = elem_ref_pos[:, 3] - elem_ref_pos[:, 1]
         w = elem_ref_pos[:, 4] - elem_ref_pos[:, 1]
-        h = cbrt(sqrt(2.0) * dot(u, cross(v, w)))
+        #h = cbrt(sqrt(2.0) * dot(u, cross(v, w)))
+        h = (norm(u) + norm(v) + norm(w)) / 3.0
         c = h * 0.5 /sqrt(2.0)
         A = [1  -1  -1   1
              1  -1   1  -1
