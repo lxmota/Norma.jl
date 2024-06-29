@@ -10,28 +10,9 @@ model:
       cube: elastic
     elastic:
       model: neohookean
-      elastic modulus: 1.0e+03
-      Poisson's ratio: 0.45
+      bulk modulus: 1.0e+03
+      shear modulus: 1.0e+03
       density: 1000.0
-#time integrator:
-#  type: quasi static
-#  initial time: 0.0
-#  final time: 1.0
-#  time step: 1.0
-#time integrator:
-#  type: Newmark
-#  initial time: 0.0
-#  final time: 1.0e-00
-#  time step: 1.0e-02
-#  β: 0.45
-#  γ: 0.9  
-#time integrator:
-#  type: central difference
-#  initial time: 0.0
-#  final time: 1.0e-00
-#  time step: 1.0e-02
-#  CFL: 0.1
-#  γ: 0.5  
 time integrator:
   type: quasi static
   initial time: 0.0
@@ -57,16 +38,10 @@ boundary conditions:
     - node set: nsz+
       component: z
       function: "0.0"
-#solver:
-#  type: Hessian minimizer
-#  step: full Newton
-#  minimum iterations: 1
-#  maximum iterations: 16
-#  relative tolerance: 1.0e-10
-#  absolute tolerance: 1.0e-06
 solver:
   type: steepest descent
-  step:  steepest descent
+  step: steepest descent
+  step length: 5.0e-04
   minimum iterations: 1
   maximum iterations: 16
   relative tolerance: 1.0e-12
