@@ -29,6 +29,7 @@ mutable struct HeatConduction <: Model
     boundary_heat_flux::Vector{Float64}
     boundary_conditions::Vector{BoundaryCondition}
     flux::Vector{Vector{Vector{Vector{Float64}}}}
+    stored_energy::Vector{Vector{Float64}}
     free_dofs::BitVector
     time::Float64
     failed::Bool

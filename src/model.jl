@@ -104,22 +104,27 @@ function HeatConduction(params::Dict{Any,Any})
     boundary_conditions = Vector{BoundaryCondition}()
     free_dofs = trues(num_nodes)
     flux = Vector{Vector{Vector{Vector{Float64}}}}()
+    stored_energy = Vector{Vector{Float64}}()
     for block ∈ blocks
         blk_id = block.id
         element_type, num_blk_elems, _, _, _, _ = Exodus.read_block_parameters(input_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
         block_flux = Vector{Vector{Vector{Float64}}}()
+        block_stored_energy = Vector{Float64}()
         for _ ∈ 1:num_blk_elems
             element_flux = Vector{Vector{Float64}}()
             for _ ∈ 1:num_points
                 push!(element_flux, zeros(3))
             end
             push!(block_flux, element_flux)
+            element_stored_energy = 0.0
+            push!(block_stored_energy, element_stored_energy)
         end
         push!(flux, block_flux)
+        push!(stored_energy, block_stored_energy)
     end
     HeatConduction(input_mesh, materials, reference, temperature, rate, internal_heat_flux,
-    boundary_heat_flux, boundary_conditions, flux, free_dofs, time, failed)
+    boundary_heat_flux, boundary_conditions, flux, stored_energy, free_dofs, time, failed)
 end
 
 function create_model(params::Dict{Any,Any})
