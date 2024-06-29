@@ -268,7 +268,6 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     return energy, internal_force, body_force, stiffness_matrix
 end
 
-# TODO: Store element potential energy as above for other evaluators
 function evaluate(integrator::Newmark, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
@@ -345,6 +344,7 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
             energy += element_energy
+            model.stored_energy[blk_index][blk_elem_index] = element_energy
             internal_force[elem_dofs] += element_internal_force
             assemble(rows, cols, stiffness, mass, element_stiffness, element_mass, elem_dofs)
         end
@@ -487,6 +487,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
             energy += element_energy
+            model.stored_energy[blk_index][blk_elem_index] = element_energy
             internal_force[elem_dofs] += element_internal_force
             lumped_mass[elem_dofs] += element_lumped_mass
         end
