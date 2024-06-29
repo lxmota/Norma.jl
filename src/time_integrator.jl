@@ -14,8 +14,8 @@ function QuasiStatic(params::Dict{Any,Any})
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
-    strain_energy = 0.
-    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement, velocity, acceleration, strain_energy)
+    stored_energy = 0.
+    QuasiStatic(initial_time, final_time, time_step, time, stop, displacement, velocity, acceleration, stored_energy)
 end
 
 function Newmark(params::Dict{Any,Any})
@@ -36,9 +36,9 @@ function Newmark(params::Dict{Any,Any})
     acceleration = zeros(num_dof)
     disp_pre = zeros(num_dof)
     velo_pre = zeros(num_dof)
-    strain_energy = 0.
+    stored_energy = 0.
     kinetic_energy = 0.
-    Newmark(initial_time, final_time, time_step, time, stop, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre, strain_energy, kinetic_energy)
+    Newmark(initial_time, final_time, time_step, time, stop, β, γ, displacement, velocity, acceleration, disp_pre, velo_pre, stored_energy, kinetic_energy)
 end
 
 function CentralDifference(params::Dict{Any,Any})
@@ -59,9 +59,9 @@ function CentralDifference(params::Dict{Any,Any})
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
-    strain_energy = 0.
+    stored_energy = 0.
     kinetic_energy = 0.
-    CentralDifference(initial_time, final_time, time_step, user_time_step, stable_time_step, time, stop, CFL, γ, displacement, velocity, acceleration, strain_energy, kinetic_energy)
+    CentralDifference(initial_time, final_time, time_step, user_time_step, stable_time_step, time, stop, CFL, γ, displacement, velocity, acceleration, stored_energy, kinetic_energy)
 end
 
 function create_time_integrator(params::Dict{Any,Any})
@@ -109,11 +109,11 @@ function initialize(integrator::Newmark, solver::HessianMinimizer, model::SolidM
     println("Computing initial acceleration")
     copy_solution_source_targets(model, integrator, solver)
     free = model.free_dofs
-    strain_energy, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
+    stored_energy, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
     inertial_force = external_force - internal_force
     kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
     integrator.kinetic_energy = kinetic_energy
-    integrator.strain_energy = strain_energy
+    integrator.stored_energy = stored_energy
     integrator.acceleration[free] = mass_matrix[free, free] \ inertial_force[free]
     copy_solution_source_targets(integrator, solver, model)
 end
@@ -155,10 +155,10 @@ function initialize(integrator::CentralDifference, solver::ExplicitSolver, model
     copy_solution_source_targets(model, integrator, solver)
     free = model.free_dofs
     set_time_step(integrator, model)
-    strain_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+    stored_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
     kinetic_energy = 0.5 * lumped_mass ⋅ (integrator.velocity .* integrator.velocity)
     integrator.kinetic_energy = kinetic_energy
-    integrator.strain_energy = strain_energy
+    integrator.stored_energy = stored_energy
     inertial_force = external_force - internal_force
     integrator.acceleration[free] = inertial_force[free] ./ lumped_mass[free]
     copy_solution_source_targets(integrator, solver, model)
@@ -234,11 +234,10 @@ function initialize_writing(params::Dict{Any,Any}, _::StaticTimeIntegrator, mode
         Exodus.write_name(output_mesh, ElementVariable, Int32(stress_xz_index), "stress_xz" * ip_str)
         Exodus.write_name(output_mesh, ElementVariable, Int32(stress_xy_index), "stress_xy" * ip_str)
     end
-    element_potential_energy_index = ip_var_index
-    Exodus.write_name(output_mesh, ElementVariable, Int32(element_potential_energy_index), "strain_energy")
+    element_stored_energy_index = ip_var_index
+    Exodus.write_name(output_mesh, ElementVariable, Int32(element_stored_energy_index), "stored_energy")
 end
 
-# TODO: Add writing of strain energy as above
 function initialize_writing(params::Dict{Any,Any}, _::DynamicTimeIntegrator, model::SolidMechanics)
     output_mesh = params["output_mesh"]
     num_node_vars = Exodus.read_number_of_variables(output_mesh, NodalVariable)
@@ -282,6 +281,7 @@ function initialize_writing(params::Dict{Any,Any}, _::DynamicTimeIntegrator, mod
     end
     ip_var_index = num_element_vars
     num_element_vars += 6 * max_num_int_points
+    num_element_vars += 1
     Exodus.write_number_of_variables(output_mesh, ElementVariable, num_element_vars)
     for point ∈ 1:max_num_int_points
         stress_xx_index = ip_var_index + 1
@@ -299,6 +299,8 @@ function initialize_writing(params::Dict{Any,Any}, _::DynamicTimeIntegrator, mod
         Exodus.write_name(output_mesh, ElementVariable, Int32(stress_xz_index), "stress_xz" * ip_str)
         Exodus.write_name(output_mesh, ElementVariable, Int32(stress_xy_index), "stress_xy" * ip_str)
     end
+    element_stored_energy_index = ip_var_index
+    Exodus.write_name(output_mesh, ElementVariable, Int32(element_stored_energy_index), "stored_energy")
 end
 
 function finalize_writing(params::Dict{Any,Any})
@@ -331,7 +333,7 @@ function write_step_csv(integrator::StaticTimeIntegrator, sim_id::Integer)
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
-    writedlm(potential_filename, integrator.strain_energy, '\n')
+    writedlm(potential_filename, integrator.stored_energy, '\n')
 end
 
 function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
@@ -346,7 +348,7 @@ function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
     writedlm(disp_filename, integrator.displacement, '\n')
     writedlm(velo_filename, integrator.velocity, '\n')
     writedlm(acce_filename, integrator.acceleration, '\n')
-    writedlm(potential_filename, integrator.strain_energy, '\n')
+    writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
 end
 
@@ -370,9 +372,9 @@ function write_step_exodus(params::Dict{Any,Any}, integrator::StaticTimeIntegrat
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_y", disp_y)
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_z", disp_z)
     stress = model.stress
-    potential_energy = model.potential_energy
+    stored_energy = model.stored_energy
     blocks = Exodus.read_sets(output_mesh, Block)
-    for (block, block_stress, block_potential_energy) ∈ zip(blocks, stress, potential_energy)
+    for (block, block_stress, block_stored_energy) ∈ zip(blocks, stress, stored_energy)
         blk_id = block.id
         element_type, num_blk_elems, _, _, _, _ = Exodus.read_block_parameters(output_mesh, blk_id)
         num_points = default_num_int_pts(element_type)
@@ -403,7 +405,7 @@ function write_step_exodus(params::Dict{Any,Any}, integrator::StaticTimeIntegrat
             Exodus.write_values(output_mesh, ElementVariable, time_index, Int64(blk_id), "stress_xz" * ip_str, stress_xz[:, point])
             Exodus.write_values(output_mesh, ElementVariable, time_index, Int64(blk_id), "stress_xy" * ip_str, stress_xy[:, point])
         end
-        Exodus.write_values(output_mesh, ElementVariable, time_index, Int64(blk_id), "strain_energy", block_potential_energy)
+        Exodus.write_values(output_mesh, ElementVariable, time_index, Int64(blk_id), "stored_energy", block_stored_energy)
     end
 end
 

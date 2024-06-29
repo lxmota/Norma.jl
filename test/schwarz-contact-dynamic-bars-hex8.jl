@@ -29,8 +29,8 @@ using YAML
     max_disp_x_coarse = maximum(model_coarse.current[1,:] - model_coarse.reference[1,:])
     max_disp_y_coarse = maximum(model_coarse.current[2,:] - model_coarse.reference[2,:])
     max_disp_z_coarse = maximum(model_coarse.current[3,:] - model_coarse.reference[3,:])
-    potential_energy_fine = integrator_fine.strain_energy
-    potential_energy_coarse = integrator_coarse.strain_energy
+    potential_energy_fine = integrator_fine.stored_energy
+    potential_energy_coarse = integrator_coarse.stored_energy
     kinetic_energy_fine = integrator_fine.kinetic_energy
     kinetic_energy_coarse = integrator_coarse.kinetic_energy
     avg_stress_fine = average_components(model_fine.stress)

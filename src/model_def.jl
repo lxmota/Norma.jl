@@ -11,7 +11,7 @@ mutable struct SolidMechanics <: Model
     boundary_force::Vector{Float64}
     boundary_conditions::Vector{BoundaryCondition}
     stress::Vector{Vector{Vector{Vector{Float64}}}}
-    potential_energy::Vector{Vector{Float64}}
+    stored_energy::Vector{Vector{Float64}}
     free_dofs::BitVector
     time::Float64
     failed::Bool

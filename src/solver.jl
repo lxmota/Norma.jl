@@ -237,25 +237,25 @@ function copy_solution_source_targets(model::SolidMechanics, integrator::Central
 end
 
 function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
-    strain_energy, internal_force, body_force, stiffness_matrix = evaluate(integrator, model)
-    integrator.strain_energy = strain_energy
-    solver.value = strain_energy
+    stored_energy, internal_force, body_force, stiffness_matrix = evaluate(integrator, model)
+    integrator.stored_energy = stored_energy
+    solver.value = stored_energy
     external_force = body_force + model.boundary_force
     solver.gradient = internal_force - external_force
     solver.hessian = stiffness_matrix
 end
 
 function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::SolidMechanics)
-    strain_energy, internal_force, body_force, _ = evaluate(integrator, model)
-    integrator.strain_energy = strain_energy
-    solver.value = strain_energy
+    stored_energy, internal_force, body_force, _ = evaluate(integrator, model)
+    integrator.stored_energy = stored_energy
+    solver.value = stored_energy
     external_force = body_force + model.boundary_force
     solver.gradient = internal_force - external_force
 end
 
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
-    strain_energy, internal_force, body_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
-    integrator.strain_energy = strain_energy
+    stored_energy, internal_force, body_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
+    integrator.stored_energy = stored_energy
     β = integrator.β
     Δt = integrator.time_step
     inertial_force = mass_matrix * integrator.acceleration
@@ -263,18 +263,18 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     integrator.kinetic_energy = kinetic_energy
     external_force = body_force + model.boundary_force
     solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
-    solver.value = strain_energy - external_force ⋅ integrator.displacement + kinetic_energy
+    solver.value = stored_energy - external_force ⋅ integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
 end
 
 function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
-    strain_energy, internal_force, body_force, lumped_mass = evaluate(integrator, model)
-    integrator.strain_energy = strain_energy
+    stored_energy, internal_force, body_force, lumped_mass = evaluate(integrator, model)
+    integrator.stored_energy = stored_energy
     inertial_force = lumped_mass .* integrator.acceleration
     kinetic_energy = 0.5 * lumped_mass ⋅ (integrator.velocity .* integrator.velocity)
     integrator.kinetic_energy = kinetic_energy
     external_force = body_force + model.boundary_force
-    solver.value = strain_energy - external_force ⋅ integrator.displacement + kinetic_energy
+    solver.value = stored_energy - external_force ⋅ integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
     solver.lumped_hessian = lumped_mass
 end
