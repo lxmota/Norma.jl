@@ -162,7 +162,13 @@ function watch_keep_time(sim::SingleDomainSimulation)
     if stop == 0
         @printf("Initializing run at stop 0 with time = %6.2e\n", final_time)
     else
-        @printf("Advancing from stop %d with time = %6.2e to stop %d with time = %6.2e\n", stop - 1, initial_time, stop, final_time)
+        @printf(
+            "Advancing from stop %d with time = %6.2e to stop %d with time = %6.2e\n",
+            stop - 1,
+            initial_time,
+            stop,
+            final_time
+        )
     end
 end
 
@@ -174,7 +180,13 @@ function watch_keep_time(sim::MultiDomainSimulation)
     if stop == 0
         @printf("Initializing run at stop 0 with time = %6.2e\n", final_time)
     else
-        @printf("Advancing from stop %d with time = %6.2e to stop %d with time = %6.2e\n", stop - 1, initial_time, stop, final_time)
+        @printf(
+            "Advancing from stop %d with time = %6.2e to stop %d with time = %6.2e\n",
+            stop - 1,
+            initial_time,
+            stop,
+            final_time
+        )
     end
 end
 
@@ -192,14 +204,15 @@ function synchronize(sim::MultiDomainSimulation)
 end
 
 function advance_time(sim::SingleDomainSimulation)
-    next_time = round(sim.integrator.time + sim.integrator.time_step; digits=10)
+    next_time = round(sim.integrator.time + sim.integrator.time_step; digits = 10)
     sim.integrator.time = sim.model.time = next_time
     sim.integrator.stop += 1
 end
 
 function advance_time(sim::MultiDomainSimulation)
     sim.schwarz_controller.prev_time = sim.schwarz_controller.time
-    next_time = round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=10)
+    next_time =
+        round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits = 10)
     sim.schwarz_controller.time = next_time
     sim.schwarz_controller.stop += 1
 end

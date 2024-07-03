@@ -30,10 +30,22 @@ function HessianMinimizer(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    HessianMinimizer(minimum_iterations, maximum_iterations,
-        absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        value, gradient, hessian, solution,
-        initial_norm, converged, failed, step)
+    HessianMinimizer(
+        minimum_iterations,
+        maximum_iterations,
+        absolute_tolerance,
+        relative_tolerance,
+        absolute_error,
+        relative_error,
+        value,
+        gradient,
+        hessian,
+        solution,
+        initial_norm,
+        converged,
+        failed,
+        step,
+    )
 end
 
 function ExplicitSolver(params::Dict{Any,Any})
@@ -49,8 +61,16 @@ function ExplicitSolver(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    ExplicitSolver(value, gradient, solution, initial_guess,
-        initial_norm, converged, failed, step)
+    ExplicitSolver(
+        value,
+        gradient,
+        solution,
+        initial_guess,
+        initial_norm,
+        converged,
+        failed,
+        step,
+    )
 end
 
 function SteepestDescent(params::Dict{Any,Any})
@@ -71,9 +91,21 @@ function SteepestDescent(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    SteepestDescent(minimum_iterations, maximum_iterations,
-    absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        value, gradient, solution, initial_norm, converged, failed, step)
+    SteepestDescent(
+        minimum_iterations,
+        maximum_iterations,
+        absolute_tolerance,
+        relative_tolerance,
+        absolute_error,
+        relative_error,
+        value,
+        gradient,
+        solution,
+        initial_norm,
+        converged,
+        failed,
+        step,
+    )
 end
 
 function NewtonStep(params::Dict{Any,Any})
@@ -117,7 +149,11 @@ function create_solver(params::Dict{Any,Any})
     end
 end
 
-function copy_solution_source_targets(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+function copy_solution_source_targets(
+    integrator::QuasiStatic,
+    solver::Any,
+    model::SolidMechanics,
+)
     displacement = integrator.displacement
     solver.solution = displacement
     _, num_nodes = size(model.reference)
@@ -127,7 +163,11 @@ function copy_solution_source_targets(integrator::QuasiStatic, solver::Any, mode
     end
 end
 
-function copy_solution_source_targets(solver::Any, model::SolidMechanics, integrator::QuasiStatic)
+function copy_solution_source_targets(
+    solver::Any,
+    model::SolidMechanics,
+    integrator::QuasiStatic,
+)
     displacement = solver.solution
     integrator.displacement = displacement
     _, num_nodes = size(model.reference)
@@ -137,7 +177,11 @@ function copy_solution_source_targets(solver::Any, model::SolidMechanics, integr
     end
 end
 
-function copy_solution_source_targets(model::SolidMechanics, integrator::QuasiStatic, solver::Any)
+function copy_solution_source_targets(
+    model::SolidMechanics,
+    integrator::QuasiStatic,
+    solver::Any,
+)
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = model.current[:, node] - model.reference[:, node]
@@ -146,7 +190,11 @@ function copy_solution_source_targets(model::SolidMechanics, integrator::QuasiSt
     solver.solution = integrator.displacement
 end
 
-function copy_solution_source_targets(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
+function copy_solution_source_targets(
+    integrator::Newmark,
+    solver::HessianMinimizer,
+    model::SolidMechanics,
+)
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = integrator.acceleration
@@ -162,7 +210,11 @@ function copy_solution_source_targets(integrator::Newmark, solver::HessianMinimi
     end
 end
 
-function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMechanics, integrator::Newmark)
+function copy_solution_source_targets(
+    solver::HessianMinimizer,
+    model::SolidMechanics,
+    integrator::Newmark,
+)
     displacement = solver.solution
     integrator.displacement = displacement
     velocity = integrator.velocity
@@ -178,7 +230,11 @@ function copy_solution_source_targets(solver::HessianMinimizer, model::SolidMech
     end
 end
 
-function copy_solution_source_targets(model::SolidMechanics, integrator::Newmark, solver::HessianMinimizer)
+function copy_solution_source_targets(
+    model::SolidMechanics,
+    integrator::Newmark,
+    solver::HessianMinimizer,
+)
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = model.current[:, node] - model.reference[:, node]
@@ -191,7 +247,11 @@ function copy_solution_source_targets(model::SolidMechanics, integrator::Newmark
     solver.solution = integrator.displacement
 end
 
-function copy_solution_source_targets(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
+function copy_solution_source_targets(
+    integrator::CentralDifference,
+    solver::ExplicitSolver,
+    model::SolidMechanics,
+)
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = integrator.acceleration
@@ -207,7 +267,11 @@ function copy_solution_source_targets(integrator::CentralDifference, solver::Exp
     end
 end
 
-function copy_solution_source_targets(solver::ExplicitSolver, model::SolidMechanics, integrator::CentralDifference)
+function copy_solution_source_targets(
+    solver::ExplicitSolver,
+    model::SolidMechanics,
+    integrator::CentralDifference,
+)
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = solver.solution
@@ -223,7 +287,11 @@ function copy_solution_source_targets(solver::ExplicitSolver, model::SolidMechan
     end
 end
 
-function copy_solution_source_targets(model::SolidMechanics, integrator::CentralDifference, solver::ExplicitSolver)
+function copy_solution_source_targets(
+    model::SolidMechanics,
+    integrator::CentralDifference,
+    solver::ExplicitSolver,
+)
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = model.current[:, node] - model.reference[:, node]
@@ -237,7 +305,8 @@ function copy_solution_source_targets(model::SolidMechanics, integrator::Central
 end
 
 function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
-    stored_energy, internal_force, body_force, stiffness_matrix = evaluate(integrator, model)
+    stored_energy, internal_force, body_force, stiffness_matrix =
+        evaluate(integrator, model)
     integrator.stored_energy = stored_energy
     solver.value = stored_energy
     external_force = body_force + model.boundary_force
@@ -254,7 +323,8 @@ function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::Solid
 end
 
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
-    stored_energy, internal_force, body_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
+    stored_energy, internal_force, body_force, stiffness_matrix, mass_matrix =
+        evaluate(integrator, model)
     integrator.stored_energy = stored_energy
     β = integrator.β
     Δt = integrator.time_step
@@ -267,7 +337,11 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     solver.gradient = internal_force - external_force + inertial_force
 end
 
-function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
+function evaluate(
+    integrator::CentralDifference,
+    solver::ExplicitSolver,
+    model::SolidMechanics,
+)
     stored_energy, internal_force, body_force, lumped_mass = evaluate(integrator, model)
     integrator.stored_energy = stored_energy
     inertial_force = lumped_mass .* integrator.acceleration
@@ -280,7 +354,12 @@ function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::
 end
 
 # Taken from ELASTOPLASITICITY—PART II: GLOBALLY CONVERGENT SCHEMES, Perez-Foguet & Armero, 2002
-function backtrack_line_search(integrator::TimeIntegrator, solver::Any, model::SolidMechanics, direction::Vector{Float64})
+function backtrack_line_search(
+    integrator::TimeIntegrator,
+    solver::Any,
+    model::SolidMechanics,
+    direction::Vector{Float64},
+)
     backtrack_factor = 0.1
     decrease_factor = 1.0e-04
     free = model.free_dofs
@@ -302,43 +381,75 @@ function backtrack_line_search(integrator::TimeIntegrator, solver::Any, model::S
         if merit ≤ (1.0 - 2.0 * decrease_factor * step_length) * merit_old
             break
         end
-        step_length = max(backtrack_factor * step_length, -0.5 * step_length * step_length * merit_prime) / (merit - merit_old - step_length * merit_prime)
+        step_length =
+            max(
+                backtrack_factor * step_length,
+                -0.5 * step_length * step_length * merit_prime,
+            ) / (merit - merit_old - step_length * merit_prime)
     end
     return step
 end
 
-function compute_step(_::QuasiStatic, model::SolidMechanics, solver::HessianMinimizer, _::NewtonStep)
+function compute_step(
+    _::QuasiStatic,
+    model::SolidMechanics,
+    solver::HessianMinimizer,
+    _::NewtonStep,
+)
     free = model.free_dofs
     return -solver.hessian[free, free] \ solver.gradient[free]
 end
 
-function compute_step(_::Newmark, model::SolidMechanics, solver::HessianMinimizer, _::NewtonStep)
+function compute_step(
+    _::Newmark,
+    model::SolidMechanics,
+    solver::HessianMinimizer,
+    _::NewtonStep,
+)
     free = model.free_dofs
     return -solver.hessian[free, free] \ solver.gradient[free]
 end
 
-function compute_step(_::CentralDifference, model::SolidMechanics, solver::ExplicitSolver, _::ExplicitStep)
+function compute_step(
+    _::CentralDifference,
+    model::SolidMechanics,
+    solver::ExplicitSolver,
+    _::ExplicitStep,
+)
     free = model.free_dofs
     return -solver.gradient[free] ./ solver.lumped_hessian[free]
 end
 
-function compute_step(integrator::QuasiStatic, model::SolidMechanics, solver::SteepestDescent, _::SteepestDescentStep)
+function compute_step(
+    integrator::QuasiStatic,
+    model::SolidMechanics,
+    solver::SteepestDescent,
+    _::SteepestDescentStep,
+)
     free = model.free_dofs
     step = backtrack_line_search(integrator, solver, model, -solver.gradient)
     return step[free]
 end
 
-function update_solver_convergence_criterion(solver::HessianMinimizer, absolute_error::Float64)
+function update_solver_convergence_criterion(
+    solver::HessianMinimizer,
+    absolute_error::Float64,
+)
     solver.absolute_error = absolute_error
-    solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
+    solver.relative_error =
+        solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
     converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
     converged_relative = solver.relative_error ≤ solver.relative_tolerance
     solver.converged = converged_absolute || converged_relative
 end
 
-function update_solver_convergence_criterion(solver::SteepestDescent, absolute_error::Float64)
+function update_solver_convergence_criterion(
+    solver::SteepestDescent,
+    absolute_error::Float64,
+)
     solver.absolute_error = absolute_error
-    solver.relative_error = solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
+    solver.relative_error =
+        solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
     converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
     converged_relative = solver.relative_error ≤ solver.relative_tolerance
     solver.converged = converged_absolute || converged_relative

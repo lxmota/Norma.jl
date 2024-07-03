@@ -28,7 +28,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     if haskey(params, "relaxation parameter") == true
         relaxation_parameter = params["relaxation parameter"]
     else
-        relaxation_parameter = 1.
+        relaxation_parameter = 1.0
     end
     if haskey(params, "naive stabilized") == true
         naive_stabilized = params["naive stabilized"]
@@ -41,12 +41,44 @@ function SolidSchwarzController(params::Dict{Any,Any})
     schwarz_contact = false
     active_contact = false
     contact_hist = Vector{Bool}()
-    SolidSchwarzController(num_domains, minimum_iterations, maximum_iterations,
-        absolute_tolerance, relative_tolerance, absolute_error, relative_error,
-        initial_time, final_time, time_step, time, prev_time, same_step, stop, converged, iteration_number, 
-        stop_disp, stop_velo, stop_acce, stop_∂Ω_f, schwarz_disp, schwarz_velo, schwarz_acce,
-        time_hist, disp_hist, velo_hist, acce_hist, ∂Ω_f_hist, relaxation_parameter, naive_stabilized, lambda_disp, lambda_velo, lambda_acce, 
-        schwarz_contact, active_contact, contact_hist)
+    SolidSchwarzController(
+        num_domains,
+        minimum_iterations,
+        maximum_iterations,
+        absolute_tolerance,
+        relative_tolerance,
+        absolute_error,
+        relative_error,
+        initial_time,
+        final_time,
+        time_step,
+        time,
+        prev_time,
+        same_step,
+        stop,
+        converged,
+        iteration_number,
+        stop_disp,
+        stop_velo,
+        stop_acce,
+        stop_∂Ω_f,
+        schwarz_disp,
+        schwarz_velo,
+        schwarz_acce,
+        time_hist,
+        disp_hist,
+        velo_hist,
+        acce_hist,
+        ∂Ω_f_hist,
+        relaxation_parameter,
+        naive_stabilized,
+        lambda_disp,
+        lambda_velo,
+        lambda_acce,
+        schwarz_contact,
+        active_contact,
+        contact_hist,
+    )
 end
 
 function create_schwarz_controller(params::Dict{Any,Any})
@@ -94,7 +126,10 @@ function save_stop_solutions(sim::MultiDomainSimulation)
     save_stop_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function save_stop_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_stop_solutions(
+    schwarz_controller::SolidSchwarzController,
+    sims::Vector{SingleDomainSimulation},
+)
     for i ∈ 1:schwarz_controller.num_domains
         schwarz_controller.stop_disp[i] = deepcopy(sims[i].integrator.displacement)
         schwarz_controller.stop_velo[i] = deepcopy(sims[i].integrator.velocity)
@@ -107,7 +142,10 @@ function restore_stop_solutions(sim::MultiDomainSimulation)
     restore_stop_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function restore_stop_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function restore_stop_solutions(
+    schwarz_controller::SolidSchwarzController,
+    sims::Vector{SingleDomainSimulation},
+)
     for i ∈ 1:schwarz_controller.num_domains
         sims[i].integrator.displacement = deepcopy(schwarz_controller.stop_disp[i])
         sims[i].integrator.velocity = deepcopy(schwarz_controller.stop_velo[i])
@@ -121,7 +159,10 @@ function save_schwarz_solutions(sim::MultiDomainSimulation)
     save_schwarz_solutions(sim.schwarz_controller, sim.subsims)
 end
 
-function save_schwarz_solutions(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function save_schwarz_solutions(
+    schwarz_controller::SolidSchwarzController,
+    sims::Vector{SingleDomainSimulation},
+)
     for i ∈ 1:schwarz_controller.num_domains
         schwarz_controller.schwarz_disp[i] = deepcopy(sims[i].integrator.displacement)
         schwarz_controller.schwarz_velo[i] = deepcopy(sims[i].integrator.velocity)
@@ -152,15 +193,21 @@ function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
             subsim.model.time = subsim.integrator.time
             apply_bcs(subsim)
             advance(subsim)
-            if sim.schwarz_controller.active_contact == true && sim.schwarz_controller.naive_stabilized == true
+            if sim.schwarz_controller.active_contact == true &&
+               sim.schwarz_controller.naive_stabilized == true
                 apply_naive_stabilized_bcs(subsim)
             end
             stop_index += 1
             if is_schwarz == true
-                save_history_snapshot(sim.schwarz_controller, sim.subsims, subsim_index, stop_index)
-            end    
+                save_history_snapshot(
+                    sim.schwarz_controller,
+                    sim.subsims,
+                    subsim_index,
+                    stop_index,
+                )
+            end
         end
-        subsim_index +=1
+        subsim_index += 1
     end
 end
 
@@ -168,7 +215,10 @@ function resize_histories(sim::MultiDomainSimulation)
     resize_histories(sim.schwarz_controller, sim.subsims)
 end
 
-function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function resize_histories(
+    schwarz_controller::SolidSchwarzController,
+    sims::Vector{SingleDomainSimulation},
+)
     num_domains = schwarz_controller.num_domains
     resize!(schwarz_controller.time_hist, num_domains)
     resize!(schwarz_controller.disp_hist, num_domains)
@@ -176,7 +226,8 @@ function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vect
     resize!(schwarz_controller.acce_hist, num_domains)
     resize!(schwarz_controller.∂Ω_f_hist, num_domains)
     for subsim ∈ 1:num_domains
-        num_steps = round(Int64, schwarz_controller.time_step / sims[subsim].integrator.time_step)
+        num_steps =
+            round(Int64, schwarz_controller.time_step / sims[subsim].integrator.time_step)
         Δt = schwarz_controller.time_step / num_steps
         num_stops = num_steps + 1
         sims[subsim].integrator.time_step = Δt
@@ -186,27 +237,44 @@ function resize_histories(schwarz_controller::SolidSchwarzController, sims::Vect
         schwarz_controller.acce_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
         schwarz_controller.∂Ω_f_hist[subsim] = Vector{Vector{Float64}}(undef, num_stops)
         for stop ∈ 1:num_stops
-            schwarz_controller.time_hist[subsim][stop] = schwarz_controller.prev_time + (stop - 1) * Δt
-            schwarz_controller.disp_hist[subsim][stop] = deepcopy(schwarz_controller.stop_disp[subsim])
-            schwarz_controller.velo_hist[subsim][stop] = deepcopy(schwarz_controller.stop_velo[subsim])
-            schwarz_controller.acce_hist[subsim][stop] = deepcopy(schwarz_controller.stop_acce[subsim])
-            schwarz_controller.∂Ω_f_hist[subsim][stop] = deepcopy(schwarz_controller.stop_∂Ω_f[subsim])
+            schwarz_controller.time_hist[subsim][stop] =
+                schwarz_controller.prev_time + (stop - 1) * Δt
+            schwarz_controller.disp_hist[subsim][stop] =
+                deepcopy(schwarz_controller.stop_disp[subsim])
+            schwarz_controller.velo_hist[subsim][stop] =
+                deepcopy(schwarz_controller.stop_velo[subsim])
+            schwarz_controller.acce_hist[subsim][stop] =
+                deepcopy(schwarz_controller.stop_acce[subsim])
+            schwarz_controller.∂Ω_f_hist[subsim][stop] =
+                deepcopy(schwarz_controller.stop_∂Ω_f[subsim])
         end
     end
 end
 
-function save_history_snapshot(schwarz_controller::SchwarzController, sims::Vector{SingleDomainSimulation}, subsim_index::Int64, stop_index::Int64)
-    schwarz_controller.disp_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].integrator.displacement)
-    schwarz_controller.velo_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].integrator.velocity)
-    schwarz_controller.acce_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].integrator.acceleration)
-    schwarz_controller.∂Ω_f_hist[subsim_index][stop_index] = deepcopy(sims[subsim_index].model.internal_force)
+function save_history_snapshot(
+    schwarz_controller::SchwarzController,
+    sims::Vector{SingleDomainSimulation},
+    subsim_index::Int64,
+    stop_index::Int64,
+)
+    schwarz_controller.disp_hist[subsim_index][stop_index] =
+        deepcopy(sims[subsim_index].integrator.displacement)
+    schwarz_controller.velo_hist[subsim_index][stop_index] =
+        deepcopy(sims[subsim_index].integrator.velocity)
+    schwarz_controller.acce_hist[subsim_index][stop_index] =
+        deepcopy(sims[subsim_index].integrator.acceleration)
+    schwarz_controller.∂Ω_f_hist[subsim_index][stop_index] =
+        deepcopy(sims[subsim_index].model.internal_force)
 end
 
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)
     return update_schwarz_convergence_criterion(sim.schwarz_controller, sim.subsims)
 end
 
-function update_schwarz_convergence_criterion(schwarz_controller::SolidSchwarzController, sims::Vector{SingleDomainSimulation})
+function update_schwarz_convergence_criterion(
+    schwarz_controller::SolidSchwarzController,
+    sims::Vector{SingleDomainSimulation},
+)
     num_domains = schwarz_controller.num_domains
     norms_disp = zeros(num_domains)
     norms_diff = zeros(num_domains)
@@ -236,11 +304,13 @@ function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
     if sim.schwarz_controller.absolute_error == 0.0
         return true
     end
-    exceeds_minimum_iterations = iteration_number > sim.schwarz_controller.minimum_iterations
+    exceeds_minimum_iterations =
+        iteration_number > sim.schwarz_controller.minimum_iterations
     if exceeds_minimum_iterations == false
         return false
     end
-    exceeds_maximum_iterations = iteration_number > sim.schwarz_controller.maximum_iterations
+    exceeds_maximum_iterations =
+        iteration_number > sim.schwarz_controller.maximum_iterations
     if exceeds_maximum_iterations == true
         return true
     end
@@ -253,11 +323,17 @@ function check_overlap(model::SolidMechanics, bc::SMContactSchwarzBC)
     overlap = false
     for node_index ∈ bc.side_set_node_indices
         point = model.current[:, node_index]
-        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(point, bc.coupled_mesh, bc.coupled_side_set_id, bc.coupled_subsim.model)
+        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(
+            point,
+            bc.coupled_mesh,
+            bc.coupled_side_set_id,
+            bc.coupled_subsim.model,
+        )
         num_nodes_coupled_side = length(coupled_face_node_indices)
         parametric_dim = length(ξ)
         element_type = get_element_type(parametric_dim, num_nodes_coupled_side)
-        overlap = distance ≤ distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
+        overlap =
+            distance ≤ distance_tol && is_inside_parametric(element_type, ξ, parametric_tol)
         if overlap == true
             break
         end
@@ -265,7 +341,11 @@ function check_overlap(model::SolidMechanics, bc::SMContactSchwarzBC)
     return overlap
 end
 
-function check_compression(mesh::ExodusDatabase, model::SolidMechanics, bc::SMContactSchwarzBC)
+function check_compression(
+    mesh::ExodusDatabase,
+    model::SolidMechanics,
+    bc::SMContactSchwarzBC,
+)
     compression_tol = 0.0
     compression = false
     reactions = get_dst_traction(bc)
@@ -312,7 +392,8 @@ function detect_contact(sim::MultiDomainSimulation)
     sim.schwarz_controller.active_contact = any(contact_domain)
     println("contact ", sim.schwarz_controller.active_contact)
     resize!(sim.schwarz_controller.contact_hist, sim.schwarz_controller.stop + 1)
-    sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop + 1] = sim.schwarz_controller.active_contact
+    sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop+1] =
+        sim.schwarz_controller.active_contact
     write_scharz_params_csv(sim)
     return sim.schwarz_controller.active_contact
 end
@@ -321,7 +402,7 @@ function write_scharz_params_csv(sim::MultiDomainSimulation)
     stop = sim.schwarz_controller.stop
     csv_interval = get(sim.params, "CSV output interval", 0)
     if csv_interval > 0 && stop % csv_interval == 0
-        index_string = "-" * string(stop, pad=4)
+        index_string = "-" * string(stop, pad = 4)
         contact_filename = "contact" * index_string * ".csv"
         writedlm(contact_filename, sim.schwarz_controller.active_contact, '\n')
         iters_filename = "iterations" * index_string * ".csv"

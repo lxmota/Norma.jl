@@ -1,7 +1,9 @@
 function barycentricD2N3(ξ::Vector{Float64})
     N = [1.0 - ξ[1] - ξ[2], ξ[1], ξ[2]]
-    dN = [-1 1 0
-          -1 0 1] / 1.0
+    dN = [
+        -1 1 0
+        -1 0 1
+    ] / 1.0
     ddN = zeros(2, 2, 3)
     return N, dN, ddN
 end
@@ -19,8 +21,10 @@ function barycentricD2N3G3()
     w = ones(3) / 6.0
     N = zeros(3, 3)
     dN = zeros(2, 3, 3)
-    ξ = [1 4 1
-         1 1 4] / 6
+    ξ = [
+        1 4 1
+        1 1 4
+    ] / 6
     for p ∈ 1:3
         N[:, p], dN[:, :, p], _ = barycentricD2N3(ξ[:, p])
     end
@@ -28,13 +32,12 @@ function barycentricD2N3G3()
 end
 
 function barycentricD3N4(ξ::Vector{Float64})
-    N = [1 - ξ[1] - ξ[2] - ξ[3],
-        ξ[1],
-        ξ[2],
-        ξ[3]]
-    dN = [-1 1 0 0
-          -1 0 1 0
-          -1 0 0 1] / 1.0
+    N = [1 - ξ[1] - ξ[2] - ξ[3], ξ[1], ξ[2], ξ[3]]
+    dN = [
+        -1 1 0 0
+        -1 0 1 0
+        -1 0 0 1
+    ] / 1.0
     ddN = zeros(3, 3, 4)
     return N, dN, ddN
 end
@@ -44,29 +47,33 @@ function barycentricD3N10(ξ::Vector{Float64})
     t1 = ξ[1]
     t2 = ξ[2]
     t3 = ξ[3]
-    N = [t0 * (2 * t0 - 1),
-         t1 * (2 * t1 - 1),
-         t2 * (2 * t2 - 1),
-         t3 * (2 * t3 - 1),
-         4 * t0 * t1,
-         4 * t1 * t2,
-         4 * t2 * t0,
-         4 * t0 * t3,
-         4 * t1 * t3,
-         4 * t2 * t3]
-    dN = [1-4*t0 4*t1-1 0 0 4*(t0-t1) 4*t2 -4*t2 -4*t3 4*t3 0
-          1-4*t0 0 4*t2-1 0 -4*t1 4*t1 4*(t0-t2) -4*t3 0 4*t3
-          1-4*t0 0 0 4*t3-1 -4*t1 0 -4*t2 4*(t0-t3) 4*t1 4*t2]
+    N = [
+        t0 * (2 * t0 - 1),
+        t1 * (2 * t1 - 1),
+        t2 * (2 * t2 - 1),
+        t3 * (2 * t3 - 1),
+        4 * t0 * t1,
+        4 * t1 * t2,
+        4 * t2 * t0,
+        4 * t0 * t3,
+        4 * t1 * t3,
+        4 * t2 * t3,
+    ]
+    dN = [
+        1-4*t0 4*t1-1 0 0 4*(t0-t1) 4*t2 -4*t2 -4*t3 4*t3 0
+        1-4*t0 0 4*t2-1 0 -4*t1 4*t1 4*(t0-t2) -4*t3 0 4*t3
+        1-4*t0 0 0 4*t3-1 -4*t1 0 -4*t2 4*(t0-t3) 4*t1 4*t2
+    ]
     ddN = zeros(3, 3, 10)
-    ddN[1,1,:] = [4  4  0  0 -8  0  0  0  0  0] * 1.0
-    ddN[1,2,:] = [4  0  0  0 -4  4 -4  0  0  0] * 1.0
-    ddN[1,3,:] = [4  0  0  0 -4  0  0 -4  4  0] * 1.0
-    ddN[2,1,:] = [4  0  0  0 -4  4 -4  0  0  0] * 1.0
-    ddN[2,2,:] = [4  0  4  0  0  0 -8  0  0  0] * 1.0
-    ddN[2,3,:] = [4  0  0  0  0  0 -4 -4  0  4] * 1.0
-    ddN[3,1,:] = [4  0  0  0 -4  0  0 -4  4  0] * 1.0
-    ddN[3,2,:] = [4  0  0  0  0  0 -4 -4  0  4] * 1.0
-    ddN[3,3,:] = [4  0  0  4  0  0  0 -8  0  0] * 1.0
+    ddN[1, 1, :] = [4 4 0 0 -8 0 0 0 0 0] * 1.0
+    ddN[1, 2, :] = [4 0 0 0 -4 4 -4 0 0 0] * 1.0
+    ddN[1, 3, :] = [4 0 0 0 -4 0 0 -4 4 0] * 1.0
+    ddN[2, 1, :] = [4 0 0 0 -4 4 -4 0 0 0] * 1.0
+    ddN[2, 2, :] = [4 0 4 0 0 0 -8 0 0 0] * 1.0
+    ddN[2, 3, :] = [4 0 0 0 0 0 -4 -4 0 4] * 1.0
+    ddN[3, 1, :] = [4 0 0 0 -4 0 0 -4 4 0] * 1.0
+    ddN[3, 2, :] = [4 0 0 0 0 0 -4 -4 0 4] * 1.0
+    ddN[3, 3, :] = [4 0 0 4 0 0 0 -8 0 0] * 1.0
     return N, dN, ddN
 end
 
@@ -86,9 +93,11 @@ function barycentricD3N4G4()
     s = sqrt(5.0)
     a = 5.0 + 3.0 * s
     b = 5.0 - s
-    ξ = [b a b b
-         b b a b
-         b b b a] / 20.0
+    ξ = [
+        b a b b
+        b b a b
+        b b b a
+    ] / 20.0
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = barycentricD3N4(ξ[:, p])
     end
@@ -102,9 +111,11 @@ function barycentricD3N10G4()
     s = sqrt(5.0)
     a = 5.0 + 3.0 * s
     b = 5.0 - s
-    ξ = [b a b b
-         b b a b
-         b b b a] / 20.0
+    ξ = [
+        b a b b
+        b b a b
+        b b b a
+    ] / 20.0
     for p ∈ 1:4
         N[:, p], dN[:, :, p], _ = barycentricD3N10(ξ[:, p])
     end
@@ -112,14 +123,16 @@ function barycentricD3N10G4()
 end
 
 function barycentricD3N10G5()
-    a = -2/15
-    b = 3/40
+    a = -2 / 15
+    b = 3 / 40
     w = [a b b b b]
     N = zeros(10, 5)
     dN = zeros(3, 10, 5)
-    ξ = [1/4 1/6 1/6 1/6 1/2
-         1/4 1/6 1/6 1/2 1/6
-         1/4 1/6 1/2 1/6 1/6]
+    ξ = [
+        1/4 1/6 1/6 1/6 1/2
+        1/4 1/6 1/6 1/2 1/6
+        1/4 1/6 1/2 1/6 1/6
+    ]
     for p ∈ 1:5
         N[:, p], dN[:, :, p], _ = barycentricD3N4(ξ[:, p])
     end
@@ -153,9 +166,9 @@ function gauss_legendre(n::Integer)
     end
     i = 1:n-1
     v = i ./ sqrt.(4.0 .* i .* i .- 1.0)
-    vv = eigen(diagm(1=>v, -1=>v))
+    vv = eigen(diagm(1 => v, -1 => v))
     ξ = vv.values
-    w = 2.0 * vv.vectors[1, :].^2
+    w = 2.0 * vv.vectors[1, :] .^ 2
     return ξ, w
 end
 
@@ -172,14 +185,28 @@ function gauss_legendreD2(n::Integer)
     elseif n == 4
         w = ones(4)
         g = sqrt(3.0) / 3.0
-        ξ = g * [-1  1  1 -1;
-                 -1 -1  1  1]
+        ξ = g * [
+            -1 1 1 -1
+            -1 -1 1 1
+        ]
         return ξ, w
-    elseif n == 9    
+    elseif n == 9
         x, ω = gauss_legendreD1(3)
-        ξ = [x[1] x[3] x[3] x[1] x[2] x[3] x[2] x[1] x[2];
-             x[1] x[1] x[3] x[3] x[1] x[2] x[3] x[2] x[2]]
-        w = [ω[1]*ω[1], ω[3]*ω[1], ω[3]*ω[3], ω[1]*ω[3], ω[2]*ω[1], ω[3]*ω[2], ω[2]*ω[3], ω[1]*ω[2], ω[2]*ω[2]]
+        ξ = [
+            x[1] x[3] x[3] x[1] x[2] x[3] x[2] x[1] x[2]
+            x[1] x[1] x[3] x[3] x[1] x[2] x[3] x[2] x[2]
+        ]
+        w = [
+            ω[1] * ω[1],
+            ω[3] * ω[1],
+            ω[3] * ω[3],
+            ω[1] * ω[3],
+            ω[2] * ω[1],
+            ω[3] * ω[2],
+            ω[2] * ω[3],
+            ω[1] * ω[2],
+            ω[2] * ω[2],
+        ]
     end
 end
 
@@ -301,9 +328,11 @@ function lagrangianD3N8G8()
     N = zeros(8, 8)
     dN = zeros(3, 8, 8)
     g = sqrt(3.0) / 3.0
-    ξ = g * [-1 1 1 -1 -1 1 1 -1
+    ξ = g * [
+        -1 1 1 -1 -1 1 1 -1
         -1 -1 1 1 -1 -1 1 1
-        -1 -1 -1 -1 1 1 1 1]
+        -1 -1 -1 -1 1 1 1 1
+    ]
     for p ∈ 1:8
         N[:, p], dN[:, :, p], _ = lagrangianD3N8(ξ[:, p])
     end
@@ -424,7 +453,11 @@ end
 using Symbolics
 @variables t, x, y, z
 
-function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::Num, time::Float64)
+function get_side_set_nodal_forces(
+    nodal_coord::Matrix{Float64},
+    traction_num::Num,
+    time::Float64,
+)
     _, num_side_nodes = size(nodal_coord)
     element_type = get_element_type(2, num_side_nodes)
     num_int_points = default_num_int_pts(element_type)
@@ -437,7 +470,8 @@ function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::N
         j = norm(cross(dXdξ[1, :], dXdξ[2, :]))
         wₚ = w[point]
         point_coord = nodal_coord * Nₚ
-        values = Dict(t=>time, x=>point_coord[1], y=>point_coord[2], z=>point_coord[3])
+        values =
+            Dict(t => time, x => point_coord[1], y => point_coord[2], z => point_coord[3])
         traction_sym = substitute(traction_num, values)
         traction_val = extract_value(traction_sym)
         nodal_force_component += traction_val * Nₚ * j * wₚ
@@ -445,7 +479,11 @@ function get_side_set_nodal_forces(nodal_coord::Matrix{Float64}, traction_num::N
     return nodal_force_component
 end
 
-function map_to_parametric(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
+function map_to_parametric(
+    element_type::String,
+    nodes::Matrix{Float64},
+    point::Vector{Float64},
+)
     tol = 1.0e-08
     dim = length(point)
     ξ = zeros(dim)
@@ -455,11 +493,11 @@ function map_to_parametric(element_type::String, nodes::Matrix{Float64}, point::
         trial_point = nodes * N
         residual = trial_point - point
         hessian = nodes * dN'
-        δ = - hessian \ residual
+        δ = -hessian \ residual
         ξ = ξ + δ
         error = norm(δ)
         if error <= tol
-          break
+            break
         end
     end
     return ξ
@@ -510,13 +548,19 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return is_inside_parametric(element_type, ξ)
 end
 
-function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set_id::Integer, model::SolidMechanics)
+function find_and_project(
+    point::Vector{Float64},
+    mesh::ExodusDatabase,
+    side_set_id::Integer,
+    model::SolidMechanics,
+)
     #we assume that we know the contact surfaces in advance 
-    num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
+    num_nodes_per_sides, side_set_node_indices =
+        Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
     point_new = point
-    closest_face_nodes = Array{Float64}(undef,0)
-    closest_face_node_indices = Array{Int64}(undef,0)
+    closest_face_nodes = Array{Float64}(undef, 0)
+    closest_face_node_indices = Array{Int64}(undef, 0)
     space_dim = length(point)
     parametric_dim = space_dim - 1
     closest_ξ = zeros(parametric_dim)
@@ -524,9 +568,11 @@ function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set
     minimum_absolute_distance = Inf
     closest_distance = 0.0
     for num_nodes_side ∈ num_nodes_per_sides
-        face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
+        face_node_indices =
+            side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
-        trial_point, ξ, distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
+        trial_point, ξ, distance, normal =
+            closest_point_projection(parametric_dim, face_nodes, point)
         distance_centr = get_distance_to_centroid(face_nodes, point)
         if abs(distance_centr) < minimum_absolute_distance
             minimum_absolute_distance = abs(distance_centr)
@@ -539,7 +585,12 @@ function find_and_project(point::Vector{Float64}, mesh::ExodusDatabase, side_set
         end
         ss_node_index += num_nodes_side
     end
-    return point_new, closest_ξ, closest_face_nodes, closest_face_node_indices, closest_normal, closest_distance
+    return point_new,
+    closest_ξ,
+    closest_face_nodes,
+    closest_face_node_indices,
+    closest_normal,
+    closest_distance
 end
 
 function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
@@ -561,7 +612,8 @@ function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
 end
 
 function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Integer)
-    num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
+    num_nodes_per_sides, side_set_node_indices =
+        Exodus.read_side_set_node_list(mesh, side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
     global_to_local_map = Dict{Int64,Int64}()
@@ -582,14 +634,20 @@ function get_side_set_local_to_global_map(mesh::ExodusDatabase, side_set_id::Int
     return local_to_global_map
 end
 
-function get_square_projection_matrix(mesh::ExodusDatabase, model::SolidMechanics, side_set_id::Integer)
-    global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
+function get_square_projection_matrix(
+    mesh::ExodusDatabase,
+    model::SolidMechanics,
+    side_set_id::Integer,
+)
+    global_to_local_map, num_nodes_sides, side_set_node_indices =
+        get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
     coords = model.current
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
-        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        side_nodes =
+            side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
         side_coordinates = coords[:, side_nodes]
         element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
@@ -610,18 +668,28 @@ function get_square_projection_matrix(mesh::ExodusDatabase, model::SolidMechanic
     return square_projection_matrix
 end
 
-function get_rectangular_projection_matrix(dst_mesh::ExodusDatabase, dst_model::SolidMechanics, dst_side_set_id::Integer, src_mesh::ExodusDatabase, src_model::SolidMechanics, src_side_set_id::Integer)
-    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices = get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
+function get_rectangular_projection_matrix(
+    dst_mesh::ExodusDatabase,
+    dst_model::SolidMechanics,
+    dst_side_set_id::Integer,
+    src_mesh::ExodusDatabase,
+    src_model::SolidMechanics,
+    src_side_set_id::Integer,
+)
+    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices =
+        get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_global_to_local_map)
     dst_coords = dst_model.current
-    src_global_to_local_map, _, _ = get_side_set_global_to_local_map(src_mesh, src_side_set_id)
+    src_global_to_local_map, _, _ =
+        get_side_set_global_to_local_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_global_to_local_map)
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
-    dst_local_indices = Array{Int64}(undef,0)
-    src_local_indices = Array{Int64}(undef,0)
+    dst_local_indices = Array{Int64}(undef, 0)
+    src_local_indices = Array{Int64}(undef, 0)
     dst_side_set_node_index = 1
     for dst_num_nodes_side ∈ dst_num_nodes_sides
-        dst_side_nodes = dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
+        dst_side_nodes =
+            dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
         dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
         dst_side_coordinates = dst_coords[:, dst_side_nodes]
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
@@ -635,11 +703,13 @@ function get_rectangular_projection_matrix(dst_mesh::ExodusDatabase, dst_model::
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
             is_inside = false
-            _, ξ, src_side_coordinates, src_side_nodes, _, _ = find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
+            _, ξ, src_side_coordinates, src_side_nodes, _, _ =
+                find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
             src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
             src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
             src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
-            rectangular_projection_matrix[dst_local_indices, src_local_indices] += dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
+            rectangular_projection_matrix[dst_local_indices, src_local_indices] +=
+                dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
         end
         dst_side_set_node_index += dst_num_nodes_side
     end
@@ -647,15 +717,17 @@ function get_rectangular_projection_matrix(dst_mesh::ExodusDatabase, dst_model::
 end
 
 function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMechanics)
-    global_to_local_map, num_nodes_sides, side_set_node_indices = get_side_set_global_to_local_map(mesh, side_set_id)
+    global_to_local_map, num_nodes_sides, side_set_node_indices =
+        get_side_set_global_to_local_map(mesh, side_set_id)
     coords = model.current
     num_nodes = length(global_to_local_map)
     space_dim, _ = size(coords)
     normals = zeros(space_dim, num_nodes)
-    local_indices = Array{Int64}(undef,0)
+    local_indices = Array{Int64}(undef, 0)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
-        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        side_nodes =
+            side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
         local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
         coordinates = coords[:, side_nodes]
         point_A = coordinates[:, 1]
@@ -670,7 +742,13 @@ function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMe
     return normals
 end
 
-function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::Vector{Float64}, t::Float64)
+function interpolate(
+    tᵃ::Float64,
+    tᵇ::Float64,
+    xᵃ::Vector{Float64},
+    xᵇ::Vector{Float64},
+    t::Float64,
+)
     Δt = tᵇ - tᵃ
     if Δt == 0.0
         return 0.5 * (xᵃ + xᵇ)
@@ -680,7 +758,11 @@ function interpolate(tᵃ::Float64, tᵇ::Float64, xᵃ::Vector{Float64}, xᵇ::
     return p * xᵃ + q * xᵇ
 end
 
-function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Float64}}, param::Float64)
+function interpolate(
+    param_hist::Vector{Float64},
+    value_hist::Vector{Vector{Float64}},
+    param::Float64,
+)
     if param < param_hist[1]
         param = param_hist[1]
     end
@@ -700,13 +782,23 @@ function interpolate(param_hist::Vector{Float64}, value_hist::Vector{Vector{Floa
     elseif index == size
         return value_hist[size]
     else
-        return interpolate(param_hist[index], param_hist[index + 1], value_hist[index], value_hist[index + 1], param)
+        return interpolate(
+            param_hist[index],
+            param_hist[index+1],
+            value_hist[index],
+            value_hist[index+1],
+            param,
+        )
     end
 end
 
 using Einsum
 
-function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64}, x::Vector{Float64})
+function closest_point_projection(
+    parametric_dim::Integer,
+    nodes::Matrix{Float64},
+    x::Vector{Float64},
+)
     space_dim, num_nodes = size(nodes)
     element_type = get_element_type(parametric_dim, num_nodes)
     ξ = zeros(parametric_dim)
@@ -727,7 +819,7 @@ function closest_point_projection(parametric_dim::Integer, nodes::Matrix{Float64
         @einsum ddyddξ[i, j, k] := ddN[i, j, l] * nodes[k, l]
         @einsum ddyddξyx[i, j] := ddyddξ[i, j, k] * yx[k]
         hessian = ddyddξyx + dydξ * dydξ'
-        δ = - hessian \ residual
+        δ = -hessian \ residual
         ξ = ξ + δ
         error = norm(δ)
         if error <= tol

@@ -44,7 +44,7 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     name = params["name"]
     input_mesh_file = params["input mesh file"]
     output_mesh_file = params["output mesh file"]
-    rm(output_mesh_file, force=true)
+    rm(output_mesh_file, force = true)
     input_mesh = Exodus.ExodusDatabase(input_mesh_file, "r")
     Exodus.copy(input_mesh, output_mesh_file)
     output_mesh = Exodus.ExodusDatabase(output_mesh_file, "rw")
@@ -83,7 +83,8 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subsim = SingleDomainSimulation(subparams)
         params[domain_name] = subsim.params
         integrator_name = subsim.params["time integrator"]["type"]
-        subsim_type = is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
+        subsim_type =
+            is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
         if sim_type == "none"
             sim_type = subsim_type
         elseif subsim_type ≠ sim_type
@@ -95,7 +96,13 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     end
     params["subdomains type"] = sim_type
     schwarz_controller = create_schwarz_controller(params)
-    sim = MultiDomainSimulation(name, params, schwarz_controller, subsims, subsim_name_index_map)
+    sim = MultiDomainSimulation(
+        name,
+        params,
+        schwarz_controller,
+        subsims,
+        subsim_name_index_map,
+    )
     for subsim ∈ sim.subsims
         subsim.params["global_simulation"] = sim
     end
