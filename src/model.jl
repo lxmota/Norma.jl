@@ -229,7 +229,7 @@ function equal_volume_tet_h(u::Vector{Float64}, v::Vector{Float64}, w::Vector{Fl
 end
 
 function avg_edge_length_tet_h(u::Vector{Float64}, v::Vector{Float64}, w::Vector{Float64})
-    h = (norm(u) + norm(v) + norm(w)) / 3.0
+    h = (norm(u) + norm(v) + norm(w) + norm(u - v) + norm(u - w) + norm(v - w)) / 6.0
     return h
 end
 
