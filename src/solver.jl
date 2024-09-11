@@ -307,6 +307,9 @@ end
 function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     stored_energy, internal_force, body_force, stiffness_matrix =
         evaluate(integrator, model)
+    if model.failed == true
+        return
+    end
     integrator.stored_energy = stored_energy
     solver.value = stored_energy
     external_force = body_force + model.boundary_force
@@ -316,6 +319,9 @@ end
 
 function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::SolidMechanics)
     stored_energy, internal_force, body_force, _ = evaluate(integrator, model)
+    if model.failed == true
+        return
+    end
     integrator.stored_energy = stored_energy
     solver.value = stored_energy
     external_force = body_force + model.boundary_force
@@ -325,6 +331,9 @@ end
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
     stored_energy, internal_force, body_force, stiffness_matrix, mass_matrix =
         evaluate(integrator, model)
+    if model.failed == true
+        return
+    end
     integrator.stored_energy = stored_energy
     β = integrator.β
     Δt = integrator.time_step
@@ -343,6 +352,9 @@ function evaluate(
     model::SolidMechanics,
 )
     stored_energy, internal_force, body_force, lumped_mass = evaluate(integrator, model)
+    if model.failed == true
+        return
+    end
     integrator.stored_energy = stored_energy
     inertial_force = lumped_mass .* integrator.acceleration
     kinetic_energy = 0.5 * lumped_mass ⋅ (integrator.velocity .* integrator.velocity)
@@ -376,6 +388,9 @@ function backtrack_line_search(
         solver.solution[free] = initial_solution[free] + step[free]
         copy_solution_source_targets(solver, model, integrator)
         evaluate(integrator, solver, model)
+        if model.failed == true
+            return step
+        end
         resid = solver.gradient
         merit = 0.5 * dot(resid, resid)
         if merit ≤ (1.0 - 2.0 * decrease_factor * step_length) * merit_old
@@ -504,6 +519,9 @@ end
 function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
     predict(integrator, solver, model)
     evaluate(integrator, solver, model)
+    if model.failed == true
+        return
+    end
     residual = solver.gradient
     norm_residual = norm(residual[model.free_dofs])
     solver.initial_norm = norm_residual
@@ -515,6 +533,9 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
         solver.solution[model.free_dofs] += step
         correct(integrator, solver, model)
         evaluate(integrator, solver, model)
+        if model.failed == true
+            return
+        end
         residual = solver.gradient
         norm_residual = norm(residual[model.free_dofs])
         if iteration_number == 0
