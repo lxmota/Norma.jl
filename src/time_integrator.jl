@@ -130,11 +130,7 @@ function is_static_or_dynamic(integrator_name::String)
     end
 end
 
-function initialize(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
-    println("Establishing initial equilibrium")
-    copy_solution_source_targets(model, integrator, solver)
-    solve(integrator, solver, model)
-    copy_solution_source_targets(solver, model, integrator)
+function initialize(_::QuasiStatic, _::Any, _::SolidMechanics)
 end
 
 function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
