@@ -605,9 +605,6 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
             lumped_mass[elem_dofs] += element_lumped_mass
         end
     end
-    if mesh_smoothing == true
-        internal_force -= 1.0e+01 * integrator.velocity
-    end
     model.internal_force = internal_force
     return energy, internal_force, body_force, lumped_mass
 end
