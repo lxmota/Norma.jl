@@ -125,6 +125,20 @@ mutable struct Neohookean <: Solid
     end
 end
 
+mutable struct NeohookeanAD <: Solid
+    E::Float64
+    ν::Float64
+    κ::Float64
+    λ::Float64
+    μ::Float64
+    ρ::Float64
+    function NeohookeanAD(params::Dict{Any,Any})
+        E, ν, κ, λ, μ = elastic_constants(params)
+        ρ = params["density"]
+        new(E, ν, κ, λ, μ, ρ)
+    end
+end
+
 mutable struct J2 <: Solid
     E::Float64
     ν::Float64
@@ -516,6 +530,55 @@ function constitutive(material::Neohookean, F::Matrix{Float64})
     return W, P, AA
 end
 
+function energy_neohookean(F::Matrix{Float64}, material::NeohookeanAD)
+    C = F' * F
+    J2 = det(C)
+    Jm23 = 1.0 / cbrt(J2)
+    trC = tr(C)
+    κ = material.κ
+    μ = material.μ
+    Wvol = 0.25 * κ * (J2 - log(J2) - 1)
+    Wdev = 0.5 * μ * (Jm23 * trC - 3)
+    W = Wvol + Wdev
+    return W
+end
+
+function constitutive(material::NeohookeanAD, F::Matrix{Float64})
+    C = F' * F
+    J2 = det(C)
+    Jm23 = 1.0 / cbrt(J2)
+    trC = tr(C)
+    κ = material.κ
+    μ = material.μ
+    Wvol = 0.25 * κ * (J2 - log(J2) - 1)
+    Wdev = 0.5 * μ * (Jm23 * trC - 3)
+    energy(F) = Wvol + Wdev
+    W, P, AA = constitutive(material, energy, F)
+    return W, P, AA
+end
+
+function constitutive(material::Solid, energy::Function, F::Matrix{Float64})
+    C = MiniTensor.dot(MiniTensor.transpose(F), F)
+    J2 = MiniTensor.determinant(C)
+    Jm23 = 1.0 / cbrt(J2)
+    trC = MiniTensor.trace(C)
+    κ = material.κ
+    μ = material.μ
+    Wvol = 0.25 * κ * (J2 - log(J2) - 1)
+    Wdev = 0.5 * μ * (Jm23 * trC - 3)
+    f(F) = Wvol + Wdev
+    #f(F) = MiniTensor.determinant(F)
+    W = energy(F)
+    #P = reshape(collect(gradient(Forward, f, F)), 3, 3)
+    println("*** DEBUG DEFGRAD : ", F)
+    println("*** DEBUG ENERGY : ", typeof(f), f(F))
+    println("*** DEBUG STRESS : ", gradient(Forward, f, F))
+    stop
+    AA = zeros(3,3,3,3)
+    #AA = reshape(collect(gradient(Forward, (FF) -> reshape(collect(gradient(Forward, energy, FF)), 3, 3), F)), 3, 3, 3, 3)
+    return W, P, AA
+end
+
 function create_material(params::Dict{Any,Any})
     model_name = params["model"]
     if model_name == "linear elastic"
@@ -524,6 +587,8 @@ function create_material(params::Dict{Any,Any})
         return SaintVenant_Kirchhoff(params)
     elseif model_name == "neohookean"
         return Neohookean(params)
+    elseif model_name == "neohookeanAD"
+        return NeohookeanAD(params)
     else
         error("Unknown material model : ", model_name)
     end

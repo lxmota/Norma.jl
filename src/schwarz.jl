@@ -111,6 +111,9 @@ function schwarz(sim::MultiDomainSimulation)
         sim.schwarz_controller.iteration_number = iteration_number
         synchronize(sim)
         subcycle(sim, is_schwarz)
+        if sim.failed == true
+            return
+        end
         iteration_number += 1
         ΔX = update_schwarz_convergence_criterion(sim)
         println("Schwarz criterion |ΔX|=", ΔX)
@@ -193,6 +196,10 @@ function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
             subsim.model.time = subsim.integrator.time
             apply_bcs(subsim)
             advance(subsim)
+            if subsim.failed == true
+                sim.failed = true
+                return
+            end
             if sim.schwarz_controller.active_contact == true &&
                sim.schwarz_controller.naive_stabilized == true
                 apply_naive_stabilized_bcs(subsim)

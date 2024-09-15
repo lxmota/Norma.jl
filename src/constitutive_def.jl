@@ -1,3 +1,4 @@
+using Enzyme
 using LinearAlgebra
 
 include("minitensor.jl")

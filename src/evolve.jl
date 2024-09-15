@@ -63,6 +63,9 @@ function advance(sim::MultiDomainSimulation)
     end
     save_stop_solutions(sim)
     solve_contact(sim)
+    if sim.failed == true
+        return
+    end
     was_in_contact = sim.schwarz_controller.active_contact
     detect_contact(sim)
     if sim.schwarz_controller.active_contact ≠ was_in_contact
@@ -110,11 +113,16 @@ end
 
 function solve(sim::SingleDomainSimulation)
     solve(sim.integrator, sim.solver, sim.model)
+    sim.failed = sim.model.failed
 end
 
 function solve(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
         solve(subsim)
+        if subsim.failed == true
+            sim.failed = true
+            return
+        end
     end
 end
 

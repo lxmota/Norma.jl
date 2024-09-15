@@ -53,7 +53,8 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     integrator = create_time_integrator(params)
     solver = create_solver(params)
     model = create_model(params)
-    return SingleDomainSimulation(name, params, integrator, solver, model)
+    failed = false
+    return SingleDomainSimulation(name, params, integrator, solver, model, failed)
 end
 
 function MultiDomainSimulation(params::Dict{Any,Any})
@@ -96,12 +97,14 @@ function MultiDomainSimulation(params::Dict{Any,Any})
     end
     params["subdomains type"] = sim_type
     schwarz_controller = create_schwarz_controller(params)
+    failed = false
     sim = MultiDomainSimulation(
         name,
         params,
         schwarz_controller,
         subsims,
         subsim_name_index_map,
+        failed
     )
     for subsim ∈ sim.subsims
         subsim.params["global_simulation"] = sim

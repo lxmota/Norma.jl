@@ -347,7 +347,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
                 J = det(dxdX)
                 if J ≤ 0.0
                     model.failed = true
-                    error("evaluation of model has failed with a non-positive Jacobian")
+                    @warn "evaluation of model has failed with a non-positive Jacobian"
                     return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof)
                 end
                 F = dxdX
@@ -430,7 +430,7 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
                 J = det(dxdX)
                 if J ≤ 0.0
                     model.failed = true
-                    error("evaluation of model has failed with a non-positive Jacobian")
+                    @warn "evaluation of model has failed with a non-positive Jacobian"
                     return 0.0,
                     zeros(num_dof),
                     zeros(num_dof),
@@ -608,7 +608,7 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
                 J = det(dxdX)
                 if J ≤ 0.0
                     model.failed = true
-                    error("evaluation of model has failed with a non-positive Jacobian")
+                    @warn "evaluation of model has failed with a non-positive Jacobian"
                     return 0.0, zeros(num_dof), zeros(num_dof), zeros(num_dof)
                 end
                 F = dxdX
@@ -630,9 +630,6 @@ function evaluate(integrator::CentralDifference, model::SolidMechanics)
             internal_force[elem_dofs] += element_internal_force
             lumped_mass[elem_dofs] += element_lumped_mass
         end
-    end
-    if mesh_smoothing == true
-        internal_force -= 1.0e+01 * integrator.velocity
     end
     model.internal_force = internal_force
     return energy, internal_force, body_force, lumped_mass
