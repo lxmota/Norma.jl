@@ -1,5 +1,6 @@
 module Norma
 
+include("minitensor.jl")
 include("simulation.jl")
 include("evolve.jl")
 

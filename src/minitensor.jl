@@ -92,7 +92,7 @@ end
 # product, Weyrauch, Michael and Scholz, Daniel, COMPUTER PHYSICS
 # COMMUNICATIONS, 2009, 180:9,1558-1565.
 #
-function BCH(x::AbstractMatrix{Float64}, y::AbstractMatrix{Float64})
+function bch(x::AbstractMatrix{Float64}, y::AbstractMatrix{Float64})
 
     z1 = x + y
 
@@ -343,7 +343,7 @@ end
 # quaternion.  After that, only divisions are needed and the divisor
 # should be bounded as far from zero as possible.
 #
-function QofRT(R::AbstractMatrix{Float64})
+function q_from_rt(R::AbstractMatrix{Float64})
     trR = tr(R)
     maxm = trR
     maxi = 4
@@ -423,7 +423,7 @@ end
 #
 # whenever qs is close to 1.
 #
-function RVofQ(qq::AbstractVector{Float64})
+function rv_from_q(qq::AbstractVector{Float64})
     if qq[1] >= 0
         q = qq
     else
@@ -450,10 +450,9 @@ end
 #
 # NAME  FUNCTION FORM      X    ASSYMPTOTICS    FIRST RADIUS    SECOND RADIUS
 # ----  -------------      -    ------------    ------------    -------------
-# Ψ     sin(x)/x           0    1.0(-x^2/6)     (6*EPS)^.5      (120*EPS)^.25
+# psi   sin(x)/x           0    1.0(-x^2/6)     (6*EPS)^.5      (120*EPS)^.25
 #
-# ΨΧΤ
-function Ψ(x::Float64)
+function psi(x::Float64)
     y = abs(x)
     e2 = sqrt(eps())
     e4 = sqrt(e2)
@@ -476,9 +475,9 @@ end
 #   qv = sin(|aa| / 2) * aa / |aa|
 #   qs = cos(|aa| / 2)
 #
-function QofRV(aa::AbstractVector{Float64})
+function q_from_rv(aa::AbstractVector{Float64})
     halfnorm = 0.5 * norm(aa)
-    temp = 0.5 * Ψ(halfnorm)
+    temp = 0.5 * psi(halfnorm)
     qq = zeros(4)
     qq[2:4] = temp * aa
     qq[1] = cos(halfnorm)
@@ -495,7 +494,7 @@ end
 #      + 2 * qs * check(qv)
 #      + (2 * qs^2 - 1) * I
 #
-function RTofQ(qq::AbstractVector{Float64})
+function rt_from_q(qq::AbstractVector{Float64})
     qs = qq[1]
     qv = [qq[2], qq[3], qq[4]]
     I = [1 0 0; 0 1 0; 0 0 1]
@@ -506,23 +505,23 @@ end
 #
 # Rotation pseudo-vector of rotation tensor
 #
-function RVofRT(R::AbstractMatrix{Float64})
-    q = QofRT(R)
-    w = RVofQ(q)
+function rv_from_rt(R::AbstractMatrix{Float64})
+    q = q_from_rt(R)
+    w = rv_from_q(q)
     return w
 end
 
 #
 # Rotation tensor of rotation pseudo-vector
 #
-function RTofRV(w::AbstractVector{Float64})
-    q = QofRV(w)
-    R = RTofQ(q)
+function rt_from_rv(w::AbstractVector{Float64})
+    q = q_from_rv(w)
+    R = rt_from_q(q)
     return R
 end
 
 #
-# RVcontin
+# rv_continue
 #
 # This function takes as input two rotation pseudo-vectors, "old" and
 # "prev". The function returns a pseudo-vector which maps into the
@@ -548,7 +547,7 @@ end
 # continuation vector should be the closest multiple of 2 π along
 # "prev"; hence "proj" and "unit" must satisfy "prev == proj * unit".
 #
-function RVcontin(old::AbstractVector{Float64}, prev::AbstractVector{Float64})
+function rv_continue(old::AbstractVector{Float64}, prev::AbstractVector{Float64})
     norm_old = norm(old)
     if norm_old > 0.0
         unit = normalize(old)

@@ -1,8 +1,6 @@
 using Enzyme
 using LinearAlgebra
 
-include("minitensor.jl")
-
 using .MiniTensor
 
 abstract type Material end
