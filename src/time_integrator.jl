@@ -1,5 +1,5 @@
 using DelimitedFiles
-using Formatting
+using Format
 
 function QuasiStatic(params::Dict{Any,Any})
     integrator_params = params["time integrator"]
@@ -279,7 +279,7 @@ function initialize_writing(
         stress_xz_index = ip_var_index + 5
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
-        ip_str = sprintf1("_%d", point)
+        ip_str = "_" * cfmt("%d", point)
         Exodus.write_name(
             output_mesh,
             ElementVariable,
@@ -383,7 +383,7 @@ function initialize_writing(
         stress_xz_index = ip_var_index + 5
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
-        ip_str = sprintf1("_%d", point)
+        ip_str = "_" * cfmt("%d", point)
         Exodus.write_name(
             output_mesh,
             ElementVariable,
@@ -529,7 +529,7 @@ function write_step_exodus(
             end
         end
         for point ∈ 1:num_points
-            ip_str = sprintf1("_%d", point)
+            ip_str = "_" * cfmt("%d", point)
             Exodus.write_values(
                 output_mesh,
                 ElementVariable,
@@ -653,7 +653,7 @@ function write_step_exodus(
             end
         end
         for point ∈ 1:num_points
-            ip_str = sprintf1("_%d", point)
+            ip_str = "_" * cfmt("%d", point)
             Exodus.write_values(
                 output_mesh,
                 ElementVariable,
