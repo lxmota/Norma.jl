@@ -28,7 +28,7 @@ function QuasiStatic(params::Dict{Any,Any})
     final_time = integrator_params["final time"]
     time_step = integrator_params["time step"]
     minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
-    time = initial_time
+    time = prev_time = initial_time
     stop = 0
     input_mesh = params["input_mesh"]
     num_nodes = Exodus.num_nodes(input_mesh.init)
@@ -45,6 +45,7 @@ function QuasiStatic(params::Dict{Any,Any})
         decrease_factor,
         maximum_time_step,
         increase_factor,
+        prev_time,
         time,
         stop,
         displacement,
@@ -60,7 +61,7 @@ function Newmark(params::Dict{Any,Any})
     final_time = integrator_params["final time"]
     time_step = integrator_params["time step"]
     minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
-    time = initial_time
+    time = prev_time = initial_time
     stop = 0
     β = integrator_params["β"]
     γ = integrator_params["γ"]
@@ -83,6 +84,7 @@ function Newmark(params::Dict{Any,Any})
         decrease_factor,
         maximum_time_step,
         increase_factor,
+        prev_time,
         time,
         stop,
         β,
@@ -105,7 +107,7 @@ function CentralDifference(params::Dict{Any,Any})
     minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
     stable_time_step = 0.0
     user_time_step = integrator_params["time step"]
-    time = initial_time
+    time = prev_time = initial_time
     stop = 0
     CFL = integrator_params["CFL"]
     γ = integrator_params["γ"]
@@ -128,6 +130,7 @@ function CentralDifference(params::Dict{Any,Any})
         increase_factor,
         user_time_step,
         stable_time_step,
+        prev_time,
         time,
         stop,
         CFL,

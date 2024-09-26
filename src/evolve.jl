@@ -217,6 +217,12 @@ function advance_time(sim::SingleDomainSimulation)
     sim.integrator.stop += 1
 end
 
+function regress_time(sim::SingleDomainSimulation)
+    prev_time = sim.integrator.prev_time
+    sim.integrator.time = sim.model.time = prev_time
+    sim.integrator.stop -= 1
+end
+
 function advance_time(sim::MultiDomainSimulation)
     sim.schwarz_controller.prev_time = sim.schwarz_controller.time
     next_time =
