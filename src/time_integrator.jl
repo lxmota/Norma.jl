@@ -1,30 +1,22 @@
 using DelimitedFiles
 using Format
 
-function adaptive_stepping_parameters(params::Dict{Any,Any})
-    sim_type = params["type"]
-    if sim_type == "multi"
-        time_params = params
-    elseif sim_type == "single"
-        time_params = params["time integrator"]
-    else
-        error("Unknown type of simulation : ", sim_type)
-    end
-    has_minimum = haskey(time_params, "minimum time step")
-    has_decrease = haskey(time_params, "decrease factor")
-    has_maximum = haskey(time_params, "maximum time step")
-    has_increase = haskey(time_params, "increase factor")
+function adaptive_stepping_parameters(integrator_params::Dict{Any,Any})
+    has_minimum = haskey(integrator_params, "minimum time step")
+    has_decrease = haskey(integrator_params, "decrease factor")
+    has_maximum = haskey(integrator_params, "maximum time step")
+    has_increase = haskey(integrator_params, "increase factor")
     has_any = has_minimum || has_decrease || has_maximum || has_increase
     has_all = has_minimum && has_decrease && has_maximum && has_increase
     if (has_any == true && has_all == false)
         error("Adaptive time stepping requires 4 parameters: minimum and maximum time steps and decrease and increase factors")
     elseif (has_any == true && has_all == true)
-        minimum_time_step = time_params["minimum time step"]
-        decrease_factor = time_params["decrease factor"]
-        maximum_time_step = time_params["maximum time step"]
-        increase_factor = time_params["increase factor"]
+        minimum_time_step = integrator_params["minimum time step"]
+        decrease_factor = integrator_params["decrease factor"]
+        maximum_time_step = integrator_params["maximum time step"]
+        increase_factor = integrator_params["increase factor"]
     else
-        minimum_time_step = maximum_time_step = time_params["time step"]
+        minimum_time_step = maximum_time_step = integrator_params["time step"]
         decrease_factor = increase_factor = 1.0
     end
     return minimum_time_step, decrease_factor, maximum_time_step, increase_factor
@@ -35,7 +27,7 @@ function QuasiStatic(params::Dict{Any,Any})
     initial_time = integrator_params["initial time"]
     final_time = integrator_params["final time"]
     time_step = integrator_params["time step"]
-    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(params)
+    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
     time = initial_time
     stop = 0
     input_mesh = params["input_mesh"]
@@ -67,7 +59,7 @@ function Newmark(params::Dict{Any,Any})
     initial_time = integrator_params["initial time"]
     final_time = integrator_params["final time"]
     time_step = integrator_params["time step"]
-    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(params)
+    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
     time = initial_time
     stop = 0
     β = integrator_params["β"]
@@ -110,7 +102,7 @@ function CentralDifference(params::Dict{Any,Any})
     initial_time = integrator_params["initial time"]
     final_time = integrator_params["final time"]
     time_step = 0.0
-    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(params)
+    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
     stable_time_step = 0.0
     user_time_step = integrator_params["time step"]
     time = initial_time
