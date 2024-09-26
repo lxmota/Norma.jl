@@ -16,6 +16,7 @@ mutable struct SolidMechanics <: Model
     time::Float64
     failed::Bool
     mesh_smoothing::Bool
+    smooth_reference::String
 end
 
 # TODO: Add potential energy as in the above
