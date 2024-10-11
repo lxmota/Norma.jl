@@ -71,7 +71,7 @@ function SolidMechanics(params::Dict{Any,Any})
         push!(stored_energy, block_stored_energy)
     end
     mesh_smoothing = params["mesh smoothing"]
-    if mesh_smoothing
+    if mesh_smoothing == true
         smooth_reference = model_params["smooth reference"]
     else
         smooth_reference = ""
