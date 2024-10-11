@@ -10,3 +10,5 @@
 .vscode
 *.e
 *.exo
+**/*-potential-*.csv
+**/*-disp-*.csv

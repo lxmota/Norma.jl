@@ -71,6 +71,11 @@ function SolidMechanics(params::Dict{Any,Any})
         push!(stored_energy, block_stored_energy)
     end
     mesh_smoothing = params["mesh smoothing"]
+    if mesh_smoothing
+        smooth_reference = model_params["smooth reference"]
+    else
+        smooth_reference = ""
+    end
     SolidMechanics(
         input_mesh,
         materials,
@@ -87,6 +92,7 @@ function SolidMechanics(params::Dict{Any,Any})
         time,
         failed,
         mesh_smoothing,
+        smooth_reference,
     )
 end
 
@@ -189,13 +195,22 @@ function create_model(params::Dict{Any,Any})
     end
 end
 
-function create_smooth_reference(element_type::String, elem_ref_pos::Matrix{Float64})
+function create_smooth_reference(smooth_reference::String, element_type::String, elem_ref_pos::Matrix{Float64})
     if element_type == "TETRA4"
         u = elem_ref_pos[:, 2] - elem_ref_pos[:, 1]
         v = elem_ref_pos[:, 3] - elem_ref_pos[:, 1]
         w = elem_ref_pos[:, 4] - elem_ref_pos[:, 1]
-        #h = cbrt(sqrt(2.0) * dot(u, cross(v, w)))
-        h = (norm(u) + norm(v) + norm(w)) / 3.0
+
+        if smooth_reference == "equal volume"
+            h = equal_volume_tet_h(u, v, w)
+        elseif smooth_reference == "average edge length"
+            h = avg_edge_length_tet_h(u, v, w)
+        elseif smooth_reference == "max"
+            h = max(equal_volume_tet_h(u, v, w), avg_edge_length_tet_h(u, v, w))
+        else
+            error("Unknown type of mesh smoothing reference : ", smooth_reference)
+        end
+
         c = h * 0.5 / sqrt(2.0)
         A = [
             1 -1 -1 1
@@ -207,6 +222,17 @@ function create_smooth_reference(element_type::String, elem_ref_pos::Matrix{Floa
         error("Unknown element type")
     end
 end
+
+function equal_volume_tet_h(u::Vector{Float64}, v::Vector{Float64}, w::Vector{Float64})
+    h = cbrt(sqrt(2.0) * dot(u, cross(v, w)))
+    return h
+end
+
+function avg_edge_length_tet_h(u::Vector{Float64}, v::Vector{Float64}, w::Vector{Float64})
+    h = (norm(u) + norm(v) + norm(w) + norm(u - v) + norm(u - w) + norm(v - w)) / 6.0
+    return h
+end
+
 
 function voigt_cauchy_from_stress(
     _::Solid,
@@ -299,7 +325,7 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
             node_indices = elem_blk_conn[conn_indices]
             if mesh_smoothing == true
                 elem_ref_pos =
-                    create_smooth_reference(element_type, model.reference[:, node_indices])
+                    create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
             else
                 elem_ref_pos = model.reference[:, node_indices]
             end
