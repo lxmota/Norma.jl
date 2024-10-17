@@ -1,4 +1,3 @@
-using Enzyme
 using LinearAlgebra
 
 using .MiniTensor
