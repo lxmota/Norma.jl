@@ -1,3 +1,6 @@
+<img src="https://github.com/lxmota/Norma.jl/blob/main/doc/norma-contact-1.png" width="300">
+<img src="https://github.com/lxmota/Norma.jl/blob/main/doc/norma-contact-2.png" width="300">
+
 # Norma
 A Julia prototype for testing algorithms and ideas for coupling and multiphysics mainly in solid mechanics and heat conduction.
 
