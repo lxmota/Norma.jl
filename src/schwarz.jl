@@ -118,6 +118,7 @@ function schwarz(sim::MultiDomainSimulation)
         ΔX = update_schwarz_convergence_criterion(sim)
         println("Schwarz criterion |ΔX|=", ΔX)
         if stop_schwarz(sim, iteration_number) == true
+            println("Stopped at ", iteration_number, " Schwarz iterations")
             break
         end
         save_schwarz_solutions(sim)
