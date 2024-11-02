@@ -8,4 +8,4 @@ mesh volume all
 block all element type TETRA10
 export mesh "notched-cylinder-1-tet10.g" overwrite
 block all element type TETRA4
-export mesh "notched-cylinder-1-tet.g" overwrite
+export mesh "notched-cylinder-1-tet4.g" overwrite
