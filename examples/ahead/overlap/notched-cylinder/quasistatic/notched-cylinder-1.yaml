@@ -1,8 +1,6 @@
 type: single
-input mesh file: ../notched-cylinder.g
-output mesh file: notched-cylinder.e
-Exodus output interval: 1
-CSV output interval: 0
+input mesh file: ../notched-cylinder-1.g
+output mesh file: notched-cylinder-1.e
 model:
   type: solid mechanics
   material:
@@ -15,27 +13,25 @@ model:
       density: 1000.0
 time integrator:
   type: quasi static
-  initial time: 0.0
-  final time: 1.0
-  time step: 0.1
 boundary conditions:
   Dirichlet:
-    - node set: nodelist_1
-      component: x
+    - node set: -Z_bottom
+      component: z
       function: "0.0"
-    - node set: nodelist_2
+    - node set: +X_bottom
       component: y
       function: "0.0"
-    - node set: nodelist_3
-      component: z
+    - node set: +Y_bottom
+      component: x
       function: "0.0"
-    - node set: nodelist_4
-      component: z
-      function: "0.0064 * t"
+  Schwarz Dirichlet:
+    - node set: +Z_bottom
+      source: notched-cylinder-2.yaml
+      source block: coarse
 solver:
   type: Hessian minimizer
   step: full Newton
   minimum iterations: 1
   maximum iterations: 16
-  relative tolerance: 1.0e-12
-  absolute tolerance: 1.0e-08
+  relative tolerance: 1.0e-10
+  absolute tolerance: 1.0e-06

@@ -1,37 +1,39 @@
 type: single
-input mesh file: notched-cylinder-1.g
-output mesh file: notched-cylinder-1.e
+input mesh file: ../notched-cylinder-2.g
+output mesh file: notched-cylinder-2.e
 model:
   type: solid mechanics
   material:
     blocks:
-      fine: hyperelastic
+      coarse: hyperelastic
     hyperelastic:
       model: Saint-Venant Kirchhoff
       elastic modulus: 1440.0
       Poisson's ratio: 0.25
       density: 1000.0
 time integrator:
-  type: quasi static
+  type: Newmark
+  β: 0.25
+  γ: 0.5
 boundary conditions:
   Dirichlet:
-    - node set: -Z_bottom
-      component: z
-      function: "0.0"
-    - node set: +X_bottom
+    - node set: +X_top
       component: y
       function: "0.0"
-    - node set: +Y_bottom
+    - node set: +Y_top
       component: x
       function: "0.0"
+    - node set: +Z_top
+      component: z
+      function: "0.0064 * t"
   Schwarz Dirichlet:
-    - node set: +Z_bottom
-      source: notched-cylinder-2.yaml
-      source block: coarse
+    - node set: -Z_top
+      source: notched-cylinder-1.yaml
+      source block: fine
 solver:
   type: Hessian minimizer
   step: full Newton
   minimum iterations: 1
   maximum iterations: 16
-  relative tolerance: 1.0e-10
-  absolute tolerance: 1.0e-06
+  relative tolerance: 1.0e-07
+  absolute tolerance: 1.0e-05
