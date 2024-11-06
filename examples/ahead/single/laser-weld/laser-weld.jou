@@ -1,0 +1,382 @@
+
+# **************************************************************************************************
+#
+#   Create a welded geometry with a dogbone shape and partial penetration weld at center
+#
+# **************************************************************************************************
+
+
+# --------------------------------------------------------------------------------------------------
+#  Initialize Cubit  -------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+reset
+
+
+
+# --------------------------------------------------------------------------------------------------
+#  Global constants  -------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+#{pi = 3.14159265358979323846264338327950288419716939937510582}
+
+
+
+# --------------------------------------------------------------------------------------------------
+#  Create holder geometry --------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+#  Create and position holder blank ----------------------------------------------------------------
+
+#{specimen_length = 0.3}
+
+#{specimen_width = 0.1}
+
+#{specimen_thickness = 0.1}
+
+create brick x {specimen_width} y {specimen_length} z {specimen_thickness}
+move volume 1 x {specimen_width/2} y {specimen_length/2} z {specimen_thickness/2}
+
+
+
+# --------------------------------------------------------------------------------------------------
+#  Cut notch ---------------------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+#  Define notch radius based on a scale value and calculate inner mesh refinement cylinder around --
+#  crack(outer_notch) ------------------------------------------------------------------------------
+
+#{notch_depth = 0.05}
+#{notch_radius = 0.008/2}
+#{outer_notch =0.017/2}
+#{center_notch_tip = specimen_thickness - notch_depth + notch_radius}
+
+
+#  Cut notch tip -----------------------------------------------------------------------------------
+
+create cylinder radius {notch_radius} height {specimen_width}
+volume 2 rotate 90 about y
+
+volume 2 move z {center_notch_tip}
+volume 2 move x {specimen_width/2.}
+
+webcut volume 2 yplane
+
+webcut volume 1 tool volume 3
+
+delete volume 2 3 4
+
+compress ids
+
+
+
+#  Cut notch ---------------------------------------------------------------------------------------
+
+create brick x {specimen_width} y {notch_radius*2.} z {notch_depth - notch_radius}
+volume 2 move x {specimen_width/2.}
+volume 2 move z {specimen_thickness - (notch_depth - notch_radius)/2.}
+webcut volume 1 tool volume 2
+
+delete volume 2 3
+
+compress ids
+
+
+
+# Create lower weld geometry -----------------------------------------------------------------------
+
+#{angle_notch = 40}
+
+webcut volume 1 with plane zplane offset {center_notch_tip} rotate -{angle_notch} about x center 0 0 {center_notch_tip}
+
+
+
+# Create upper weld geometry -----------------------------------------------------------------------
+
+#  Define the nominal size of the weld at the outer surface in the y direction - divide by two due -
+#  to y-plane symmetry -----------------------------------------------------------------------------
+
+#{half_weld_width_surface=0.0375/2}
+
+create cylinder radius {half_weld_width_surface} height {specimen_width}
+volume 3 rotate 90 about y
+volume 3 move x {specimen_width/2.}
+webcut volume 2 tool volume 3
+delete volume 3
+
+compress ids
+
+
+
+#  Create middle weld geometry ---------------------------------------------------------------------
+
+#{angle_weld_upper = pi * 45 / 180}
+#{angle_weld_lower = pi * angle_notch / 180}
+#{point_intersection = center_notch_tip + sqrt(outer_notch^2 - notch_radius^2)}
+
+webcut volume 2 with general plane location {specimen_width} {notch_radius} {point_intersection} location 0 {notch_radius} {point_intersection} location 0 {half_weld_width_surface*cos(angle_weld_upper)} {half_weld_width_surface*sin(angle_weld_upper)}
+
+unite volume 1 4
+
+unite volume 2 3
+
+compress ids
+
+
+
+#  Create other half of specimen -------------------------------------------------------------------
+
+volume all copy reflect y
+
+merge tolerance 5.0e-6
+imprint tolerant volume all
+merge volume all
+merge tolerance 5.000000e-04
+
+
+
+#  Unite weld halves -------------------------------------------------------------------------------
+
+unite volume 2 4
+
+compress ids
+
+
+
+#  Make cuts for Shwarz ----------------------------------------------------------------------------
+
+#{nElementsThroughThickness = 4}
+
+#{sizeElementCoarse = (specimen_thickness) / (nElementsThroughThickness)}
+
+#{widthRegionWeld = 4.0 * sizeElementCoarse}
+
+webcut volume 1 with plane yplane offset {widthRegionWeld}
+
+webcut volume 3 with plane yplane offset -{widthRegionWeld}
+
+#{widthOverlap = 1.0 * sizeElementCoarse}
+
+webcut volume 3 with plane yplane offset -{widthRegionWeld + widthOverlap}
+
+webcut volume 4 with plane yplane offset {widthRegionWeld + widthOverlap}
+
+compress ids
+
+
+
+#  Merge geometries --------------------------------------------------------------------------------
+
+merge tolerance 5.0e-6
+imprint tolerant volume all
+merge volume all
+merge tolerance 5.000000e-04
+
+
+
+# ==================================================================================================
+#   Mesh specimen ----------------------------------------------------------------------------------
+# ==================================================================================================
+
+# --------------------------------------------------------------------------------------------------
+#  Create exodus blocks ----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+set duplicate block elements on
+
+
+# Create weld bead block ---------------------------------------------------------------------------
+
+block 1 volume 2
+
+block 1 name "bead_weld"
+
+block 2 volume 5 6 
+
+block 2 name "region_weld_0"
+
+block 5 volume 1 4
+
+block 5 name "region_weld_1"
+
+block 11 volume 1 2 4 5 6
+
+block 11 name "gauge"
+
+#  Create overlap blocks ---------------------------------------------------------------------------
+
+block 6 volume 6
+
+block 6 name "overlap_0"
+
+block 4 volume 4
+
+block 4 name "overlap_1"
+
+
+# Create holder-0 block ----------------------------------------------------------------------------
+
+block 3 volume 3 6
+
+block 3 name "holder_0"
+
+
+# Create holder-1 block ----------------------------------------------------------------------------
+
+block 7 volume 4 7
+
+block 7 name "holder_1"
+
+
+# Create single domain blocks ----------------------------------------------------------------------
+
+block 8 volume 3 5 6
+block 8 name "holder0"
+
+block 9 volume 1 4 7
+block 9 name "holder1" 
+
+block 10 volume 2 3 5 6 1 4 7
+
+# --------------------------------------------------------------------------------------------------
+#  Set mesh parameters -----------------------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+##{ratioSizeCoarseFine = 9} #IKT 11/5/2024: this was orig resolution
+#{ratioSizeCoarseFine = 2}
+#{sizeElementFine = (sizeElementCoarse) / (ratioSizeCoarseFine)}
+##{ratioSizeCoarseMedium = 3} #IKT 11/5/2024: this was orig resolution
+#{ratioSizeCoarseMedium = 1 
+#{sizeElementMedium = (sizeElementCoarse) / (ratioSizeCoarseMedium)}
+
+
+#  Mesh for single domain variable mesh computation ------------------------------------------------
+
+volume 3 7 size {sizeElementCoarse}
+volume 4 6 size {sizeElementMedium}
+volume 1 2 5 size {sizeElementFine}
+
+mesh volume 3 7
+
+refine surface 29 39 numsplit 1 depth 1
+
+mesh volume 4 6
+
+refine surface 23 26 numsplit 1 depth 1
+
+mesh volume 1 2 5
+
+nodeset 1 surface 30 37 26 8 20 41 47
+nodeset 1 name "surface_symmetry"
+
+nodeset 2 surface 16
+nodeset 2 name "surface_negative_y"
+
+nodeset 3 surface 1
+nodeset 3 name "surface_positive_y"
+
+set large exodus file on
+export mesh "LaserWeldSimplified_SingleDomain_MeshBiased_Specimen.g" dimension 3 block 1 8 9 overwrite
+
+set large exodus file on
+export mesh "LaserWeldSimplified_SingleDomain_MeshBiased_SingleBlock_Specimen.g" dimension 3 block 10 overwrite
+
+delete mesh volume all propagate
+
+#  Mesh for single domain fine mesh computation ------------------------------------------------
+
+volume all size {sizeElementFine}
+
+mesh volume all 
+
+nodeset 1 surface 30 37 26 8 20 41 47
+nodeset 1 name "surface_symmetry"
+
+nodeset 2 surface 16
+nodeset 2 name "surface_negative_y"
+
+nodeset 3 surface 1
+nodeset 3 name "surface_positive_y"
+
+set large exodus file on
+export mesh "LaserWeldSimplified_SingleDomain_MeshFine_Specimen.g" dimension 3 block 1 8 9 overwrite
+
+set large exodus file on
+export mesh "LaserWeldSimplified_SingleDomain_MeshFine_SingleBlock_Specimen.g" dimension 3 block 10 overwrite
+
+delete mesh volume all propagate
+
+# --------------------------------------------------------------------------------------------------
+#  Mesh for Shwarz coupling computation ------------------------------------------------------------
+# --------------------------------------------------------------------------------------------------
+
+#  Weld region domain ------------------------------------------------------------------------------
+
+volume all size {sizeElementFine}
+
+mesh volume 1 2 4 5 6
+
+reset nodeset
+
+nodeset 1 surface 30 37 26 8 20 41 47 
+
+nodeset 1 name "surface_symmetry"
+
+nodeset 2 surface 29
+nodeset 2 name "surface_negative_y"
+
+nodeset 3 surface 39
+nodeset 3 name "surface_positive_y"
+
+set large exodus file on
+export mesh "LaserWeldSimplified_Specimen_Gauge.g" dimension 3 block 1 2 5 overwrite
+
+export mesh "LaserWeldSimplified_Specimen_Gauge_SingleBlock.g" dimension 3 block 11 overwrite
+
+delete mesh volume all propagate
+
+
+#  Holder 0 domain ---------------------------------------------------------------------------------
+
+volume 3 6 size {sizeElementCoarse}
+
+mesh volume 3 6
+
+reset nodeset
+
+nodeset 1 surface 30 37
+
+nodeset 1 name "surface_symmetry"
+
+nodeset 2 surface 16
+nodeset 2 name "surface_negative_y"
+
+nodeset 3 surface 23
+nodeset 3 name "surface_positive_y"
+
+
+set large exodus file on
+export mesh "LaserWeldSimplified_Specimen_Holder0.g" dimension 3 block 3 overwrite
+
+
+#  Holder 1 domain ---------------------------------------------------------------------------------
+
+volume 4 7 size {sizeElementCoarse}
+
+mesh volume 4 7
+
+reset nodeset
+
+nodeset 1 surface 41 47
+
+nodeset 1 name "surface_symmetry"
+
+nodeset 2 surface 17
+nodeset 2 name "surface_negative_y"
+
+nodeset 3 surface 1
+nodeset 3 name "surface_positive_y"
+
+set large exodus file on
+export mesh "LaserWeldSimplified_Specimen_Holder1.g" dimension 3 block 7 overwrite
+
