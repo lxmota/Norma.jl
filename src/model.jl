@@ -333,6 +333,23 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
             element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
+
+            # Here, we need to check whether or not any of these DOFs are in the Schwarz boundary
+            model_bcs = model.boundary_conditions
+            schwarz_contact = Vector{Int64}()
+            for (idx, bc) in enumerate(model_bcs)
+                if isa(bc, SMContactSchwarzBC)
+                    push!(schwarz_contact, idx)
+                end
+            end
+
+            if length(schwarz_contact) != 0
+                # The model has schwarz contact
+                println("Theres some contact here")
+            end
+
+
+            exit()
             elem_dofs[1:3:num_elem_dofs-2] = 3 .* node_indices .- 2
             elem_dofs[2:3:num_elem_dofs-1] = 3 .* node_indices .- 1
             elem_dofs[3:3:num_elem_dofs] = 3 .* node_indices
@@ -464,6 +481,7 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
                 element_mass,
                 elem_dofs,
             )
+
         end
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
