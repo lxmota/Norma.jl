@@ -184,7 +184,12 @@ end
 function write_coords_csv(params::Dict{Any,Any}, coords::Matrix{Float64})
   csv_interval = get(params, "CSV output interval", 0)
   if csv_interval > 0
-    coord_filename = "coords.csv" 
+    sim_id = 1
+    if haskey(params, "global_simulation") == true
+      sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
+    end
+    sim_id_string = string(sim_id, pad = 2) * "-"
+    coord_filename = sim_id_string * "coords.csv"
     writedlm(coord_filename, coords, '\n')
   end 
 end
