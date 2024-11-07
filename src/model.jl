@@ -294,6 +294,29 @@ function assemble(
     end
 end
 
+function assemble_inclined(
+    rows::Vector{Int64},
+    cols::Vector{Int64},
+    global_stiffness::Vector{Float64},
+    global_mass::Vector{Float64},
+    element_stiffness::Matrix{Float64},
+    element_mass::Matrix{Float64},
+    dofs::Vector{Int64},
+    inclined_transforms::Vector{Float64}
+)
+    num_dofs = length(dofs)
+    for i ∈ 1:num_dofs
+        I = dofs[i]
+        for j ∈ 1:num_dofs
+            J = dofs[j]
+            push!(rows, I)
+            push!(cols, J)
+            push!(global_mass, element_mass[i, j])
+            push!(global_stiffness, element_stiffness[i, j])
+        end
+    end
+end
+
 function evaluate(_::QuasiStatic, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
@@ -308,6 +331,28 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     stiffness = Vector{Float64}()
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(blocks)
+
+    # BRP: Contact
+    # Here, we need to check whether or not any of these DOFs are in the Schwarz boundary
+    model_bcs = model.boundary_conditions
+    schwarz_contact = Vector{Int64}()
+
+    for (idx, bc) in enumerate(model_bcs)
+        if isa(bc, SMContactSchwarzBC)
+            push!(schwarz_contact, idx)
+        end
+    end
+    node_indices_sch = Vector{Int64}()
+    if length(schwarz_contact) != 0
+        # Model has contact, figure out what elements we need to pay attention to
+        if length(schwarz_contact) > 1
+            throw("More than 1 contact boundary not implemented.")
+        end
+        for sch_bc in schwarz_contact
+            node_indices_sch = model_bcs[sch_bc].side_set_node_indices
+        end
+    end
+    # BRP: End Contact
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
@@ -323,6 +368,9 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
         for blk_elem_index ∈ 1:num_blk_elems
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
+            # Check node indices if they're in inclined support indices
+
+
             if mesh_smoothing == true
                 elem_ref_pos =
                     create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
@@ -333,23 +381,6 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
             element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
-
-            # Here, we need to check whether or not any of these DOFs are in the Schwarz boundary
-            model_bcs = model.boundary_conditions
-            schwarz_contact = Vector{Int64}()
-            for (idx, bc) in enumerate(model_bcs)
-                if isa(bc, SMContactSchwarzBC)
-                    push!(schwarz_contact, idx)
-                end
-            end
-
-            if length(schwarz_contact) != 0
-                # The model has schwarz contact
-                println("Theres some contact here")
-            end
-
-
-            exit()
             elem_dofs[1:3:num_elem_dofs-2] = 3 .* node_indices .- 2
             elem_dofs[2:3:num_elem_dofs-1] = 3 .* node_indices .- 1
             elem_dofs[3:3:num_elem_dofs] = 3 .* node_indices
@@ -381,6 +412,29 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
             energy += element_energy
             model.stored_energy[blk_index][blk_elem_index] = element_energy
             internal_force[elem_dofs] += element_internal_force
+
+            # Hijack the element_stiffness matrix by rotating it locally for all nodes
+            # that are included in the node indices
+
+            # Hard-coded for a 30 degree rotation about the Z
+            T_nodal =  [ 0.8660254 -0.5 0.; 0.5 0.8660254 0.; 0. 0. 1.] 
+            # Initialize a 9x9 matrix filled with zeros
+            T_local = zeros(num_elem_dofs, num_elem_dofs)
+            eye = Diagonal(ones(3))
+
+            # Place the submatrices along the diagonal
+            for (rot_index, ni) in enumerate(node_indices)
+                base = (rot_index-1)*3
+                if ni in node_indices_sch
+                    T_local[base+1:base+3, base+1:base+3] .= T_nodal
+                else
+                    T_local[base+1:base+3, base+1:base+3] .= eye
+                end
+            end
+            # println(size(T_local))
+            # println(size(element_stiffness))
+            element_stiffness = T_local' * element_stiffness * T_local
+
             assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
         end
     end
