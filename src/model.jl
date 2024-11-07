@@ -2,6 +2,8 @@ include("constitutive.jl")
 include("interpolation.jl")
 include("ics_bcs.jl")
 
+global sim_id = Ref{Int64}(1); 
+
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
@@ -184,13 +186,10 @@ end
 function write_coords_csv(params::Dict{Any,Any}, coords::Matrix{Float64})
   csv_interval = get(params, "CSV output interval", 0)
   if csv_interval > 0
-    sim_id = 1
-    if haskey(params, "global_simulation") == true
-      sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
-    end
-    sim_id_string = string(sim_id, pad = 2) * "-"
+    sim_id_string = string(sim_id[], pad = 2) * "-"
     coord_filename = sim_id_string * "coords.csv"
     writedlm(coord_filename, coords, '\n')
+    sim_id[] = sim_id[] + 1; 
   end 
 end
 
