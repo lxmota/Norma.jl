@@ -485,7 +485,6 @@ function writedlm_nodal_array(filename::String, nodal_array::Matrix{Float64})
     end
 end
 
-
 function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     stop = integrator.stop
     exodus_interval = get(params, "Exodus output interval", 1)
@@ -502,7 +501,7 @@ function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     end
 end
 
-function write_step_csv(integrator::StaticTimeIntegrator, model::Any, sim_id::Integer)
+function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
@@ -518,7 +517,7 @@ function write_step_csv(integrator::StaticTimeIntegrator, model::Any, sim_id::In
     end
 end
 
-function write_step_csv(integrator::DynamicTimeIntegrator, model::Any, sim_id::Integer)
+function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
