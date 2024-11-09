@@ -1,5 +1,6 @@
 using DelimitedFiles
 using Format
+using Printf 
 
 function adaptive_stepping_parameters(integrator_params::Dict{Any,Any})
     has_minimum = haskey(integrator_params, "minimum time step")
@@ -476,6 +477,21 @@ function finalize_writing(params::Dict{Any,Any})
     Exodus.close(output_mesh)
 end
 
+function writedlm_nodal_vector(vector_name::String, nodal_vector::Vector{Float64},  sim_id::Integer)
+    sim_id_string = string(sim_id, pad = 2) * "-"
+    filename = sim_id_string * vector_name * ".csv"
+    f = open(filename, "w")
+    for i ∈ 1:length(nodal_vector)
+      if i < length(nodal_vector) 
+        @printf(f, "%g, ", nodal_vector[i]) 
+      else 
+        @printf(f, "%g ", nodal_vector[i]) 
+      end 
+    end
+    close(f) 
+end
+
+
 function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     stop = integrator.stop
     exodus_interval = get(params, "Exodus output interval", 1)
@@ -488,27 +504,34 @@ function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
         if haskey(params, "global_simulation") == true
             sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
         end
-        write_step_csv(integrator, sim_id)
+        write_step_csv(integrator, sim_id, model::Any)
     end
 end
 
-function write_step_csv(integrator::StaticTimeIntegrator, sim_id::Integer)
+function write_step_csv(integrator::StaticTimeIntegrator, sim_id::Integer, model::Any)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
+    time_filename = sim_id_string * "time" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
     writedlm(potential_filename, integrator.stored_energy, '\n')
+    writedlm(time_filename, integrator.time, '\n')
+    coords = vec(model.reference) #we are getting reference instead of coords because reference is interleaved
+    if stop == 0 
+      writedlm_nodal_vector("coords", coords, sim_id)
+    end
 end
 
-function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
+function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer, model::Any)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     velo_filename = sim_id_string * "velo" * index_string * ".csv"
     acce_filename = sim_id_string * "acce" * index_string * ".csv"
+    time_filename = sim_id_string * "time" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
     kinetic_filename = sim_id_string * "kinetic" * index_string * ".csv"
     writedlm(disp_filename, integrator.displacement, '\n')
@@ -516,6 +539,11 @@ function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
     writedlm(acce_filename, integrator.acceleration, '\n')
     writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
+    writedlm(time_filename, integrator.time, '\n')
+    coords = vec(model.reference) #we are getting reference instead of coords because reference is interleaved 
+    if stop == 0 
+      writedlm_nodal_vector("coords", coords, sim_id)
+    end 
 end
 
 function write_step_exodus(

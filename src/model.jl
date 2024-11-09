@@ -2,13 +2,10 @@ include("constitutive.jl")
 include("interpolation.jl")
 include("ics_bcs.jl")
 
-global sim_id = Ref{Int64}(1); 
-
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     coords = read_coordinates(input_mesh)
-    write_coords_csv(params, coords) 
     num_nodes = Exodus.num_nodes(input_mesh.init)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     current = Matrix{Float64}(undef, 3, num_nodes)
@@ -103,7 +100,6 @@ function HeatConduction(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     coords = read_coordinates(input_mesh)
-    write_coords_csv(params, coords) 
     num_nodes = Exodus.num_nodes(input_mesh.init)
     reference = Matrix{Float64}(undef, 3, num_nodes)
     temperature = Vector{Float64}(undef, num_nodes)
@@ -181,16 +177,6 @@ function HeatConduction(params::Dict{Any,Any})
         time,
         failed,
     )
-end
-
-function write_coords_csv(params::Dict{Any,Any}, coords::Matrix{Float64})
-  csv_interval = get(params, "CSV output interval", 0)
-  if csv_interval > 0
-    sim_id_string = string(sim_id[], pad = 2) * "-"
-    coord_filename = sim_id_string * "coords.csv"
-    writedlm(coord_filename, coords, '\n')
-    sim_id[] = sim_id[] + 1; 
-  end 
 end
 
 function create_model(params::Dict{Any,Any})
