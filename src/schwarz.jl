@@ -399,6 +399,13 @@ function detect_contact(sim::MultiDomainSimulation)
     end
     sim.schwarz_controller.active_contact = any(contact_domain)
     println("contact ", sim.schwarz_controller.active_contact)
+
+    # Propgate to the model_bcs
+    for domain ∈ 1:num_domains
+        subsim = sim.subsims[domain]
+        subsim.model.contact = sim.schwarz_controller.active_contact
+    end
+
     resize!(sim.schwarz_controller.contact_hist, sim.schwarz_controller.stop + 1)
     sim.schwarz_controller.contact_hist[sim.schwarz_controller.stop+1] =
         sim.schwarz_controller.active_contact

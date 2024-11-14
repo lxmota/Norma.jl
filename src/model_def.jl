@@ -2,6 +2,7 @@ abstract type Model end
 
 mutable struct SolidMechanics <: Model
     mesh::ExodusDatabase
+    mesh_name::String
     materials::Vector{Solid}
     reference::Matrix{Float64}
     current::Matrix{Float64}
@@ -17,6 +18,7 @@ mutable struct SolidMechanics <: Model
     failed::Bool
     mesh_smoothing::Bool
     smooth_reference::String
+    contact::Bool
 end
 
 # TODO: Add potential energy as in the above

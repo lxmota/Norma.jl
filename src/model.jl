@@ -4,7 +4,9 @@ include("ics_bcs.jl")
 
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
+    
     model_params = params["model"]
+    mesh_name = params["input mesh file"]
     coords = read_coordinates(input_mesh)
     num_nodes = Exodus.num_nodes(input_mesh.init)
     reference = Matrix{Float64}(undef, 3, num_nodes)
@@ -76,8 +78,11 @@ function SolidMechanics(params::Dict{Any,Any})
     else
         smooth_reference = ""
     end
+
+    contact = false 
     SolidMechanics(
         input_mesh,
+        mesh_name,
         materials,
         reference,
         current,
@@ -93,6 +98,7 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
+        contact
     )
 end
 
@@ -294,30 +300,8 @@ function assemble(
     end
 end
 
-function assemble_inclined(
-    rows::Vector{Int64},
-    cols::Vector{Int64},
-    global_stiffness::Vector{Float64},
-    global_mass::Vector{Float64},
-    element_stiffness::Matrix{Float64},
-    element_mass::Matrix{Float64},
-    dofs::Vector{Int64},
-    inclined_transforms::Vector{Float64}
-)
-    num_dofs = length(dofs)
-    for i ∈ 1:num_dofs
-        I = dofs[i]
-        for j ∈ 1:num_dofs
-            J = dofs[j]
-            push!(rows, I)
-            push!(cols, J)
-            push!(global_mass, element_mass[i, j])
-            push!(global_stiffness, element_stiffness[i, j])
-        end
-    end
-end
-
-function evaluate(_::QuasiStatic, model::SolidMechanics)
+function evaluate(time_integrator::QuasiStatic, model::SolidMechanics)
+    time = time_integrator.time
     materials = model.materials
     input_mesh = model.mesh
     mesh_smoothing = model.mesh_smoothing
@@ -331,6 +315,13 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
     stiffness = Vector{Float64}()
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(blocks)
+    rows_trans = Vector{Int64}()
+    col_trans = Vector{Int64}()
+    global_stiffness_transform = Vector{Float64}()
+
+
+    println("Input Mesh ", model.mesh_name)
+    println("Time ", time)
 
     # BRP: Contact
     # Here, we need to check whether or not any of these DOFs are in the Schwarz boundary
@@ -369,8 +360,6 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
             conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
             node_indices = elem_blk_conn[conn_indices]
             # Check node indices if they're in inclined support indices
-
-
             if mesh_smoothing == true
                 elem_ref_pos =
                     create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
@@ -415,13 +404,17 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
 
             # Hijack the element_stiffness matrix by rotating it locally for all nodes
             # that are included in the node indices
-
-            # Hard-coded for a 30 degree rotation about the Z
-            T_nodal =  [ 0.8660254 -0.5 0.; 0.5 0.8660254 0.; 0. 0. 1.] 
-            # Initialize a 9x9 matrix filled with zeros
+            # Initialize a 24x24 matrix filled with zeros
             T_local = zeros(num_elem_dofs, num_elem_dofs)
             eye = Diagonal(ones(3))
-
+            # Hard-coded for a 30 degree rotation about the Z
+            if model.contact == true && model.mesh_name == "cube-1.g"
+                #println("I FOUND MODEL CONTACTTTTT")
+                T_nodal =  [ 0.8660254 -0.5 0.; 0.5 0.8660254 0.; 0. 0. 1.] 
+            else
+                T_nodal =  eye # [ 0.8660254 0.5 0.; -0.5 0.8660254 0.; 0. 0. 1.] 
+            end
+            
             # Place the submatrices along the diagonal
             for (rot_index, ni) in enumerate(node_indices)
                 base = (rot_index-1)*3
@@ -431,14 +424,18 @@ function evaluate(_::QuasiStatic, model::SolidMechanics)
                     T_local[base+1:base+3, base+1:base+3] .= eye
                 end
             end
-            # println(size(T_local))
-            # println(size(element_stiffness))
-            element_stiffness = T_local' * element_stiffness * T_local
-
+            # element_stiffness_pre_rot = copy(element_stiffness)
+            # element_stiffness = T_local' * element_stiffness * T_local
+            assemble(rows_trans, col_trans, global_stiffness_transform, T_local, elem_dofs)
             assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
+            #assemble(rows_trans, cols_trans, global_stiffness_transform, T_local, elem_dofs)
         end
     end
     stiffness_matrix = sparse(rows, cols, stiffness)
+    global_transform = sparse(rows_trans, col_trans, global_stiffness_transform )
+
+    stiffness_matrix = global_transform' * stiffness_matrix * global_transform
+
     model.internal_force = internal_force
     return energy, internal_force, body_force, stiffness_matrix
 end

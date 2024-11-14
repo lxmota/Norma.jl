@@ -16,8 +16,11 @@ function run(params::Dict{Any,Any}, name::String)
     return sim
 end
 
-for input_file ∈ ARGS
-    run(input_file)
-end
+# for input_file ∈ ARGS
+#     #println("Running ", input_file)
+#     run(input_file)
+# end
+
+run("cubes.yaml")
 
 end
