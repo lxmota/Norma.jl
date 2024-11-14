@@ -476,6 +476,15 @@ function finalize_writing(params::Dict{Any,Any})
     Exodus.close(output_mesh)
 end
 
+function writedlm_nodal_array(filename::String, nodal_array::Matrix{Float64})
+    open(filename, "w") do io
+        for col ∈ 1:size(nodal_array, 2)
+            # Write each column as a comma-separated line
+            println(io, join(nodal_array[:, col], ","))
+        end
+    end
+end
+
 function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
     stop = integrator.stop
     exodus_interval = get(params, "Exodus output interval", 1)
@@ -488,34 +497,50 @@ function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
         if haskey(params, "global_simulation") == true
             sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
         end
-        write_step_csv(integrator, sim_id)
+        write_step_csv(integrator, model, sim_id)
     end
 end
 
-function write_step_csv(integrator::StaticTimeIntegrator, sim_id::Integer)
+function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
+    curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
-    writedlm(disp_filename, integrator.displacement, '\n')
+    time_filename = sim_id_string * "time" * index_string * ".csv"
+    writedlm_nodal_array(curr_filename, model.current)
+    writedlm_nodal_array(disp_filename, model.current - model.reference)
     writedlm(potential_filename, integrator.stored_energy, '\n')
+    writedlm(time_filename, integrator.time, '\n')
+    if stop == 0
+        refe_filename = sim_id_string * "refe" * ".csv"
+        writedlm_nodal_array(refe_filename, model.reference)
+    end
 end
 
-function write_step_csv(integrator::DynamicTimeIntegrator, sim_id::Integer)
+function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
+    curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     velo_filename = sim_id_string * "velo" * index_string * ".csv"
     acce_filename = sim_id_string * "acce" * index_string * ".csv"
+    time_filename = sim_id_string * "time" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
     kinetic_filename = sim_id_string * "kinetic" * index_string * ".csv"
-    writedlm(disp_filename, integrator.displacement, '\n')
-    writedlm(velo_filename, integrator.velocity, '\n')
-    writedlm(acce_filename, integrator.acceleration, '\n')
+    writedlm_nodal_array(curr_filename, model.current)
+    writedlm_nodal_array(velo_filename, model.velocity)
+    writedlm_nodal_array(acce_filename, model.acceleration)
+    writedlm_nodal_array(disp_filename, model.current - model.reference)
     writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
+    writedlm(time_filename, integrator.time, '\n')
+    if stop == 0 
+        refe_filename = sim_id_string * "refe" * ".csv"
+        writedlm_nodal_array(refe_filename, model.reference)
+    end 
 end
 
 function write_step_exodus(
