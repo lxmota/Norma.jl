@@ -506,9 +506,11 @@ function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics,
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
+    disp_filename = sim_id_string * "disp" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
     time_filename = sim_id_string * "time" * index_string * ".csv"
     writedlm_nodal_array(curr_filename, model.current)
+    writedlm_nodal_array(disp_filename, model.current - model.reference)
     writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(time_filename, integrator.time, '\n')
     if stop == 0
@@ -522,6 +524,7 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
+    disp_filename = sim_id_string * "disp" * index_string * ".csv"
     velo_filename = sim_id_string * "velo" * index_string * ".csv"
     acce_filename = sim_id_string * "acce" * index_string * ".csv"
     time_filename = sim_id_string * "time" * index_string * ".csv"
@@ -530,6 +533,7 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
     writedlm_nodal_array(curr_filename, model.current)
     writedlm_nodal_array(velo_filename, model.velocity)
     writedlm_nodal_array(acce_filename, model.acceleration)
+    writedlm_nodal_array(disp_filename, model.current - model.reference)
     writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
     writedlm(time_filename, integrator.time, '\n')
