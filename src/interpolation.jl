@@ -456,7 +456,7 @@ using Symbolics
 function get_side_set_nodal_forces(
     nodal_coord::Matrix{Float64},
     traction_num::Num,
-    time::Float64,
+    time::Float64
 )
     _, num_side_nodes = size(nodal_coord)
     element_type = get_element_type(2, num_side_nodes)
@@ -482,7 +482,7 @@ end
 function map_to_parametric(
     element_type::String,
     nodes::Matrix{Float64},
-    point::Vector{Float64},
+    point::Vector{Float64}
 )
     tol = 1.0e-08
     dim = length(point)

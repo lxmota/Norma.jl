@@ -159,7 +159,7 @@ function find_in_mesh(
     point::Vector{Float64},
     model::SolidMechanics,
     mesh::ExodusDatabase,
-    blk_id::Int,
+    blk_id::Int
 )
     element_type = Exodus.read_block_parameters(mesh, Int32(blk_id))[1]
     elem_blk_conn = get_block_connectivity(mesh, blk_id)

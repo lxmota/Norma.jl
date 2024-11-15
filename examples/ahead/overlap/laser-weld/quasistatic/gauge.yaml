@@ -16,10 +16,6 @@ model:
 time integrator:
   type: quasi static
 boundary conditions:
-  Dirichlet:
-    - node set: surface_symmetry
-      component: x
-      function: "0.0"
   Schwarz Dirichlet:
     - node set: surface_negative_y
       source: holder-0.yaml
