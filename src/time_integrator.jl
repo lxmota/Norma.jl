@@ -318,7 +318,7 @@ function initialize_writing(
         stress_xz_index = ip_var_index + 5
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
-        ip_str = "_" * cfmt("%d", point)
+        ip_str = "_" * string(point)
         Exodus.write_name(
             output_mesh,
             ElementVariable,
@@ -422,7 +422,7 @@ function initialize_writing(
         stress_xz_index = ip_var_index + 5
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
-        ip_str = "_" * cfmt("%d", point)
+        ip_str = "_" * string(point)
         Exodus.write_name(
             output_mesh,
             ElementVariable,
@@ -593,7 +593,7 @@ function write_step_exodus(
             end
         end
         for point ∈ 1:num_points
-            ip_str = "_" * cfmt("%d", point)
+            ip_str = "_" * string(point)
             Exodus.write_values(
                 output_mesh,
                 ElementVariable,
@@ -717,7 +717,7 @@ function write_step_exodus(
             end
         end
         for point ∈ 1:num_points
-            ip_str = "_" * cfmt("%d", point)
+            ip_str = "_" * string(point)
             Exodus.write_values(
                 output_mesh,
                 ElementVariable,
