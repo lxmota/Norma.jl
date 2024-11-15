@@ -18,19 +18,28 @@ model:
 time integrator:
   type: quasi static
   initial time: 0.0
-  final time: 0.08
-  time step: 0.005
+  final time: 0.1
+  time step: 0.01
 boundary conditions:
   Dirichlet:
-    - node set: surface_symmetry
+    - node set: surface_negative_y
       component: x
       function: "0.0"
     - node set: surface_negative_y
       component: y
       function: "-0.1 * t"
+    - node set: surface_negative_y
+      component: z
+      function: "0.0"
+    - node set: surface_positive_y
+      component: x
+      function: "0.0"
     - node set: surface_positive_y
       component: y
       function: "0.1 * t"
+    - node set: surface_positive_y
+      component: z
+      function: "0.0"
 solver:
   type: Hessian minimizer
   step: full Newton
