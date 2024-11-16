@@ -139,6 +139,22 @@ mutable struct NeohookeanAD <: Solid
     end
 end
 
+mutable struct SethHill <: Solid
+    E::Float64
+    ν::Float64
+    κ::Float64
+    λ::Float64
+    μ::Float64
+    ρ::Float64
+    m::Int
+    n::Int
+    function SethHill(params::Dict{Any,Any})
+        E, ν, κ, λ, μ = elastic_constants(params)
+        ρ = params["density"]
+        new(E, ν, κ, λ, μ, ρ, params["m"], params["n"])
+    end
+end
+
 mutable struct J2 <: Solid
     E::Float64
     ν::Float64
@@ -557,6 +573,33 @@ function constitutive(material::NeohookeanAD, F::Matrix{Float64})
     return W, P, AA
 end
 
+function constitutive(material::SethHill, F::Matrix{Float64})
+    C = F' * F
+    F⁻ᵀ = inv(F)'
+    J = det(F)
+    Jᵐ = J^material.m
+    J⁻ᵐ = 1.0 / Jᵐ
+    J²ᵐ = Jᵐ * Jᵐ
+    J⁻²ᵐ = 1.0 / J²ᵐ
+    Cbar = J^(-2/3) * C
+    Cbarⁿ = Cbar^material.n
+    Cbar⁻ⁿ = inv(Cbarⁿ)
+    Cbar²ⁿ = Cbarⁿ * Cbarⁿ
+    Cbar⁻²ⁿ = Cbar⁻ⁿ * Cbar⁻ⁿ
+    trCbarⁿ = tr(Cbarⁿ)
+    trCbar⁻ⁿ = tr(Cbar⁻ⁿ)
+    trCbar²ⁿ = tr(Cbar²ⁿ)
+    trCbar⁻²ⁿ = tr(Cbar⁻²ⁿ)
+    Wbulk = material.κ / 4 / material.m^2 * ((Jᵐ - 1)^2 + (J⁻ᵐ - 1)^2)
+    Wshear = material.μ / 4 / material.n^2 * (trCbar²ⁿ + trCbar⁻²ⁿ - 2 * trCbarⁿ  - 2 * trCbar⁻ⁿ + 6)
+    W = Wbulk + Wshear
+    Pbulk = material.κ / 2 / material.m * (J²ᵐ - Jᵐ - J⁻²ᵐ + J⁻ᵐ) * F⁻ᵀ
+    Pshear = material.μ / 4 / material.n * (4/3 * (-trCbar²ⁿ + trCbarⁿ + trCbar⁻²ⁿ - trCbar⁻ⁿ) * F⁻ᵀ + 2 * F⁻ᵀ * (Cbar²ⁿ - Cbarⁿ - Cbar⁻²ⁿ + Cbar⁻ⁿ))
+    P = Pbulk + Pshear
+    AA = zeros(3, 3, 3, 3)
+    return W, P, AA
+end
+
 function constitutive(material::Solid, energy::Function, F::Matrix{Float64})
     C = MiniTensor.dot(MiniTensor.transpose(F), F)
     J2 = MiniTensor.determinant(C)
@@ -589,6 +632,8 @@ function create_material(params::Dict{Any,Any})
         return Neohookean(params)
     elseif model_name == "neohookeanAD"
         return NeohookeanAD(params)
+    elseif model_name == "seth-hill"
+        return SethHill(params)
     else
         error("Unknown material model : ", model_name)
     end
