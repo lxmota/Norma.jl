@@ -37,6 +37,10 @@ function QuasiStatic(params::Dict{Any,Any})
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
     stored_energy = 0.0
+    initial_equilibrium = false
+    if haskey(integrator_params, "initial equilibrium") == true
+        initial_equilibrium = integrator_params["initial equilibrium"]
+    end
     QuasiStatic(
         initial_time,
         final_time,
@@ -52,6 +56,7 @@ function QuasiStatic(params::Dict{Any,Any})
         velocity,
         acceleration,
         stored_energy,
+        initial_equilibrium
     )
 end
 
@@ -169,7 +174,11 @@ function is_static_or_dynamic(integrator_name::String)
     end
 end
 
-function initialize(_::QuasiStatic, _::Any, _::SolidMechanics)
+function initialize(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+    if integrator.initial_equilibrium == true
+        println("Establishing initial equilibrium")
+        solve(integrator, solver, model)
+    end
 end
 
 function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)

@@ -14,6 +14,7 @@ model:
 time integrator:
   type: quasi static
   time step: 0.5
+  initial equilibrium: true
 boundary conditions:
   Dirichlet:
     - node set: nsx-
