@@ -594,7 +594,7 @@ function constitutive(material::SethHill, F::Matrix{Float64})
     Wshear = material.μ / 4 / material.n^2 * (trCbar²ⁿ + trCbar⁻²ⁿ - 2 * trCbarⁿ  - 2 * trCbar⁻ⁿ + 6)
     W = Wbulk + Wshear
     Pbulk = material.κ / 2 / material.m * (J²ᵐ - Jᵐ - J⁻²ᵐ + J⁻ᵐ) * F⁻ᵀ
-    Pshear = material.μ / 4 / material.n * (4/3 * (-trCbar²ⁿ + trCbarⁿ + trCbar⁻²ⁿ - trCbar⁻ⁿ) * F⁻ᵀ + 2 * F⁻ᵀ * (Cbar²ⁿ - Cbarⁿ - Cbar⁻²ⁿ + Cbar⁻ⁿ))
+    Pshear = material.μ / material.n * (1/3 * (-trCbar²ⁿ + trCbarⁿ + trCbar⁻²ⁿ - trCbar⁻ⁿ) * F⁻ᵀ + F⁻ᵀ * (Cbar²ⁿ - Cbarⁿ - Cbar⁻²ⁿ + Cbar⁻ⁿ))
     P = Pbulk + Pshear
     AA = zeros(3, 3, 3, 3)
     return W, P, AA
