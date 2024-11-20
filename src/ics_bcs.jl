@@ -166,6 +166,7 @@ function find_in_mesh(
     num_blk_elems, num_elem_nodes = size(elem_blk_conn)
     node_indices = Vector{Int64}()
     found = false
+    ξ = zeros(length(point))
     for blk_elem_index ∈ 1:num_blk_elems
         conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
         node_indices = elem_blk_conn[conn_indices]
@@ -173,10 +174,10 @@ function find_in_mesh(
         ξ = map_to_parametric(element_type, elem_ref_pos, point)
         found = is_inside_parametric(element_type, ξ)
         if found == true
-            return node_indices, ξ, true
+            break
         end
     end
-    return node_indices, ξ, false
+    return node_indices, ξ, found
 end
 
 function apply_bc_detail(model::SolidMechanics, bc::SMContactSchwarzBC)
