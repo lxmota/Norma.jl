@@ -93,7 +93,7 @@ function SMSchwarzDBC(
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     tol = 1.0e-06
     if haskey(bc_params, "search tolerance") == true
-        tol = bc_param["search tolerance"]
+        tol = bc_params["search tolerance"]
     end
     for node_index ∈ node_set_node_indices
         point = subsim.model.reference[:, node_index]
