@@ -91,10 +91,14 @@ function SMSchwarzDBC(
     element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
+    tol = 1.0e-06
+    if haskey(bc_params, "search tolerance") == true
+        tol = bc_param["search tolerance"]
+    end
     for node_index ∈ node_set_node_indices
         point = subsim.model.reference[:, node_index]
         node_indices, ξ, found =
-            find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id)
+            find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id, tol)
         if found == false
             error("Could not find point: ", point, " in subdomain: ", coupled_subsim.name)
         end
@@ -159,7 +163,8 @@ function find_in_mesh(
     point::Vector{Float64},
     model::SolidMechanics,
     mesh::ExodusDatabase,
-    blk_id::Int
+    blk_id::Int,
+    tol::Float64
 )
     element_type = Exodus.read_block_parameters(mesh, Int32(blk_id))[1]
     elem_blk_conn = get_block_connectivity(mesh, blk_id)
@@ -172,7 +177,7 @@ function find_in_mesh(
         node_indices = elem_blk_conn[conn_indices]
         elem_ref_pos = model.reference[:, node_indices]
         ξ = map_to_parametric(element_type, elem_ref_pos, point)
-        found = is_inside_parametric(element_type, ξ)
+        found = is_inside_parametric(element_type, ξ, tol)
         if found == true
             break
         end

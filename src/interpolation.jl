@@ -559,12 +559,7 @@ function interpolate(element_type::String, ξ::Vector{Float64})
     end
 end
 
-function is_inside_parametric(element_type::String, ξ::Vector{Float64})
-    tol = 1.0e-06
-    return is_inside_parametric(element_type, ξ, tol)
-end
-
-function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64)
+function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64 = 1.0e-06)
     factor = 1.0 + tol
     if element_type == "BAR2"
         return -factor ≤ ξ ≤ factor
@@ -581,13 +576,12 @@ function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Fl
     end
 end
 
-function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
+function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
     ξ = map_to_parametric(element_type, nodes, point)
-    return is_inside_parametric(element_type, ξ)
+    return is_inside_parametric(element_type, ξ, tol)
 end
 
-#function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
-#    tol = 1.0e-04
+#function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
 #    if element_type == "TETRA4" || element_type == "TETRA10"
 #        return is_point_in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
 #    elseif element_type == "HEX8"
