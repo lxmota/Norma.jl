@@ -479,16 +479,54 @@ function get_side_set_nodal_forces(
     return nodal_force_component
 end
 
+# Helper function to calculate the signed volume of a tetrahedron
+function signed_volume(p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, p4::Vector{Float64})
+    return det([p2 - p1 p3 - p1 p4 - p1])
+end
+
+# Check if point is inside: all volumes should have the same sign as V_total within tolerance
+function same_sign_or_within_tolerance(v1::Float64, v2::Float64, tol::Float64)
+    return abs(v1 - v2) ≤ tol || sign(v1) == sign(v2)
+end
+
+function is_point_in_tetrahedron(P::Vector{Float64}, A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64}, tol::Float64)
+
+    # Calculate signed volumes
+    V_total = signed_volume(A, B, C, D)
+    V1 = signed_volume(P, B, C, D)
+    V2 = signed_volume(A, P, C, D)
+    V3 = signed_volume(A, B, P, D)
+    V4 = signed_volume(A, B, C, P)
+
+    return (same_sign_or_within_tolerance(V1, V_total, tol) &&
+            same_sign_or_within_tolerance(V2, V_total, tol) &&
+            same_sign_or_within_tolerance(V3, V_total, tol) &&
+            same_sign_or_within_tolerance(V4, V_total, tol))
+end
+
+function is_point_in_hexahedron(P::Vector{Float64}, A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64}, E::Vector{Float64}, F::Vector{Float64}, G::Vector{Float64}, H::Vector{Float64}, tol::Float64)
+
+    # Check the point against each tetrahedron
+    return (
+        is_point_in_tetrahedron(P, A, B, C, E, tol) ||
+        is_point_in_tetrahedron(P, C, B, F, E, tol) ||
+        is_point_in_tetrahedron(P, C, F, G, E, tol) ||
+        is_point_in_tetrahedron(P, C, G, H, E, tol) ||
+        is_point_in_tetrahedron(P, C, H, D, E, tol)
+    )
+end
+
 function map_to_parametric(
     element_type::String,
     nodes::Matrix{Float64},
     point::Vector{Float64}
 )
     tol = 1.0e-08
+    max_iters = 32
     dim = length(point)
     ξ = zeros(dim)
     hessian = zeros(dim, dim)
-    while true
+    for _ ∈ 1:max_iters
         N, dN, _ = interpolate(element_type, ξ)
         trial_point = nodes * N
         residual = trial_point - point
@@ -547,6 +585,17 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     ξ = map_to_parametric(element_type, nodes, point)
     return is_inside_parametric(element_type, ξ)
 end
+
+#function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
+#    tol = 1.0e-04
+#    if element_type == "TETRA4" || element_type == "TETRA10"
+#        return is_point_in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
+#    elseif element_type == "HEX8"
+#        return is_point_in_hexahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], nodes[:,5], nodes[:,6], nodes[:,7], nodes[:,8], tol)
+#    else
+#        error("Invalid element type: ", element_type)
+#    end
+#end
 
 function find_and_project(
     point::Vector{Float64},

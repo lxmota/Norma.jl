@@ -404,7 +404,7 @@ function evaluate(integrator::Newmark, model::SolidMechanics)
             node_indices = elem_blk_conn[conn_indices]
             if mesh_smoothing == true
                 elem_ref_pos =
-                    create_smooth_reference(element_type, model.reference[:, node_indices])
+                    create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
             else
                 elem_ref_pos = model.reference[:, node_indices]
             end
@@ -583,7 +583,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             node_indices = elem_blk_conn[conn_indices]
             if mesh_smoothing == true
                 elem_ref_pos =
-                    create_smooth_reference(element_type, model.reference[:, node_indices])
+                    create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
             else
                 elem_ref_pos = model.reference[:, node_indices]
             end
