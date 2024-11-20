@@ -548,16 +548,17 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
     for (ic_type, ic_type_params) ∈ ic_params
         for ic ∈ ic_type_params
             node_set_name = ic["node set"]
-            expr_str = ic["function"]
+            expression = ic["function"]
             component = ic["component"]
             offset = component_offset_from_string(component)
             node_set_id = node_set_id_from_name(node_set_name, input_mesh)
             node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
-            # expr_str is an arbitrary function of x, y, z in the input file
-            ic_expr = Meta.parse(expr_str)
+            # expression is an arbitrary function of t, x, y, z in the input file
+            ic_expr = Meta.parse(expression)
             ic_eval = eval(ic_expr)
             for node_index ∈ node_set_node_indices
                 values = Dict(
+                    t => model.time,
                     x => model.reference[1, node_index],
                     y => model.reference[2, node_index],
                     z => model.reference[3, node_index],

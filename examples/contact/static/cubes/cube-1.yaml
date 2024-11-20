@@ -19,7 +19,7 @@ initial conditions:
   displacement:
     - node set: nsall
       component: x
-      function: "-0.3"
+      function: "0.1 * (1.0 - abs(t))"
 boundary conditions:
   Dirichlet:
     - node set: nsx-
