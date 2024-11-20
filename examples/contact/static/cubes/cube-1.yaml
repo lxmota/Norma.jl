@@ -15,6 +15,11 @@ time integrator:
   type: quasi static
   time step: 0.5
   initial equilibrium: true
+initial conditions:
+  displacement:
+    - node set: nsall
+      component: x
+      function: "-0.3"
 boundary conditions:
   Dirichlet:
     - node set: nsx-
