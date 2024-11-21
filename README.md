@@ -29,3 +29,7 @@ On MacOS, it is necessary to ignore package hashes for the dependence on Exodus.
 To run the code, assuming that Julia is in the executable path:
 
     julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
+
+It follows that, to run tests, assuming the Julia is in the executable path and you are in the Norma.jl/test directory:
+
+    julia --project=@. ./runtests.jl 
