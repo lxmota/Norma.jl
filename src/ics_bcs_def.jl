@@ -2,7 +2,9 @@ abstract type BoundaryCondition end
 abstract type SchwarzBoundaryCondition <: BoundaryCondition end
 abstract type RegularBoundaryCondition <: BoundaryCondition end
 abstract type ContactSchwarzBoundaryCondition <: SchwarzBoundaryCondition end
-abstract type RegularSchwarzBoundaryCondition <: SchwarzBoundaryCondition end
+abstract type CouplingSchwarzBoundaryCondition <: SchwarzBoundaryCondition end
+abstract type OverlapSchwarzBoundaryCondition <: CouplingSchwarzBoundaryCondition end
+abstract type NonOverlapSchwarzBoundaryCondition <: CouplingSchwarzBoundaryCondition end
 abstract type InitialCondition end
 
 using Exodus
@@ -41,7 +43,7 @@ mutable struct SMContactSchwarzBC <: ContactSchwarzBoundaryCondition
     transfer_operator::Matrix{Float64}
 end
 
-mutable struct SMSchwarzDBC <: RegularSchwarzBoundaryCondition
+mutable struct SMSchwarzDBC <: OverlapSchwarzBoundaryCondition
     node_set_name::String
     node_set_id::Int64
     node_set_node_indices::Vector{Int64}
@@ -51,3 +53,20 @@ mutable struct SMSchwarzDBC <: RegularSchwarzBoundaryCondition
     coupled_nodes_indices::Vector{Vector{Int64}}
     interpolation_function_values::Vector{Vector{Float64}}
 end
+
+mutable struct SMNonOverlappingSchwarzBC <: NonOverlapSchwarzBoundaryCondition
+  #IKT 11/20/2024: copy from ContactSchwarzBoundaryCondition.  Some functions may not be needed, 
+  #need to clean.
+    side_set_name::String
+    side_set_id::Int64
+    num_nodes_per_side::Vector{Int64}
+    side_set_node_indices::Vector{Int64}
+    coupled_subsim::Simulation
+    coupled_bc_index::Int64
+    coupled_mesh::ExodusDatabase
+    coupled_block_id::Int64
+    coupled_side_set_id::Int64
+    is_dirichlet::Bool
+    transfer_operator::Matrix{Float64}
+end
+

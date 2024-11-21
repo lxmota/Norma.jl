@@ -193,7 +193,17 @@ function apply_bc_detail(model::SolidMechanics, bc::SMContactSchwarzBC)
     end
 end
 
-function apply_bc_detail(model::SolidMechanics, bc::SMSchwarzDBC)
+function apply_bc_detail(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
+#IKT 11/20/2024: currently this just does overlapping
+    #if bc.is_dirichlet == true
+        apply_sm_schwarz_coupling_dirichlet(model, bc)
+    #else
+    #    apply_sm_schwarz_coupling_neumann(model, bc)
+    #end
+end
+
+#function apply_bc_detail(model::SolidMechanics, bc::SMSchwarzDBC)
+function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
     for i ∈ 1:length(bc.node_set_node_indices)
         node_index = bc.node_set_node_indices[i]
         coupled_node_indices = bc.coupled_nodes_indices[i]
@@ -362,6 +372,14 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
             normal,
         )
     end
+end
+
+function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::SMNonOverlappingSchwarzBC)
+#IKT 11/20/2024: TO DO fill in 
+end
+
+function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::SMNonOverlappingSchwarzBC)
+#IKT 11/20/2024: TO DO fill in 
 end
 
 function reduce_traction(
@@ -595,7 +613,7 @@ end
 
 function pair_bc(_::String, _::RegularBoundaryCondition) end
 
-function pair_bc(_::String, _::SchwarzBoundaryCondition) end
+function pair_bc(_::String, _::OverlapSchwarzBoundaryCondition) end
 
 function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
     coupled_model = bc.coupled_subsim.model
@@ -606,6 +624,18 @@ function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
         end
     end
 end
+
+function pair_bc(name::String, bc::NonOverlapSchwarzBoundaryCondition)
+    #IKT 11/20/2024: this is cut/paste from the ContactSchwarzBoundaryCondition case, which we 
+    #probably don't want.
+    coupled_model = bc.coupled_subsim.model
+    coupled_bcs = coupled_model.boundary_conditions
+    for coupled_bc ∈ coupled_bcs
+        if is_coupled_to_current(name, coupled_bc) == true
+            coupled_bc.is_dirichlet = !bc.is_dirichlet
+        end
+    end
+end 
 
 function is_coupled_to_current(_::String, _::RegularBoundaryCondition)
     return false
