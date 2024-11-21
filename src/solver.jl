@@ -30,7 +30,7 @@ function HessianMinimizer(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    ls_backtrack_factor = 0.1
+    ls_backtrack_factor = 0.5
     ls_decrease_factor = 1.0e-04
     ls_max_iters = 16
     if haskey(solver_params, "line search backtrack factor")
@@ -105,7 +105,7 @@ function SteepestDescent(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
-    ls_backtrack_factor = 0.1
+    ls_backtrack_factor = 0.5
     ls_decrease_factor = 1.0e-04
     ls_max_iters = 16
     if haskey(solver_params, "line search backtrack factor")
@@ -402,7 +402,7 @@ function backtrack_line_search(
 )
     backtrack_factor = solver.line_search.backtrack_factor
     decrease_factor = solver.line_search.decrease_factor
-    max_ls_iters = solver.line_search.max_ls_iters
+    max_iters = solver.line_search.max_iters
     free = model.free_dofs
     resid = solver.gradient
     merit = 0.5 * dot(resid, resid)
@@ -410,7 +410,7 @@ function backtrack_line_search(
     step_length = solver.step.step_length
     step = step_length * direction
     initial_solution = 1.0 * solver.solution
-    for _ ∈ 1:max_ls_iters
+    for _ ∈ 1:max_iters
         merit_old = merit
         step = step_length * direction
         solver.solution[free] = initial_solution[free] + step[free]
