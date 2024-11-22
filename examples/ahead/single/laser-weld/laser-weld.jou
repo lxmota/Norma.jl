@@ -276,7 +276,7 @@ nodeset 3 surface 1
 nodeset 3 name "surface_positive_y"
 
 set large exodus file on
-export mesh "LaserWeldSimplified_SingleDomain_MeshBiased_Specimen.g" dimension 3 block 1 8 9 overwrite
+export mesh "laser-weld.g" dimension 3 block 1 8 9 overwrite
 
 set large exodus file on
 export mesh "LaserWeldSimplified_SingleDomain_MeshBiased_SingleBlock_Specimen.g" dimension 3 block 10 overwrite
@@ -329,7 +329,7 @@ nodeset 3 surface 39
 nodeset 3 name "surface_positive_y"
 
 set large exodus file on
-export mesh "LaserWeldSimplified_Specimen_Gauge.g" dimension 3 block 1 2 5 overwrite
+export mesh "gauge.g" dimension 3 block 1 2 5 overwrite
 
 export mesh "LaserWeldSimplified_Specimen_Gauge_SingleBlock.g" dimension 3 block 11 overwrite
 
@@ -356,7 +356,7 @@ nodeset 3 name "surface_positive_y"
 
 
 set large exodus file on
-export mesh "LaserWeldSimplified_Specimen_Holder0.g" dimension 3 block 3 overwrite
+export mesh "holder-0.g" dimension 3 block 3 overwrite
 
 
 #  Holder 1 domain ---------------------------------------------------------------------------------
@@ -378,5 +378,5 @@ nodeset 3 surface 1
 nodeset 3 name "surface_positive_y"
 
 set large exodus file on
-export mesh "LaserWeldSimplified_Specimen_Holder1.g" dimension 3 block 7 overwrite
+export mesh "holder-1.g" dimension 3 block 7 overwrite
 

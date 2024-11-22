@@ -1,5 +1,5 @@
 type: single
-input mesh file: ../../../single/laser-weld/LaserWeldSimplified_Specimen_Gauge.g
+input mesh file: ../../../single/laser-weld/gauge.g
 output mesh file: gauge.e
 model:
   type: solid mechanics

@@ -1,5 +1,5 @@
 type: single
-input mesh file: ../../../single/laser-weld/LaserWeldSimplified_Specimen_Holder1.g
+input mesh file: ../../../single/laser-weld/holder-1.g
 output mesh file: holder-2.e
 model:
   type: solid mechanics
