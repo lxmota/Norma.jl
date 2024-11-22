@@ -177,8 +177,6 @@ function find_in_mesh(
         node_indices = elem_blk_conn[conn_indices]
         elem_ref_pos = model.reference[:, node_indices]
         ξ, found = is_inside(element_type, elem_ref_pos, point, tol)
-        #ξ = map_to_parametric(element_type, elem_ref_pos, point)
-        #found = is_inside_parametric(element_type, ξ, tol)
         if found == true
             break
         end
