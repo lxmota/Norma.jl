@@ -84,7 +84,7 @@ function SMCouplingSchwarzBC(
 )
     coupling_type = bc_params["coupling type"]
     println("IKT coupling_type = ", coupling_type)
-    if ((coupling_type != "overlap") && (coupling_type != "non-overlap")) 
+    if ((coupling_type != "overlap") && (coupling_type != "nonoverlap")) 
       error("Undefined coupling type: ", coupling_type) 
     end
     node_set_name = bc_params["node set"]
