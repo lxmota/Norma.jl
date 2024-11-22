@@ -43,7 +43,7 @@ mutable struct SMContactSchwarzBC <: ContactSchwarzBoundaryCondition
     transfer_operator::Matrix{Float64}
 end
 
-mutable struct SMSchwarzDBC <: OverlapSchwarzBoundaryCondition
+mutable struct SMOverlapSchwarzBC <: OverlapSchwarzBoundaryCondition
     node_set_name::String
     node_set_id::Int64
     node_set_node_indices::Vector{Int64}
@@ -54,9 +54,8 @@ mutable struct SMSchwarzDBC <: OverlapSchwarzBoundaryCondition
     interpolation_function_values::Vector{Vector{Float64}}
 end
 
-mutable struct SMNonOverlappingSchwarzBC <: NonOverlapSchwarzBoundaryCondition
-  #IKT 11/20/2024: copy from ContactSchwarzBoundaryCondition.  Some functions may not be needed, 
-  #need to clean.
+mutable struct SMNonOverlapSchwarzBC <: NonOverlapSchwarzBoundaryCondition
+#IKT 11/21/2024: TODO add Dirichlet member variables from SMOverlapSchwarzBC struct  
     side_set_name::String
     side_set_id::Int64
     num_nodes_per_side::Vector{Int64}
@@ -67,6 +66,5 @@ mutable struct SMNonOverlappingSchwarzBC <: NonOverlapSchwarzBoundaryCondition
     coupled_block_id::Int64
     coupled_side_set_id::Int64
     is_dirichlet::Bool
-    transfer_operator::Matrix{Float64}
 end
 

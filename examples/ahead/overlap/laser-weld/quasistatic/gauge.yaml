@@ -16,13 +16,15 @@ model:
 time integrator:
   type: quasi static
 boundary conditions:
-  Schwarz Dirichlet:
+  Schwarz coupling:
     - node set: surface_negative_y
       source: holder-0.yaml
       source block: holder_0
+      coupling type: overlap
     - node set: surface_positive_y
       source: holder-1.yaml
       source block: holder_1
+      coupling type: overlap
 solver:
   type: Hessian minimizer
   step: full Newton

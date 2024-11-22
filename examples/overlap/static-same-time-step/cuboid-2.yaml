@@ -24,10 +24,11 @@ boundary conditions:
     - node set: nsz+
       component: z
       function: "1.0 * t"
-  Schwarz Dirichlet:
+  Schwarz coupling:
     - node set: nsz-
       source: cuboid-1.yaml
       source block: fine
+      coupling type: overlap
 solver:
   type: Hessian minimizer
   step: full Newton

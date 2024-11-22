@@ -23,10 +23,11 @@ boundary conditions:
     - node set: surface_positive_y
       component: y
       function: "0.1 * t"
-  Schwarz Dirichlet:
+  Schwarz coupling:
     - node set: surface_negative_y
       source: gauge.yaml
       source block: region_weld_1
+      coupling type: overlap
 solver:
   type: Hessian minimizer
   step: full Newton

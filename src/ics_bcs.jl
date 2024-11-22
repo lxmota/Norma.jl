@@ -45,7 +45,7 @@ function SMContactSchwarzBC(
     coupled_subsim::SingleDomainSimulation,
     input_mesh::ExodusDatabase,
     bc_params::Dict{Any,Any},
-)
+) 
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
     global_to_local_map, num_nodes_per_side, side_set_node_indices =
@@ -76,12 +76,17 @@ function SMContactSchwarzBC(
     )
 end
 
-function SMSchwarzDBC(
+function SMCouplingSchwarzBC(
     subsim::SingleDomainSimulation,
     coupled_subsim::SingleDomainSimulation,
     input_mesh::ExodusDatabase,
     bc_params::Dict{Any,Any},
 )
+    coupling_type = bc_params["coupling type"]
+    println("IKT coupling_type = ", coupling_type)
+    if ((coupling_type != "overlap") && (coupling_type != "non-overlap")) 
+      error("Undefined coupling type: ", coupling_type) 
+    end
     node_set_name = bc_params["node set"]
     node_set_id = node_set_id_from_name(node_set_name, input_mesh)
     node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
@@ -106,16 +111,30 @@ function SMSchwarzDBC(
         push!(coupled_nodes_indices, node_indices)
         push!(interpolation_function_values, N)
     end
-    SMSchwarzDBC(
-        node_set_name,
-        node_set_id,
-        node_set_node_indices,
-        coupled_subsim,
-        coupled_mesh,
-        coupled_block_id,
-        coupled_nodes_indices,
-        interpolation_function_values,
-    )
+    if (coupling_type == "overlap") 
+      SMOverlapSchwarzBC(
+          node_set_name,
+          node_set_id,
+          node_set_node_indices,
+          coupled_subsim,
+          coupled_mesh,
+          coupled_block_id,
+          coupled_nodes_indices,
+          interpolation_function_values,
+      )
+    #else #non-overlap
+    #IKT 11/21/2024 TODO fill in! 
+    #  SMNonOverlapSchwarzBC(
+    #      node_set_name,
+    #      node_set_id,
+    #      node_set_node_indices,
+    #      coupled_subsim,
+    #      coupled_mesh,
+    #      coupled_block_id,
+    #      coupled_nodes_indices,
+    #      interpolation_function_values,
+    #  )
+    end 
 end
 
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
@@ -202,7 +221,6 @@ function apply_bc_detail(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondi
     #end
 end
 
-#function apply_bc_detail(model::SolidMechanics, bc::SMSchwarzDBC)
 function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
     for i ∈ 1:length(bc.node_set_node_indices)
         node_index = bc.node_set_node_indices[i]
@@ -219,6 +237,17 @@ function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::Coupling
         model.acceleration[:, node_index] = point_acce
         dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
         model.free_dofs[dof_index] .= false
+    end
+end
+
+function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
+    schwarz_tractions = get_dst_traction(bc)
+    local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
+    num_local_nodes = length(local_to_global_map)
+    for local_node ∈ 1:num_local_nodes
+        global_node = local_to_global_map[local_node]
+        node_tractions = schwarz_tractions[3*local_node-2:3*local_node]
+        model.boundary_force[3*global_node-2:3*global_node] += node_tranctions
     end
 end
 
@@ -374,13 +403,6 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
     end
 end
 
-function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::SMNonOverlappingSchwarzBC)
-#IKT 11/20/2024: TO DO fill in 
-end
-
-function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::SMNonOverlappingSchwarzBC)
-#IKT 11/20/2024: TO DO fill in 
-end
 
 function reduce_traction(
     mesh::ExodusDatabase,
@@ -535,7 +557,7 @@ function create_bcs(params::Dict{Any,Any})
                 boundary_condition =
                     SMContactSchwarzBC(coupled_subsim, input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
-            elseif bc_type == "Schwarz Dirichlet"
+            elseif bc_type == "Schwarz coupling"
                 sim = params["global_simulation"]
                 subsim_name = params["name"]
                 subdomain_index = sim.subsim_name_index_map[subsim_name]
@@ -544,7 +566,7 @@ function create_bcs(params::Dict{Any,Any})
                 coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
                 boundary_condition =
-                    SMSchwarzDBC(subsim, coupled_subsim, input_mesh, bc_setting_params)
+                    SMCouplingSchwarzBC(subsim, coupled_subsim, input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             else
                 error("Unknown boundary condition type : ", bc_type)
