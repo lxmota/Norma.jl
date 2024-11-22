@@ -115,8 +115,8 @@ function schwarz(sim::MultiDomainSimulation)
             return
         end
         iteration_number += 1
-        ΔX = update_schwarz_convergence_criterion(sim)
-        println("Schwarz criterion |ΔX|=", ΔX)
+        ΔX, Δx = update_schwarz_convergence_criterion(sim)
+        println("Schwarz criterion |ΔX|=", ΔX, " |ΔX|/|X|=", Δx)
         if stop_schwarz(sim, iteration_number) == true
             println("Performed ", iteration_number - 1, " Schwarz iterations")
             break
@@ -300,7 +300,7 @@ function update_schwarz_convergence_criterion(
     conv_abs = schwarz_controller.absolute_error ≤ schwarz_controller.absolute_tolerance
     conv_rel = schwarz_controller.relative_error ≤ schwarz_controller.relative_tolerance
     schwarz_controller.converged = conv_abs || conv_rel
-    return norm_diff
+    return schwarz_controller.absolute_error, schwarz_controller.relative_error
 end
 
 function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
