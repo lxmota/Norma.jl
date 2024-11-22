@@ -52,19 +52,26 @@ mutable struct SMOverlapSchwarzBC <: OverlapSchwarzBoundaryCondition
     coupled_block_id::Int64
     coupled_nodes_indices::Vector{Vector{Int64}}
     interpolation_function_values::Vector{Vector{Float64}}
+    is_dirichlet::Bool
+    coupling_type::String
 end
 
 mutable struct SMNonOverlapSchwarzBC <: NonOverlapSchwarzBoundaryCondition
-#IKT 11/21/2024: TODO add Dirichlet member variables from SMOverlapSchwarzBC struct  
+    node_set_name::String
+    node_set_id::Int64
+    node_set_node_indices::Vector{Int64}
+    coupled_subsim::Simulation
+    coupled_mesh::ExodusDatabase
+    coupled_block_id::Int64
+    coupled_nodes_indices::Vector{Vector{Int64}}
+    interpolation_function_values::Vector{Vector{Float64}}
     side_set_name::String
     side_set_id::Int64
     num_nodes_per_side::Vector{Int64}
     side_set_node_indices::Vector{Int64}
-    coupled_subsim::Simulation
     coupled_bc_index::Int64
-    coupled_mesh::ExodusDatabase
-    coupled_block_id::Int64
     coupled_side_set_id::Int64
     is_dirichlet::Bool
+    coupling_type::String
 end
 
