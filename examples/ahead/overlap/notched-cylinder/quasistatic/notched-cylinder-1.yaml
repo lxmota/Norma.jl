@@ -7,7 +7,7 @@ model:
     blocks:
       fine: hyperelastic
     hyperelastic:
-      model: Saint-Venant Kirchhoff
+      model: neohookean
       elastic modulus: 1440.0
       Poisson's ratio: 0.25
       density: 1000.0
@@ -15,14 +15,14 @@ time integrator:
   type: quasi static
 boundary conditions:
   Dirichlet:
-    - node set: -Z_bottom
-      component: z
+    - node set: -X_bottom
+      component: x
       function: "0.0"
-    - node set: +X_bottom
+    - node set: -Y_bottom
       component: y
       function: "0.0"
-    - node set: +Y_bottom
-      component: x
+    - node set: -Z_bottom
+      component: z
       function: "0.0"
   Schwarz Dirichlet:
     - node set: +Z_bottom
