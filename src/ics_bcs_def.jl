@@ -44,14 +44,14 @@ mutable struct SMContactSchwarzBC <: ContactSchwarzBoundaryCondition
 end
 
 mutable struct SMOverlapSchwarzBC <: OverlapSchwarzBoundaryCondition
-    node_set_name::String
-    node_set_id::Int64
-    node_set_node_indices::Vector{Int64}
-    coupled_subsim::Simulation
-    coupled_mesh::ExodusDatabase
-    coupled_block_id::Int64
+    side_set_name::String
+    side_set_id::Int64
+    side_set_node_indices::Vector{Int64}
     coupled_nodes_indices::Vector{Vector{Int64}}
     interpolation_function_values::Vector{Vector{Float64}}
+    coupled_subsim::Simulation
+    coupled_mesh::ExodusDatabase
+    coupled_side_set_id::Int64
     is_dirichlet::Bool
     coupling_type::String
 end

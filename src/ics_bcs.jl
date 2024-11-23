@@ -87,20 +87,28 @@ function SMCouplingSchwarzBC(
     if ((coupling_type != "overlap") && (coupling_type != "nonoverlap")) 
       error("Undefined coupling type: ", coupling_type) 
     end
-    node_set_name = bc_params["node set"]
-    node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-    node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
+    side_set_name = bc_params["side set"]
+    side_set_id = side_set_id_from_name(side_set_name, input_mesh)
+    global_to_local_map, num_nodes_per_side, side_set_node_indices =
+        get_side_set_global_to_local_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
+    coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
+    coupled_side_set_name = bc_params["source side set"]
+    coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
+    coupled_global_to_local_map =
+        get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
+    is_dirichlet = true
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     tol = 1.0e-06
     if haskey(bc_params, "search tolerance") == true
         tol = bc_params["search tolerance"]
     end
-    for node_index ∈ node_set_node_indices
+    side_set_node_indices = unique(side_set_node_indices)
+    for node_index ∈ side_set_node_indices
         point = subsim.model.reference[:, node_index]
         node_indices, ξ, found =
             find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id, tol)
@@ -114,19 +122,19 @@ function SMCouplingSchwarzBC(
     is_dirichlet = true
     if (coupling_type == "overlap") 
       SMOverlapSchwarzBC(
-          node_set_name,
-          node_set_id,
-          node_set_node_indices,
-          coupled_subsim,
-          coupled_mesh,
-          coupled_block_id,
-          coupled_nodes_indices,
-          interpolation_function_values,
-	  is_dirichlet,
-	  coupling_type, 
+        side_set_name,
+        side_set_id,
+        side_set_node_indices,
+        coupled_nodes_indices,
+        interpolation_function_values,
+        coupled_subsim,
+        coupled_mesh,
+        coupled_side_set_id,
+        is_dirichlet,
+        coupling_type
       )
     else #non-overlap
-      #IKT 11/21/2024: the following is cut/paste from contact specialization.  Consolidate somehow?
+      #IKT TODO rework this
       side_set_name = bc_params["side set"]
       side_set_id = side_set_id_from_name(side_set_name, input_mesh)
       global_to_local_map, num_nodes_per_side, side_set_node_indices =
@@ -155,7 +163,7 @@ function SMCouplingSchwarzBC(
           is_dirichlet,
 	  coupling_type
       )
-    end 
+    end
 end
 
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
@@ -242,8 +250,8 @@ function apply_bc_detail(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondi
 end
 
 function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
-    for i ∈ 1:length(bc.node_set_node_indices)
-        node_index = bc.node_set_node_indices[i]
+    for i ∈ 1:length(bc.side_set_node_indices)
+        node_index = bc.side_set_node_indices[i]
         coupled_node_indices = bc.coupled_nodes_indices[i]
         N = bc.interpolation_function_values[i]
         elem_posn = bc.coupled_subsim.model.current[:, coupled_node_indices]
@@ -261,6 +269,7 @@ function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::Coupling
 end
 
 function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
+    error("IKT Neumann coupling!") 
     schwarz_tractions = get_dst_traction(bc)
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)

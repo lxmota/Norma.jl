@@ -25,10 +25,11 @@ boundary conditions:
       component: z
       function: "0.0"
   Schwarz coupling:
-    - node set: nsz+
+    - side set: ssz+
       source: cuboid-2.yaml
       source block: coarse
-      coupling type: overlap
+      source side set: ssz-
+      coupling type: overlap 
 solver:
   type: Hessian minimizer
   step: full Newton
