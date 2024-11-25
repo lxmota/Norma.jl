@@ -106,19 +106,19 @@ block 2 name "coarse"
 nodeset 1 surface 81 83 #bottom of bottom domain
 nodeset 1 name "-Z_bottom"
 nodeset 2 surface 124 117 #top of bottom domain
-nodeset 2 name "+Z_bottom" 
+nodeset 2 name "+Z_bottom"
 nodeset 3 surface 84 80 118 122 #parallel in x, bottom domain
-nodeset 3 name "+X_bottom"
-nodeset 4 surface 85 78 116 123 #parallel in y, bottom domain 
-nodeset 4 name "+Y_bottom"
+nodeset 3 name "-Y_bottom"
+nodeset 4 surface 85 78 116 123 #parallel in y, bottom domain
+nodeset 4 name "-X_bottom"
 nodeset 5 surface 129 132 #bottom of top domain
-nodeset 5 name "-Z_top" 
+nodeset 5 name "-Z_top"
 nodeset 6 surface 107 114 #top of top domain
-nodeset 6 name "+Z_top" 
+nodeset 6 name "+Z_top"
 nodeset 7 surface 134 113 106 126 #parallel in y, top domain
-nodeset 7 name "+Y_top" 
-nodeset 8 surface 112 108 128 133 #parallel in x, top domain 
-nodeset 8 name "+X_top" 
+nodeset 7 name "-X_top"
+nodeset 8 surface 112 108 128 133 #parallel in x, top domain
+nodeset 8 name "-Y_top"
 set large exodus file off
 export mesh "notched-cylinder-1.g" block 1 overwrite
 export mesh "notched-cylinder-2.g" block 2 overwrite

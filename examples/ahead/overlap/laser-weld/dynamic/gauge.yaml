@@ -1,5 +1,5 @@
 type: single
-input mesh file: ../../../single/laser-weld/LaserWeldSimplified_Specimen_Gauge.g
+input mesh file: ../../../single/laser-weld/gauge.g
 output mesh file: gauge.e
 model:
   type: solid mechanics
@@ -19,17 +19,19 @@ time integrator:
   γ: 0.5
 boundary conditions:
   Dirichlet:
-    - node set: surface_symmetry
+    - node set: nodeset_symmetry
       component: x
       function: "0.0"
   Schwarz coupling:
-    - node set: surface_negative_y
+    - side set: sideset_negative_y
       source: holder-0.yaml
       source block: holder_0
+      source side set: sideset_positive_y
       coupling type: overlap
-    - node set: surface_positive_y
+    - side set: sideset_positive_y
       source: holder-1.yaml
       source block: holder_1
+      source side set: sideset_negative_y
       coupling type: overlap
 solver:
   type: Hessian minimizer

@@ -113,7 +113,7 @@ function SMCouplingSchwarzBC(
         node_indices, ξ, found =
             find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id, tol)
         if found == false
-            error("Could not find point: ", point, " in subdomain: ", coupled_subsim.name)
+            error("Could not find subdomain ", subsim.name, " point ", point, " in subdomain ", coupled_subsim.name)
         end
         N = interpolate(element_type, ξ)[1]
         push!(coupled_nodes_indices, node_indices)
@@ -224,8 +224,7 @@ function find_in_mesh(
         conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
         node_indices = elem_blk_conn[conn_indices]
         elem_ref_pos = model.reference[:, node_indices]
-        ξ = map_to_parametric(element_type, elem_ref_pos, point)
-        found = is_inside_parametric(element_type, ξ, tol)
+        ξ, found = is_inside(element_type, elem_ref_pos, point, tol)
         if found == true
             break
         end

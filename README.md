@@ -33,3 +33,15 @@ To run the code, assuming that Julia is in the executable path:
 It follows that, to run tests, assuming the Julia is in the executable path and you are in the Norma.jl/test directory:
 
     julia --project=@. ./runtests.jl 
+
+To run Norma from inside a Julia session, e.g., to run the examples/ahead/overlap/cuboid/dynamic example:
+
+    cd /some_path/Norma 
+    julia
+    ]
+    activate .
+    using Norma
+    cd("examples/ahead/overlap/cuboid/dynamic")
+    Norma.run("cuboid.yaml") 
+    
+Warning: if you make a change to Norma, you need to reload Norma module (using Norma) for those changes to get recompiled in.
