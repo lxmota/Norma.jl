@@ -484,24 +484,16 @@ function signed_volume(p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Floa
     return det([p2 - p1 p3 - p1 p4 - p1])
 end
 
-# Check if point is inside: all volumes should have the same sign as V_total within tolerance
-function same_sign_or_within_tolerance(v1::Float64, v2::Float64, tol::Float64)
-    return abs(v1 - v2) ≤ tol || sign(v1) == sign(v2)
-end
-
 function is_point_in_tetrahedron(P::Vector{Float64}, A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64}, tol::Float64)
 
     # Calculate signed volumes
-    V_total = signed_volume(A, B, C, D)
-    V1 = signed_volume(P, B, C, D)
-    V2 = signed_volume(A, P, C, D)
-    V3 = signed_volume(A, B, P, D)
-    V4 = signed_volume(A, B, C, P)
+    V = signed_volume(A, B, C, D)
+    v1 = signed_volume(P, B, C, D) / V
+    v2 = signed_volume(A, P, C, D) / V
+    v3 = signed_volume(A, B, P, D) / V
+    v4 = signed_volume(A, B, C, P) / V
 
-    return (same_sign_or_within_tolerance(V1, V_total, tol) &&
-            same_sign_or_within_tolerance(V2, V_total, tol) &&
-            same_sign_or_within_tolerance(V3, V_total, tol) &&
-            same_sign_or_within_tolerance(V4, V_total, tol))
+    return v1 ≥ -tol && v2 ≥ -tol && v3 ≥ -tol && v4 ≥ -tol
 end
 
 function is_point_in_hexahedron(P::Vector{Float64}, A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64}, E::Vector{Float64}, F::Vector{Float64}, G::Vector{Float64}, H::Vector{Float64}, tol::Float64)
@@ -522,7 +514,7 @@ function map_to_parametric(
     point::Vector{Float64}
 )
     tol = 1.0e-08
-    max_iters = 32
+    max_iters = 1024
     dim = length(point)
     ξ = zeros(dim)
     hessian = zeros(dim, dim)
@@ -563,12 +555,10 @@ function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Fl
     factor = 1.0 + tol
     if element_type == "BAR2"
         return -factor ≤ ξ ≤ factor
-    elseif element_type == "TRI3"
-        return reduce(*, -tol * ones(2) .≤ ξ .≤ factor * ones(2))
+    elseif element_type == "TRI3" || element_type == "TETRA4" || element_type == "TETRA10"
+        return sum(ξ) ≤ factor
     elseif element_type == "QUAD4"
         return reduce(*, -factor * ones(2) .≤ ξ .≤ factor * ones(2))
-    elseif element_type == "TETRA4" || element_type == "TETRA10"
-        return reduce(*, -tol * ones(3) .≤ ξ .≤ factor * ones(3))
     elseif element_type == "HEX8"
         return reduce(*, -factor * ones(3) .≤ ξ .≤ factor * ones(3))
     else
@@ -577,19 +567,23 @@ function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Fl
 end
 
 function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
+    ξ = zeros(length(point))
+    if is_inside_guess(element_type, nodes, point, 0.1) == false
+        return ξ, false
+    end
     ξ = map_to_parametric(element_type, nodes, point)
-    return is_inside_parametric(element_type, ξ, tol)
+    return ξ, is_inside_parametric(element_type, ξ, tol)
 end
 
-#function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
-#    if element_type == "TETRA4" || element_type == "TETRA10"
-#        return is_point_in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
-#    elseif element_type == "HEX8"
-#        return is_point_in_hexahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], nodes[:,5], nodes[:,6], nodes[:,7], nodes[:,8], tol)
-#    else
-#        error("Invalid element type: ", element_type)
-#    end
-#end
+function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
+    if element_type == "TETRA4" || element_type == "TETRA10"
+        return is_point_in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
+    elseif element_type == "HEX8"
+        return is_point_in_hexahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], nodes[:,5], nodes[:,6], nodes[:,7], nodes[:,8], tol)
+    else
+        error("Invalid element type: ", element_type)
+    end
+end
 
 function find_and_project(
     point::Vector{Float64},
@@ -745,7 +739,6 @@ function get_rectangular_projection_matrix(
             dst_j = norm(cross(dst_dXdξ[1, :], dst_dXdξ[2, :]))
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
-            is_inside = false
             _, ξ, src_side_coordinates, src_side_nodes, _, _ =
                 find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
             src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])

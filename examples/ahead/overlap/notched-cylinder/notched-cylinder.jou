@@ -119,6 +119,14 @@ nodeset 7 surface 134 113 106 126 #parallel in y, top domain
 nodeset 7 name "-X_top"
 nodeset 8 surface 112 108 128 133 #parallel in x, top domain
 nodeset 8 name "-Y_top"
+sideset 1 surface 81 83 #bottom of bottom domain
+sideset 1 name "-Z_bottomSS"
+sideset 2 surface 124 117 #top of bottom domain
+sideset 2 name "+Z_bottomSS"
+sideset 5 surface 129 132 #bottom of top domain
+sideset 5 name "-Z_topSS"
+sideset 6 surface 107 114 #top of top domain
+sideset 6 name "+Z_topSS"
 set large exodus file off
 export mesh "notched-cylinder-1.g" block 1 overwrite
 export mesh "notched-cylinder-2.g" block 2 overwrite
