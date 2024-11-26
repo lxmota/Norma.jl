@@ -401,7 +401,7 @@ export mesh "holder-1.g" dimension 3 block 7 overwrite
 #sideset_negative_y in the above code for holder-1 and gauge even though it should work.
 reset
 import mesh geometry "holder-1.g" 
-sideset 1 surface 9 
+sideset 1 surface 2 
 sideset 1 name "sideset_negative_y" 
 block 7 element type HEX8
 export mesh "holder-1.g" block 7 overwrite
