@@ -122,46 +122,22 @@ function SMCouplingSchwarzBC(
     is_dirichlet = true
     if (coupling_type == "overlap") 
       SMOverlapSchwarzBC(
-        side_set_name,
+        side_set_node_indices,
+        coupled_nodes_indices,
+        interpolation_function_values,
+        coupled_subsim,
+        is_dirichlet,
+        coupling_type
+      )
+    else #non-overlap
+      SMNonOverlapSchwarzBC(
         side_set_id,
         side_set_node_indices,
         coupled_nodes_indices,
         interpolation_function_values,
         coupled_subsim,
-        coupled_mesh,
-        coupled_side_set_id,
         is_dirichlet,
         coupling_type
-      )
-    else #non-overlap
-      #IKT TODO rework this
-      side_set_name = bc_params["side set"]
-      side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-      global_to_local_map, num_nodes_per_side, side_set_node_indices =
-          get_side_set_global_to_local_map(input_mesh, side_set_id)
-      #IKT 11/21/2024: what is the point of the following variable?  It's always 0.
-      coupled_bc_index = 0
-      coupled_side_set_name = bc_params["source side set"]
-      coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-      coupled_global_to_local_map =
-      get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
-      SMNonOverlapSchwarzBC(
-          node_set_name,
-          node_set_id,
-          node_set_node_indices,
-          coupled_subsim,
-          coupled_mesh,
-          coupled_block_id,
-          coupled_nodes_indices,
-          interpolation_function_values,
-          side_set_name,
-          side_set_id,
-          num_nodes_per_side,
-          side_set_node_indices,
-          coupled_bc_index,
-          coupled_side_set_id,
-          is_dirichlet,
-	  coupling_type
       )
     end
 end
