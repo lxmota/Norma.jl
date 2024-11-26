@@ -218,8 +218,10 @@ end
 
 function apply_bc_detail(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
     if bc.is_dirichlet == true
+        println("IKT calling apply_sm_schwarz_coupling_dirichlet!")
         apply_sm_schwarz_coupling_dirichlet(model, bc)
     else
+        println("IKT calling apply_sm_schwarz_coupling_neumann!")
         apply_sm_schwarz_coupling_neumann(model, bc)
     end
 end
@@ -244,8 +246,8 @@ function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::Coupling
 end
 
 function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
-    error("IKT Neumann coupling!") 
-    schwarz_tractions = get_dst_traction(bc)
+    schwarz_tractions = get_dst_traction(bc) #IKT 11/26/2024: this doesn't work yet b/c don't have get_dst_traction
+                                             #routine for bc::CouplingSchwarzBoundaryCondition specialization yet
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
@@ -639,7 +641,6 @@ end
 
 function pair_bc(_::String, _::RegularBoundaryCondition) end
 
-function pair_bc(_::String, _::OverlapSchwarzBoundaryCondition) end
 
 function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
     coupled_model = bc.coupled_subsim.model
@@ -651,14 +652,14 @@ function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
     end
 end
 
-function pair_bc(name::String, bc::NonOverlapSchwarzBoundaryCondition)
-    #IKT 11/20/2024: this is cut/paste from the ContactSchwarzBoundaryCondition case, which we 
-    #probably don't want.
-    coupled_model = bc.coupled_subsim.model
-    coupled_bcs = coupled_model.boundary_conditions
-    for coupled_bc ∈ coupled_bcs
-        if is_coupled_to_current(name, coupled_bc) == true
-            coupled_bc.is_dirichlet = !bc.is_dirichlet
+function pair_bc(name::String, bc::CouplingSchwarzBoundaryCondition)
+    if (bc.coupling_type == "nonoverlap") 
+        coupled_model = bc.coupled_subsim.model
+        coupled_bcs = coupled_model.boundary_conditions
+        for coupled_bc ∈ coupled_bcs
+            if is_coupled_to_current(name, coupled_bc) == true
+                coupled_bc.is_dirichlet = !bc.is_dirichlet
+            end
         end
     end
 end 
@@ -672,5 +673,9 @@ function is_coupled_to_current(_::String, _::SchwarzBoundaryCondition)
 end
 
 function is_coupled_to_current(name::String, coupled_bc::ContactSchwarzBoundaryCondition)
+    return name == coupled_bc.coupled_subsim.name
+end
+
+function is_coupled_to_current(name::String, coupled_bc::CouplingSchwarzBoundaryCondition)
     return name == coupled_bc.coupled_subsim.name
 end
