@@ -479,33 +479,57 @@ function get_side_set_nodal_forces(
     return nodal_force_component
 end
 
-# Helper function to calculate the signed volume of a tetrahedron
-function signed_volume(p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, p4::Vector{Float64})
-    return det([p2 - p1 p3 - p1 p4 - p1])
+
+# Given 3 points p1, p2, p3 that define a plane
+# determine if point p is in the same side of the normal
+# to the plane as defined by the right hand rule.
+function in_normal_side(p::Vector{Float64}, p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, tol::Float64)
+    v1 = p2 - p1
+    v2 = p3 - p1
+    h = min(norm(v1), norm(v2))
+    n = normalize(cross(v1, v2))
+    v = p - p1
+    s = dot(v, n)
+    return s ≥ -tol * h
 end
 
-function is_point_in_tetrahedron(P::Vector{Float64}, A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64}, tol::Float64)
-
-    # Calculate signed volumes
-    V = signed_volume(A, B, C, D)
-    v1 = signed_volume(P, B, C, D) / V
-    v2 = signed_volume(A, P, C, D) / V
-    v3 = signed_volume(A, B, P, D) / V
-    v4 = signed_volume(A, B, C, P) / V
-
-    return v1 ≥ -tol && v2 ≥ -tol && v3 ≥ -tol && v4 ≥ -tol
+function in_tetrahedron(p::Vector{Float64}, p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, p4::Vector{Float64}, tol::Float64)
+    if in_normal_side(p, p1, p2, p3, tol) == false
+        return false
+    end
+    if in_normal_side(p, p1, p4, p2, tol) == false
+        return false
+    end
+    if in_normal_side(p, p2, p4, p3, tol) == false
+        return false
+    end
+    if in_normal_side(p, p3, p4, p1, tol) == false
+        return false
+    end
+    return true
 end
 
-function is_point_in_hexahedron(P::Vector{Float64}, A::Vector{Float64}, B::Vector{Float64}, C::Vector{Float64}, D::Vector{Float64}, E::Vector{Float64}, F::Vector{Float64}, G::Vector{Float64}, H::Vector{Float64}, tol::Float64)
-
-    # Check the point against each tetrahedron
-    return (
-        is_point_in_tetrahedron(P, A, B, C, E, tol) ||
-        is_point_in_tetrahedron(P, C, B, F, E, tol) ||
-        is_point_in_tetrahedron(P, C, F, G, E, tol) ||
-        is_point_in_tetrahedron(P, C, G, H, E, tol) ||
-        is_point_in_tetrahedron(P, C, H, D, E, tol)
-    )
+# The assumtion is that the faces are planar, which is ok since this function is used a a rough approximation.
+function in_hexahedron(p::Vector{Float64}, p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, p4::Vector{Float64}, p5::Vector{Float64}, p6::Vector{Float64}, p7::Vector{Float64}, p8::Vector{Float64}, tol::Float64)
+    if in_normal_side(p, p1, p2, p3, tol) == false
+        return false
+    end
+    if in_normal_side(p, p1, p5, p6, tol) == false
+        return false
+    end
+    if in_normal_side(p, p2, p6, p7, tol) == false
+        return false
+    end
+    if in_normal_side(p, p3, p7, p8, tol) == false
+        return false
+    end
+    if in_normal_side(p, p4, p8, p5, tol) == false
+        return false
+    end
+    if in_normal_side(p, p5, p8, p7, tol) == false
+        return false
+    end
+    return true
 end
 
 function map_to_parametric(
@@ -577,9 +601,9 @@ end
 
 function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
     if element_type == "TETRA4" || element_type == "TETRA10"
-        return is_point_in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
+        return in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
     elseif element_type == "HEX8"
-        return is_point_in_hexahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], nodes[:,5], nodes[:,6], nodes[:,7], nodes[:,8], tol)
+        return in_hexahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], nodes[:,5], nodes[:,6], nodes[:,7], nodes[:,8], tol)
     else
         error("Invalid element type: ", element_type)
     end
