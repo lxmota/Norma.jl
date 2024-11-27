@@ -9,7 +9,7 @@ model:
     hyperelastic:
       model: neohookean
       elastic modulus: 1.0e+09
-      Poisson's ratio: 0.25
+      Poisson's ratio: 0.0
       density: 1000.0
 time integrator:
   type: quasi static
@@ -19,6 +19,12 @@ boundary conditions:
       component: x
       function: "0.0"
     - node set: nsy-
+      component: y
+      function: "0.0"
+    - node set: nsx+
+      component: x
+      function: "0.0"
+    - node set: nsy+
       component: y
       function: "0.0"
     - node set: nsz-

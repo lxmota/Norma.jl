@@ -195,8 +195,11 @@ function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
                 break
             end
             subsim.model.time = subsim.integrator.time
+            println("*** Before apply_bcs subsim.model.current[3, :] : ", subsim.model.current[3, :])
             apply_bcs(subsim)
+            println("*** After apply_bcs  subsim.model.current[3, :] : ", subsim.model.current[3, :])
             advance(subsim)
+            println("*** After advance    subsim.model.current[3, :] : ", subsim.model.current[3, :])
             if subsim.failed == true
                 sim.failed = true
                 return
