@@ -100,7 +100,6 @@ function SMCouplingSchwarzBC(
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
     coupled_global_to_local_map =
         get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
-    is_dirichlet = true
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     tol = 1.0e-06
@@ -126,16 +125,22 @@ function SMCouplingSchwarzBC(
         coupled_nodes_indices,
         interpolation_function_values,
         coupled_subsim,
+	subsim,
         is_dirichlet,
         coupling_type
       )
     else #non-overlap
+      transfer_operator =
+          zeros(length(global_to_local_map), length(coupled_global_to_local_map))
       SMNonOverlapSchwarzBC(
         side_set_id,
         side_set_node_indices,
         coupled_nodes_indices,
         interpolation_function_values,
         coupled_subsim,
+	subsim,
+	coupled_side_set_id,
+	transfer_operator,
         is_dirichlet,
         coupling_type
       )
@@ -246,14 +251,13 @@ function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::Coupling
 end
 
 function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
-    schwarz_tractions = get_dst_traction(bc) #IKT 11/26/2024: this doesn't work yet b/c don't have get_dst_traction
-                                             #routine for bc::CouplingSchwarzBoundaryCondition specialization yet
+    schwarz_tractions = get_dst_traction(bc) 
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
         global_node = local_to_global_map[local_node]
         node_tractions = schwarz_tractions[3*local_node-2:3*local_node]
-        model.boundary_force[3*global_node-2:3*global_node] += node_tranctions
+        model.boundary_force[3*global_node-2:3*global_node] += node_tractions
     end
 end
 
@@ -292,7 +296,7 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     interp_∂Ω_f =
         same_step == true ? ∂Ω_f_hist[end] : interpolate(time_hist, ∂Ω_f_hist, time)
     bc.coupled_subsim.model.internal_force = interp_∂Ω_f
-    if global_sim.schwarz_controller.schwarz_contact == true
+    if ((global_sim.schwarz_controller.schwarz_contact == true) || (bc.coupling_type == "nonoverlap"))
         relaxation_parameter = global_sim.schwarz_controller.relaxation_parameter
         Schwarz_iteration = global_sim.schwarz_controller.iteration_number
         if Schwarz_iteration == 1
@@ -404,7 +408,7 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
         model.boundary_force[3*global_node-2:3*global_node] += transfer_normal_component(
             node_tractions,
             model.boundary_force[3*global_node-2:3*global_node],
-            normal,
+            normal
         )
     end
 end
@@ -445,6 +449,27 @@ function compute_transfer_operator(dst_model::SolidMechanics, bc::SMContactSchwa
     bc.transfer_operator = rectangular_projection_matrix * inv(square_projection_matrix)
 end
 
+function compute_transfer_operator(dst_model::SolidMechanics, bc::SMNonOverlapSchwarzBC)
+    #IKT 11/26/2024: this is a copy of this function for the bc::SMContactSchwarzBC case.
+    #Can we consolidate somehow to avoid code duplication?
+    src_mesh = bc.coupled_subsim.model.mesh
+    src_side_set_id = bc.coupled_side_set_id
+    src_model = bc.coupled_subsim.model
+    dst_mesh = dst_model.mesh
+    dst_side_set_id = bc.side_set_id
+    square_projection_matrix =
+        get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
+    rectangular_projection_matrix = get_rectangular_projection_matrix(
+        dst_mesh,
+        dst_model,
+        dst_side_set_id,
+        src_mesh,
+        src_model,
+        src_side_set_id,
+    )
+    bc.transfer_operator = rectangular_projection_matrix * inv(square_projection_matrix)
+end
+
 function get_dst_traction(bc::SMContactSchwarzBC)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
@@ -462,6 +487,29 @@ function get_dst_traction(bc::SMContactSchwarzBC)
     dst_traction[3:3:end] = dst_traction_z
     return dst_traction
 end
+
+function get_dst_traction(bc::SMNonOverlapSchwarzBC)
+    src_mesh = bc.coupled_subsim.model.mesh
+    src_side_set_id = bc.coupled_side_set_id
+    src_global_traction = -bc.coupled_subsim.model.internal_force
+    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
+    src_traction_x = src_local_traction[1:3:end]
+    src_traction_y = src_local_traction[2:3:end]
+    src_traction_z = src_local_traction[3:3:end]
+    #IKT 11/26/2024: do we need to recompute the transfer operator each time?  Should be fixed, no? 
+    compute_transfer_operator(bc.coupled_subsim.model, bc)
+    #bc.transfer_operator = [1.0 0.0 0.0 0.0; 0.0 0.0 0.0 1.0000000000000002; 0.0 0.0 1.0 0.0; 0.0 1.0 0.0 0.0]
+    println("IKT transfer_operator = ", bc.transfer_operator) 
+    dst_traction_x = bc.transfer_operator * src_traction_x
+    dst_traction_y = bc.transfer_operator * src_traction_y
+    dst_traction_z = bc.transfer_operator * src_traction_z
+    dst_traction = zeros(3 * length(dst_traction_x))
+    dst_traction[1:3:end] = dst_traction_x
+    dst_traction[2:3:end] = dst_traction_y
+    dst_traction[3:3:end] = dst_traction_z
+    return dst_traction
+end
+
 
 function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
     node_set_names = Exodus.read_names(mesh, NodeSet)

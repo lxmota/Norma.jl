@@ -294,7 +294,7 @@ function assemble(
     end
 end
 
-function evaluate(_::QuasiStatic, model::SolidMechanics)
+function evaluate(integrator::QuasiStatic, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
     mesh_smoothing = model.mesh_smoothing
