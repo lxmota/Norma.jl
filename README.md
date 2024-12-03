@@ -26,6 +26,17 @@ On MacOS, it is necessary to ignore package hashes for the dependence on Exodus.
 
     ENV["JULIA_PKG_IGNORE_HASHES"] = 1
 
+If you are getting errors regarding ssl certificates in the above setup, please try the following fix.  First, go to ~/.julia/registries and manually cllone JuliaRegistries/General.git: 
+
+    cd ~/.julia/registries
+    git clone https://github.com/JuliaRegistries/General.git
+    
+Then, please do
+
+    export JULIA_SSL_CA_ROOTS_PATH=/etc/ssl/certs/ca-bundle.crt
+
+and try the above workflow again.
+
 To run the code, assuming that Julia is in the executable path:
 
     julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
