@@ -32,7 +32,7 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
     velo_num = expand_derivatives(D(disp_num))
     acce_num = expand_derivatives(D(velo_num))
     # For inclined support, the function is applied along the x direction
-    offset = component_offset_from_string("x")
+    offset = component_offset_from_string(bc_params["local component"])
 
     # The local basis is determined from an axis angle representation
     axis = zeros(3)
@@ -222,10 +222,8 @@ function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
         disp_vector_glob = bc.rotation_matrix' * disp_vector_local
         velo_vector_glob = bc.rotation_matrix' * velo_vector_local
         accel_vector_glob = bc.rotation_matrix' * accel_vector_local
-        # if disp_val_loc > 1e-6
-        #     println("Debug")
-        # end
-        dof_index = 3 * (node_index - 1) + 1 # dof_index is specificly just for X
+
+        dof_index = 3 * (node_index - 1) + bc.offset
         model.current[:, node_index] =
             model.reference[:, node_index] + disp_vector_glob
         model.velocity[:, node_index] = velo_vector_glob
@@ -574,6 +572,7 @@ function create_bcs(params::Dict{Any,Any})
     end
     input_mesh = params["input_mesh"]
     bc_params = params["boundary conditions"]
+    inclined_support_nodes = Vector{Int64}()
     for (bc_type, bc_type_params) ∈ bc_params
         for bc_setting_params ∈ bc_type_params
             if bc_type == "Dirichlet"
@@ -593,6 +592,7 @@ function create_bcs(params::Dict{Any,Any})
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Inclined Dirichlet"
                 boundary_condition = SMDirichletInclined(input_mesh, bc_setting_params)
+                append!(inclined_support_nodes, boundary_condition.node_set_node_indices)
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz Dirichlet"
                 sim = params["global_simulation"]
@@ -609,6 +609,11 @@ function create_bcs(params::Dict{Any,Any})
                 error("Unknown boundary condition type : ", bc_type)
             end
         end
+    end
+    # BRP: do not support applying multiple inclined support BCs to a single node
+    duplicate_inclined_support_conditions = length(unique(inclined_support_nodes)) < length(inclined_support_nodes)
+    if duplicate_inclined_support_conditions
+        throw(error("Cannot apply multiple inclined BCs to a single node."))
     end
     return boundary_conditions
 end
