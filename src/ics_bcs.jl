@@ -22,6 +22,42 @@ function SMDirichletBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     )
 end
 
+function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
+    node_set_name = bc_params["node set"]
+    expression = bc_params["function"]
+    node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+    node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
+    # expression is an arbitrary function of t, x, y, z in the input file
+    disp_num = eval(Meta.parse(expression))
+    velo_num = expand_derivatives(D(disp_num))
+    acce_num = expand_derivatives(D(velo_num))
+    # For inclined support, the function is applied along the x direction
+    offset = component_offset_from_string("x")
+
+    # The local basis is determined from an axis angle representation
+    axis = zeros(3)
+    axis[1] = bc_params["axis1"]
+    axis[2] = bc_params["axis2"]
+    axis[3] = bc_params["axis3"]
+    axis = axis/norm(axis)
+    angle = bc_params["angle deg"]
+    angle_rad = angle * π / 180
+    # Convert to rot matrix (source: http://motion.pratt.duke.edu/RoboticSystems/3DRotations.html)
+    a_skwsym = [ 0     -axis[3]    axis[2];  axis[3]    0     -axis[1];  -axis[2]   axis[1]    0 ]
+    rotation_matrix = Diagonal(ones(3)) + sin(angle_rad)*a_skwsym + (1 - cos(angle_rad)) * a_skwsym * a_skwsym
+
+    SMDirichletInclined(
+        node_set_name,
+        node_set_id,
+        node_set_node_indices,
+        disp_num,
+        velo_num,
+        acce_num,
+        rotation_matrix,
+        offset
+    )
+end
+
 function SMNeumannBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     side_set_name = bc_params["side set"]
     expression = bc_params["function"]
@@ -156,6 +192,45 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
             dof_index = 3 * (node_index - 1) + bc.offset
             model.boundary_force[dof_index] += bc_val
         end
+    end
+end
+
+function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
+    for node_index ∈ bc.node_set_node_indices
+        values = Dict(
+            t => model.time,
+            x => model.reference[1, node_index],
+            y => model.reference[2, node_index],
+            z => model.reference[3, node_index],
+        )
+        disp_sym = substitute(bc.disp_num, values)
+        velo_sym = substitute(bc.velo_num, values)
+        acce_sym = substitute(bc.acce_num, values)
+
+        # For inclined support, these values are in the local direction
+        disp_val_loc = extract_value(disp_sym)
+        velo_val_loc = extract_value(velo_sym)
+        acce_val_loc = extract_value(acce_sym)
+
+        # Rotate the local displacements to the global frame
+        disp_vector_local = zeros(3)
+        disp_vector_local[bc.offset] = disp_val_loc 
+        velo_vector_local = zeros(3)
+        velo_vector_local[bc.offset] = velo_val_loc 
+        accel_vector_local = zeros(3)
+        accel_vector_local[bc.offset] = acce_val_loc     
+        disp_vector_glob = bc.rotation_matrix' * disp_vector_local
+        velo_vector_glob = bc.rotation_matrix' * velo_vector_local
+        accel_vector_glob = bc.rotation_matrix' * accel_vector_local
+        # if disp_val_loc > 1e-6
+        #     println("Debug")
+        # end
+        dof_index = 3 * (node_index - 1) + 1 # dof_index is specificly just for X
+        model.current[:, node_index] =
+            model.reference[:, node_index] + disp_vector_glob
+        model.velocity[:, node_index] = velo_vector_glob
+        model.acceleration[:, node_index] = accel_vector_glob
+        model.free_dofs[dof_index] = false
     end
 end
 
@@ -515,6 +590,9 @@ function create_bcs(params::Dict{Any,Any})
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
                 boundary_condition =
                     SMContactSchwarzBC(coupled_subsim, input_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)
+            elseif bc_type == "Inclined Dirichlet"
+                boundary_condition = SMDirichletInclined(input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Schwarz Dirichlet"
                 sim = params["global_simulation"]

@@ -18,6 +18,17 @@ mutable struct SMDirichletBC <: RegularBoundaryCondition
     acce_num::Num
 end
 
+mutable struct SMDirichletInclined <: RegularBoundaryCondition
+    node_set_name::String
+    node_set_id::Int64
+    node_set_node_indices::Vector{Int64}
+    disp_num::Num
+    velo_num::Num
+    acce_num::Num
+    rotation_matrix::Matrix{Float64}
+    offset::Int64
+end
+
 mutable struct SMNeumannBC <: RegularBoundaryCondition
     side_set_name::String
     offset::Int64
