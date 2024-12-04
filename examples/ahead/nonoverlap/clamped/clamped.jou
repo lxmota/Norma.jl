@@ -5,9 +5,11 @@ ${length = 1.0 * m}
 ${h_coarse_size = 1.0 * mm}
 ${h_fine_size = h_coarse_size / 2.0}
 
-${overlap_length = h_coarse_size * 30}
-${domain_length = (length + overlap_length) / 2.0}
-${offset = abs(domain_length - overlap_length) / 2.0}
+${overlap_length = h_coarse_size * 0.0}
+${factor = 0.6}
+${domain_length = (length + overlap_length) * factor}
+${domain2_length = length - domain_length}
+${offset = length / 2.0 - abs(domain_length - overlap_length) / 2.0}
 
 create brick x {side} y {side} z {domain_length}
 move volume 1 z {-offset} include_merged
@@ -48,8 +50,9 @@ sideset 6 name "ssz+"
 set large exodus file off
 export mesh "clamped-1.g" overwrite
 
-delete mesh
-move volume 1 z {2 * offset} include_merged
+reset
+create brick x {side} y {side} z {domain2_length}
+move volume 1 z {domain_length / 2.0} include_merged
 #IKT question 11/6/2024: how do I set number of elements in z-direction
 #when I do sweep?  This should be given by the h_fine_size. 
 #surface 1 size {side}

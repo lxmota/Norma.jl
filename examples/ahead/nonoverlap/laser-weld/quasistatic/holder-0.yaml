@@ -1,5 +1,5 @@
 type: single
-input mesh file: ../../../single/laser-weld/holder-0.g
+input mesh file: ../holder-0.g
 output mesh file: holder-0.e
 model:
   type: solid mechanics
@@ -29,7 +29,8 @@ boundary conditions:
       source: gauge.yaml
       source block: region_weld_0
       source side set: sideset_negative_y
-      coupling type: overlap
+      search tolerance: 5.0e-02
+      coupling type: nonoverlap
 solver:
   type: Hessian minimizer
   step: full Newton

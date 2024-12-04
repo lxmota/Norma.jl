@@ -155,7 +155,7 @@ webcut volume 1 with plane yplane offset {widthRegionWeld}
 
 webcut volume 3 with plane yplane offset -{widthRegionWeld}
 
-#{widthOverlap = 1.0 * sizeElementCoarse}
+#{widthOverlap = 0.0 * sizeElementCoarse}
 
 webcut volume 3 with plane yplane offset -{widthRegionWeld + widthOverlap}
 
@@ -197,7 +197,9 @@ block 2 name "region_weld_0"
 
 block 5 volume 1 4
 
-block 5 name "region_weld_1"
+block 55 volume 1 
+
+block 55 name "region_weld_1"
 
 block 11 volume 1 2 4 5 6
 
@@ -328,14 +330,14 @@ nodeset 2 name "nodeset_negative_y"
 nodeset 3 surface 39
 nodeset 3 name "nodeset_positive_y"
 
-sideset 2 surface 29
-sideset 2 name "sideset_negative_y"
+#sideset 2 surface 29
+#sideset 2 name "sideset_negative_y"
 
-sideset 3 surface 39
-sideset 3 name "sideset_positive_y"
+#sideset 3 surface 39
+#sideset 3 name "sideset_positive_y"
 
 set large exodus file on
-export mesh "gauge.g" dimension 3 block 1 2 5 overwrite
+export mesh "gauge.g" dimension 3 block 1 2 55 overwrite
 
 export mesh "LaserWeldSimplified_Specimen_Gauge_SingleBlock.g" dimension 3 block 11 overwrite
 
@@ -360,11 +362,11 @@ nodeset 2 name "nodeset_negative_y"
 nodeset 3 surface 23
 nodeset 3 name "nodeset_positive_y"
 
-sideset 2 surface 16
-sideset 2 name "sideset_negative_y"
+#sideset 2 surface 16
+#sideset 2 name "sideset_negative_y"
 
-sideset 3 surface 23
-sideset 3 name "sideset_positive_y"
+#sideset 3 surface 23
+#sideset 3 name "sideset_positive_y"
 
 set large exodus file on
 export mesh "holder-0.g" dimension 3 block 3 overwrite
@@ -388,27 +390,40 @@ nodeset 2 name "nodeset_negative_y"
 nodeset 3 surface 1
 nodeset 3 name "nodeset_positive_y"
 
-sideset 3 surface 1
-sideset 3 name "sideset_positive_y"
+#sideset 3 surface 1
+#sideset 3 name "sideset_positive_y"
 
-sideset 2 surface 17
-sideset 2 name "sideset_negative_y"
+#sideset 2 surface 17
+#sideset 2 name "sideset_negative_y"
 
 set large exodus file on
 export mesh "holder-1.g" dimension 3 block 7 overwrite
 
 #IKT 11/24/2024: the following is a hack.  For some reason, I can't seem to set 
-#sideset_negative_y in the above code for holder-1 and gauge even though it should work.
+#sidesets correctly in the above code
+reset
+import mesh geometry "holder-0.g" 
+sideset 1 surface 2
+sideset 1 name "sideset_negative_y" 
+sideset 2 surface 4
+sideset 2 name "sideset_positive_y"
+block all element type HEX8
+export mesh "holder-0.g" block all overwrite
+
 reset
 import mesh geometry "holder-1.g" 
 sideset 1 surface 2 
 sideset 1 name "sideset_negative_y" 
-block 7 element type HEX8
-export mesh "holder-1.g" block 7 overwrite
+sideset 2 surface 3 
+sideset 2 name "sideset_positive_y" 
+block all element type HEX8
+export mesh "holder-1.g" block all overwrite
 
 reset
 import mesh geometry "gauge.g" 
-sideset 1 surface 2 
+sideset 1 surface 17 
 sideset 1 name "sideset_negative_y" 
+sideset 2 surface 2 
+sideset 2 name "sideset_positive_y" 
 block all element type HEX8
 export mesh "gauge.g" block all overwrite
