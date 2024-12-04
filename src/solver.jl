@@ -184,7 +184,6 @@ function copy_solution_source_targets(
 )
     displacement_local = integrator.displacement
     solver.solution = displacement_local
-
     # BRP: apply inclined support inverse transform
     displacement = model.global_transform' * displacement_local
 
@@ -200,8 +199,9 @@ function copy_solution_source_targets(
     model::SolidMechanics,
     integrator::QuasiStatic,
 )
-    displacement = solver.solution
-    integrator.displacement = displacement
+    displacement_local = solver.solution
+    integrator.displacement = displacement_local
+    displacement = model.global_transform' * displacement_local
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
@@ -219,6 +219,8 @@ function copy_solution_source_targets(
         nodal_displacement = model.current[:, node] - model.reference[:, node]
         integrator.displacement[3*node-2:3*node] = nodal_displacement
     end
+    # Convert integrator displacement from global to local
+    integrator.displacement = model.global_transform * integrator.displacement
     solver.solution = integrator.displacement
 end
 
