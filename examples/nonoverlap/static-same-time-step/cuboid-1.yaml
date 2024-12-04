@@ -9,8 +9,7 @@ model:
     elastic:
       model: linear elastic
       elastic modulus: 1.0e+09
-      #Poisson's ratio: 0.25
-      Poisson's ratio: 0.0
+      Poisson's ratio: 0.25
       density: 1000.0
 time integrator:
   type: quasi static
@@ -20,18 +19,12 @@ boundary conditions:
     - node set: nsx-
       component: x
       function: "0.0"
-    - node set: nsx+
-      component: x
-      function: "0.0"
     - node set: nsy-
-      component: y
-      function: "0.0"
-    - node set: nsy+
       component: y
       function: "0.0"
     - node set: nsz-
       component: z
-      function: "0.0"
+      function: "-0.0 * t"
   Schwarz coupling:
     - side set: ssz+
       source: cuboid-2.yaml

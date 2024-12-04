@@ -703,7 +703,7 @@ function get_square_projection_matrix(
     global_to_local_map, num_nodes_sides, side_set_node_indices =
         get_side_set_global_to_local_map(mesh, side_set_id)
     num_nodes = length(global_to_local_map)
-    coords = model.current #IKT 11/26/2024: put in logic to set model.reference for coupling
+    coords = model.current
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides

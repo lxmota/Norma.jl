@@ -83,7 +83,6 @@ function SMCouplingSchwarzBC(
     bc_params::Dict{Any,Any},
 )
     coupling_type = bc_params["coupling type"]
-    println("IKT coupling_type = ", coupling_type)
     if ((coupling_type != "overlap") && (coupling_type != "nonoverlap")) 
       error("Undefined coupling type: ", coupling_type) 
     end
@@ -223,10 +222,8 @@ end
 
 function apply_bc_detail(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
     if bc.is_dirichlet == true
-        println("IKT calling apply_sm_schwarz_coupling_dirichlet!")
         apply_sm_schwarz_coupling_dirichlet(model, bc)
     else
-        println("IKT calling apply_sm_schwarz_coupling_neumann!")
         apply_sm_schwarz_coupling_neumann(model, bc)
     end
 end
@@ -430,28 +427,7 @@ function reduce_traction(
     return local_traction
 end
 
-function compute_transfer_operator(dst_model::SolidMechanics, bc::SMContactSchwarzBC)
-    src_mesh = bc.coupled_subsim.model.mesh
-    src_side_set_id = bc.coupled_side_set_id
-    src_model = bc.coupled_subsim.model
-    dst_mesh = dst_model.mesh
-    dst_side_set_id = bc.side_set_id
-    square_projection_matrix =
-        get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
-    rectangular_projection_matrix = get_rectangular_projection_matrix(
-        dst_mesh,
-        dst_model,
-        dst_side_set_id,
-        src_mesh,
-        src_model,
-        src_side_set_id,
-    )
-    bc.transfer_operator = rectangular_projection_matrix * inv(square_projection_matrix)
-end
-
-function compute_transfer_operator(dst_model::SolidMechanics, bc::SMNonOverlapSchwarzBC)
-    #IKT 11/26/2024: this is a copy of this function for the bc::SMContactSchwarzBC case.
-    #Can we consolidate somehow to avoid code duplication?
+function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_model = bc.coupled_subsim.model
@@ -496,10 +472,7 @@ function get_dst_traction(bc::SMNonOverlapSchwarzBC)
     src_traction_x = src_local_traction[1:3:end]
     src_traction_y = src_local_traction[2:3:end]
     src_traction_z = src_local_traction[3:3:end]
-    #IKT 11/26/2024: do we need to recompute the transfer operator each time?  Should be fixed, no? 
     compute_transfer_operator(bc.coupled_subsim.model, bc)
-    #bc.transfer_operator = [1.0 0.0 0.0 0.0; 0.0 0.0 0.0 1.0000000000000002; 0.0 0.0 1.0 0.0; 0.0 1.0 0.0 0.0]
-    println("IKT transfer_operator = ", bc.transfer_operator) 
     dst_traction_x = bc.transfer_operator * src_traction_x
     dst_traction_y = bc.transfer_operator * src_traction_y
     dst_traction_z = bc.transfer_operator * src_traction_z

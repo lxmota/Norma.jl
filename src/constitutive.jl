@@ -600,28 +600,6 @@ function constitutive(material::SethHill, F::Matrix{Float64})
     return W, P, AA
 end
 
-function constitutive(material::Solid, energy::Function, F::Matrix{Float64})
-    C = MiniTensor.dot(MiniTensor.transpose(F), F)
-    J2 = MiniTensor.determinant(C)
-    Jm23 = 1.0 / cbrt(J2)
-    trC = MiniTensor.trace(C)
-    κ = material.κ
-    μ = material.μ
-    Wvol = 0.25 * κ * (J2 - log(J2) - 1)
-    Wdev = 0.5 * μ * (Jm23 * trC - 3)
-    f(F) = Wvol + Wdev
-    #f(F) = MiniTensor.determinant(F)
-    W = energy(F)
-    #P = reshape(collect(gradient(Forward, f, F)), 3, 3)
-    println("*** DEBUG DEFGRAD : ", F)
-    println("*** DEBUG ENERGY : ", typeof(f), f(F))
-    println("*** DEBUG STRESS : ", gradient(Forward, f, F))
-    stop
-    AA = zeros(3,3,3,3)
-    #AA = reshape(collect(gradient(Forward, (FF) -> reshape(collect(gradient(Forward, energy, FF)), 3, 3), F)), 3, 3, 3, 3)
-    return W, P, AA
-end
-
 function create_material(params::Dict{Any,Any})
     model_name = params["model"]
     if model_name == "linear elastic"
