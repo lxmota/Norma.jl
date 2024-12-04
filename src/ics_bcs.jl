@@ -44,7 +44,7 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
     angle_rad = angle * π / 180
     # Convert to rot matrix (source: http://motion.pratt.duke.edu/RoboticSystems/3DRotations.html)
     a_skwsym = [ 0     -axis[3]    axis[2];  axis[3]    0     -axis[1];  -axis[2]   axis[1]    0 ]
-    rotation_matrix = Diagonal(ones(3)) + sin(angle_rad)*a_skwsym + (1 - cos(angle_rad)) * a_skwsym * a_skwsym
+    rotation_matrix = (Diagonal(ones(3)) + sin(angle_rad)*a_skwsym + (1 - cos(angle_rad)) * a_skwsym * a_skwsym)'
 
     SMDirichletInclined(
         node_set_name,
