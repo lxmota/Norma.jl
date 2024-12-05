@@ -1,5 +1,24 @@
 module Norma
 
+using Logging
+
+# Enable debugging for a specific module in the environment variable JULIA_DEBUG (all for all modules)
+function configure_logger()
+    debug_level = get(ENV, "JULIA_DEBUG", "")
+
+    if debug_level != ""
+        # Enable debug logging
+        global_logger(ConsoleLogger(stderr, Logging.Debug))
+        @info "Debugging enabled for: $debug_level"
+    else
+        # Default to Info level
+        global_logger(ConsoleLogger(stderr, Logging.Info))
+        @info "Debugging disabled"
+    end
+end
+
+configure_logger()
+
 include("minitensor.jl")
 include("simulation.jl")
 include("evolve.jl")

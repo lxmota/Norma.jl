@@ -575,7 +575,7 @@ function interpolate(element_type::String, ξ::Vector{Float64})
     end
 end
 
-function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64 = 1.0e-06)
+function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64=1.0e-06)
     factor = 1.0 + tol
     if element_type == "BAR2"
         return -factor ≤ ξ ≤ factor
@@ -590,7 +590,7 @@ function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Fl
     end
 end
 
-function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
+function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64=1.0e-06)
     ξ = zeros(length(point))
     if is_inside_guess(element_type, nodes, point, 0.1) == false
         return ξ, false
@@ -599,11 +599,11 @@ function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{F
     return ξ, is_inside_parametric(element_type, ξ, tol)
 end
 
-function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64 = 1.0e-06)
+function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64=1.0e-06)
     if element_type == "TETRA4" || element_type == "TETRA10"
-        return in_tetrahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], tol)
+        return in_tetrahedron(point, nodes[:, 1], nodes[:, 2], nodes[:, 3], nodes[:, 4], tol)
     elseif element_type == "HEX8"
-        return in_hexahedron(point, nodes[:,1], nodes[:,2], nodes[:,3], nodes[:,4], nodes[:,5], nodes[:,6], nodes[:,7], nodes[:,8], tol)
+        return in_hexahedron(point, nodes[:, 1], nodes[:, 2], nodes[:, 3], nodes[:, 4], nodes[:, 5], nodes[:, 6], nodes[:, 7], nodes[:, 8], tol)
     else
         error("Invalid element type: ", element_type)
     end

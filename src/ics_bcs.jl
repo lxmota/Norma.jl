@@ -45,7 +45,7 @@ function SMContactSchwarzBC(
     coupled_subsim::SingleDomainSimulation,
     input_mesh::ExodusDatabase,
     bc_params::Dict{Any,Any},
-) 
+)
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
     global_to_local_map, num_nodes_per_side, side_set_node_indices =
@@ -83,8 +83,8 @@ function SMCouplingSchwarzBC(
     bc_params::Dict{Any,Any},
 )
     coupling_type = bc_params["coupling type"]
-    if ((coupling_type != "overlap") && (coupling_type != "nonoverlap")) 
-      error("Undefined coupling type: ", coupling_type) 
+    if ((coupling_type != "overlap") && (coupling_type != "nonoverlap"))
+        error("Undefined coupling type: ", coupling_type)
     end
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
@@ -118,31 +118,31 @@ function SMCouplingSchwarzBC(
         push!(interpolation_function_values, N)
     end
     is_dirichlet = true
-    if (coupling_type == "overlap") 
-      SMOverlapSchwarzBC(
-        side_set_node_indices,
-        coupled_nodes_indices,
-        interpolation_function_values,
-        coupled_subsim,
-	subsim,
-        is_dirichlet,
-        coupling_type
-      )
+    if (coupling_type == "overlap")
+        SMOverlapSchwarzBC(
+            side_set_node_indices,
+            coupled_nodes_indices,
+            interpolation_function_values,
+            coupled_subsim,
+            subsim,
+            is_dirichlet,
+            coupling_type
+        )
     else #non-overlap
-      transfer_operator =
-          zeros(length(global_to_local_map), length(coupled_global_to_local_map))
-      SMNonOverlapSchwarzBC(
-        side_set_id,
-        side_set_node_indices,
-        coupled_nodes_indices,
-        interpolation_function_values,
-        coupled_subsim,
-	subsim,
-	coupled_side_set_id,
-	transfer_operator,
-        is_dirichlet,
-        coupling_type
-      )
+        transfer_operator =
+            zeros(length(global_to_local_map), length(coupled_global_to_local_map))
+        SMNonOverlapSchwarzBC(
+            side_set_id,
+            side_set_node_indices,
+            coupled_nodes_indices,
+            interpolation_function_values,
+            coupled_subsim,
+            subsim,
+            coupled_side_set_id,
+            transfer_operator,
+            is_dirichlet,
+            coupling_type
+        )
     end
 end
 
@@ -248,7 +248,7 @@ function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::Coupling
 end
 
 function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
-    schwarz_tractions = get_dst_traction(bc) 
+    schwarz_tractions = get_dst_traction(bc)
     local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
@@ -674,7 +674,7 @@ function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
 end
 
 function pair_bc(name::String, bc::CouplingSchwarzBoundaryCondition)
-    if (bc.coupling_type == "nonoverlap") 
+    if (bc.coupling_type == "nonoverlap")
         coupled_model = bc.coupled_subsim.model
         coupled_bcs = coupled_model.boundary_conditions
         for coupled_bc ∈ coupled_bcs
@@ -683,7 +683,7 @@ function pair_bc(name::String, bc::CouplingSchwarzBoundaryCondition)
             end
         end
     end
-end 
+end
 
 function is_coupled_to_current(_::String, _::RegularBoundaryCondition)
     return false

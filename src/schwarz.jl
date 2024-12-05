@@ -410,7 +410,7 @@ function write_scharz_params_csv(sim::MultiDomainSimulation)
     stop = sim.schwarz_controller.stop
     csv_interval = get(sim.params, "CSV output interval", 0)
     if csv_interval > 0 && stop % csv_interval == 0
-        index_string = "-" * string(stop, pad = 4)
+        index_string = "-" * string(stop, pad=4)
         contact_filename = "contact" * index_string * ".csv"
         writedlm(contact_filename, sim.schwarz_controller.active_contact, '\n')
         iters_filename = "iterations" * index_string * ".csv"

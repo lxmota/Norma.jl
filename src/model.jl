@@ -618,7 +618,7 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
                 reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
-                reduced_lumped_mass = sum(reduced_mass, dims = 2)
+                reduced_lumped_mass = sum(reduced_mass, dims=2)
                 element_lumped_mass[index_x] += reduced_lumped_mass
                 element_lumped_mass[index_y] += reduced_lumped_mass
                 element_lumped_mass[index_z] += reduced_lumped_mass
