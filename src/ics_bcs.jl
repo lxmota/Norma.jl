@@ -662,7 +662,6 @@ end
 
 function pair_bc(_::String, _::RegularBoundaryCondition) end
 
-
 function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
     coupled_model = bc.coupled_subsim.model
     coupled_bcs = coupled_model.boundary_conditions
@@ -686,10 +685,6 @@ function pair_bc(name::String, bc::CouplingSchwarzBoundaryCondition)
 end
 
 function is_coupled_to_current(_::String, _::RegularBoundaryCondition)
-    return false
-end
-
-function is_coupled_to_current(_::String, _::SchwarzBoundaryCondition)
     return false
 end
 
