@@ -44,7 +44,7 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     name = params["name"]
     input_mesh_file = params["input mesh file"]
     output_mesh_file = params["output mesh file"]
-    rm(output_mesh_file, force = true)
+    rm(output_mesh_file, force=true)
     input_mesh = Exodus.ExodusDatabase(input_mesh_file, "r")
     Exodus.copy(input_mesh, output_mesh_file)
     output_mesh = Exodus.ExodusDatabase(output_mesh_file, "rw")

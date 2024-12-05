@@ -512,8 +512,8 @@ end
 
 function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
-    index_string = "-" * string(stop, pad = 4)
-    sim_id_string = string(sim_id, pad = 2) * "-"
+    index_string = "-" * string(stop, pad=4)
+    sim_id_string = string(sim_id, pad=2) * "-"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
@@ -530,8 +530,8 @@ end
 
 function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
-    index_string = "-" * string(stop, pad = 4)
-    sim_id_string = string(sim_id, pad = 2) * "-"
+    index_string = "-" * string(stop, pad=4)
+    sim_id_string = string(sim_id, pad=2) * "-"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     velo_filename = sim_id_string * "velo" * index_string * ".csv"
@@ -546,10 +546,10 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
     writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
     writedlm(time_filename, integrator.time, '\n')
-    if stop == 0 
+    if stop == 0
         refe_filename = sim_id_string * "refe" * ".csv"
         writedlm_nodal_array(refe_filename, model.reference)
-    end 
+    end
 end
 
 function write_step_exodus(

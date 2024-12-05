@@ -15,19 +15,21 @@ time integrator:
   type: quasi static
 boundary conditions:
   Dirichlet:
-    - node set: surface_positive_y
+    - node set: nodeset_positive_y
       component: x
       function: "0.0"
-    - node set: surface_positive_y
+    - node set: nodeset_positive_y
       component: y
       function: "0.1 * t"
-    - node set: surface_positive_y
+    - node set: nodeset_positive_y
       component: z
       function: "0.0"
-  Schwarz Dirichlet:
-    - node set: surface_negative_y
+  Schwarz coupling:
+    - side set: sideset_negative_y
       source: gauge.yaml
       source block: region_weld_1
+      source side set: sideset_positive_y
+      coupling type: overlap
 solver:
   type: Hessian minimizer
   step: full Newton

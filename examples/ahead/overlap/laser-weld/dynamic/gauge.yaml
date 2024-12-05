@@ -19,16 +19,20 @@ time integrator:
   γ: 0.5
 boundary conditions:
   Dirichlet:
-    - node set: surface_symmetry
+    - node set: nodeset_symmetry
       component: x
       function: "0.0"
-  Schwarz Dirichlet:
-    - node set: surface_negative_y
+  Schwarz coupling:
+    - side set: sideset_negative_y
       source: holder-0.yaml
       source block: holder_0
-    - node set: surface_positive_y
+      source side set: sideset_positive_y
+      coupling type: overlap
+    - side set: sideset_positive_y
       source: holder-1.yaml
       source block: holder_1
+      source side set: sideset_negative_y
+      coupling type: overlap
 solver:
   type: Hessian minimizer
   step: full Newton
