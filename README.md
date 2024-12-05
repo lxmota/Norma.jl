@@ -1,58 +1,117 @@
-<img src="https://github.com/lxmota/Norma.jl/blob/main/doc/norma-contact-1.png" width="300">
-<img src="https://github.com/lxmota/Norma.jl/blob/main/doc/norma-contact-2.png" width="300">
-
 # Norma
-A Julia prototype for testing algorithms and ideas for coupling and multiphysics mainly in solid mechanics and heat conduction.
 
-Steps to clone and install.
+![Norma Contact Simulation 1](https://github.com/lxmota/Norma.jl/blob/main/doc/norma-contact-1.png)
+![Norma Contact Simulation 2](https://github.com/lxmota/Norma.jl/blob/main/doc/norma-contact-2.png)
 
-Clone the repository:
+**Norma** is a Julia prototype for testing algorithms and ideas for coupling and multiphysics, primarily in solid mechanics and heat conduction.
 
-    cd /some_path
-    git clone -v git@github.com:lxmota/Norma.jl.git
-    cd Norma.jl
-    julia
+---
 
-To install within the package manager (press `]` in the Julia REPL):
+## **Table of Contents**
+1. [Features](#features)
+2. [Installation](#installation)
+3. [Running the Code](#running-the-code)
+4. [Testing](#testing)
+5. [Examples](#examples)
+6. [Troubleshooting](#troubleshooting)
 
-    pkg> activate .
-    pkg> registry update
-    pkg> update
-    pkg> instantiate
- 
-Then press `delete` to exit the package manager.
+---
 
-On MacOS, it is necessary to ignore package hashes for the dependence on Exodus.jl:
+## **Features**
+- Prototyping of coupling and multiphysics algorithms.
+- Applications in solid mechanics and heat conduction.
+- Designed for extensibility and experimentation.
 
-    ENV["JULIA_PKG_IGNORE_HASHES"] = 1
+---
 
-If you are getting errors regarding ssl certificates in the above setup, please try the following fix.  First, go to ~/.julia/registries and manually cllone JuliaRegistries/General.git: 
+## **Installation**
 
-    cd ~/.julia/registries
-    git clone https://github.com/JuliaRegistries/General.git
-    
-Then, please do
+### Clone the Repository
+```bash
+cd /some_path
+git clone git@github.com:lxmota/Norma.jl.git
+cd Norma.jl
+julia
+```
 
-    export JULIA_SSL_CA_ROOTS_PATH=/etc/ssl/certs/ca-bundle.crt
+### Set Up the Environment
+Within the Julia package manager (enter by pressing `]` in the Julia REPL):
+```julia
+pkg> activate .
+pkg> registry update
+pkg> update
+pkg> instantiate
+```
+Press `Backspace` or `Delete` to exit the package manager.
 
-and try the above workflow again.
+---
 
-To run the code, assuming that Julia is in the executable path:
+## **Running the Code**
 
-    julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
+To run the main program, assuming Julia is in your executable path:
+```bash
+julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
+```
 
-It follows that, to run tests, assuming the Julia is in the executable path and you are in the Norma.jl/test directory:
+To run `Norma` interactively from a Julia session:
+```bash
+cd /some_path/Norma
+julia
+using Pkg
+Pkg.activate(".")
+using Norma
+```
+Then, navigate to your desired example folder and run the simulation. For example:
+```julia
+cd("examples/ahead/overlap/cuboid/dynamic")
+Norma.run("cuboid.yaml")
+```
 
-    julia --project=@. ./runtests.jl 
+**Note**: If you make changes to the `Norma` code, you need to reload the `Norma` module (`using Norma`) for those changes to take effect.
 
-To run Norma from inside a Julia session, e.g., to run the examples/ahead/overlap/cuboid/dynamic example:
+---
 
-    cd /some_path/Norma 
-    julia
-    ]
-    activate .
-    using Norma
-    cd("examples/ahead/overlap/cuboid/dynamic")
-    Norma.run("cuboid.yaml") 
-    
-Warning: if you make a change to Norma, you need to reload Norma module (using Norma) for those changes to get recompiled in.
+## **Testing**
+
+To run the test suite using the Julia REPL, following standard Julia conventions:
+```julia
+using Pkg
+Pkg.test()
+```
+
+Alternatively, from the command line:
+```bash
+julia --project=@. ./runtests.jl
+```
+
+---
+
+## **Troubleshooting**
+
+### SSL Certificate Issues
+If you encounter SSL certificate errors during setup, follow these steps:
+1. Go to `~/.julia/registries` and manually clone the Julia General Registry:
+   ```bash
+   cd ~/.julia/registries
+   git clone https://github.com/JuliaRegistries/General.git
+   ```
+2. Set the SSL certificate path:
+   ```bash
+   export JULIA_SSL_CA_ROOTS_PATH=/etc/ssl/certs/ca-bundle.crt
+   ```
+3. Retry the installation workflow.
+
+---
+
+## **Examples**
+
+To run the `examples/ahead/overlap/cuboid/dynamic` example:
+```bash
+cd /some_path/Norma/examples/ahead/overlap/cuboid/dynamic
+julia
+]
+activate .
+using Norma
+Norma.run("cuboid.yaml")
+```
+
