@@ -88,10 +88,9 @@ function SMCouplingSchwarzBC(
     end
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    global_to_local_map, num_nodes_per_side, side_set_node_indices =
+    global_to_local_map, _, side_set_node_indices =
         get_side_set_global_to_local_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
-    coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
