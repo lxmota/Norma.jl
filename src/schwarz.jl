@@ -195,8 +195,12 @@ function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
                 break
             end
             subsim.model.time = subsim.integrator.time
+            @debug "Subdomain : $(subsim.name), Time : $(subsim.model.time)"
+            @debug "Before applying BCs"
             apply_bcs(subsim)
+            @debug "After applying BCs and before advance"
             advance(subsim)
+            @debug "After advance"
             if subsim.failed == true
                 sim.failed = true
                 return
@@ -356,14 +360,14 @@ function check_compression(
 )
     compression_tol = 0.0
     compression = false
-    reactions = get_dst_traction(bc)
+    nodal_reactions = get_dst_traction(bc)
     normals = compute_normal(mesh, bc.side_set_id, model)
     local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
     num_local_nodes = length(local_to_global_map)
     for local_node ∈ 1:num_local_nodes
-        reaction_node = reactions[3*local_node-2:3*local_node]
+        nodal_reaction = nodal_reactions[:, local_node]
         normal = normals[:, local_node]
-        normal_traction = dot(reaction_node, normal)
+        normal_traction = dot(nodal_reaction, normal)
         compressive_traction = normal_traction ≤ compression_tol
         if compressive_traction == true
             compression = true
