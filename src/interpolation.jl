@@ -684,15 +684,15 @@ function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Int
     return global_to_local_map, num_nodes_per_sides, side_set_node_indices
 end
 
-function get_side_set_local_to_global_map(mesh::ExodusDatabase, side_set_id::Integer)
+function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::Integer)
     side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)[2]
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    local_to_global_map = zeros(Int64, num_nodes)
+    global_from_local_map = zeros(Int64, num_nodes)
     for i ∈ 1:num_nodes
-        local_to_global_map[i] = Int64(unique_node_indices[i])
+        global_from_local_map[i] = Int64(unique_node_indices[i])
     end
-    return local_to_global_map
+    return global_from_local_map
 end
 
 function get_square_projection_matrix(

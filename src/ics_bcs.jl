@@ -249,10 +249,10 @@ end
 
 function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
     schwarz_tractions = get_dst_traction(bc)
-    local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(model.mesh, bc.side_set_id)
+    num_local_nodes = length(global_from_local_map)
     for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
+        global_node = global_from_local_map[local_node]
         node_tractions = schwarz_tractions[:, local_node]
         @debug "Applying Schwarz NBC as $node_tractions"
         model.boundary_force[3*global_node-2:3*global_node] += node_tractions
@@ -397,10 +397,10 @@ end
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSchwarzBC)
     schwarz_tractions = get_dst_traction(bc)
     normals = compute_normal(model.mesh, bc.side_set_id, model)
-    local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(model.mesh, bc.side_set_id)
+    num_local_nodes = length(global_from_local_map)
     for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
+        global_node = global_from_local_map[local_node]
         node_tractions = schwarz_tractions[:, local_node]
         normal = normals[:, local_node]
         model.boundary_force[3*global_node-2:3*global_node] += transfer_normal_component(
@@ -417,11 +417,11 @@ function local_traction_from_global_force(
     side_set_id::Integer,
     global_force::Vector{Float64},
 )
-    local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(mesh, side_set_id)
+    num_local_nodes = length(global_from_local_map)
     local_traction = zeros(3, num_local_nodes)
     for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
+        global_node = global_from_local_map[local_node]
         local_traction[:, local_node] =
             global_force[3*global_node-2:3*global_node]
     end

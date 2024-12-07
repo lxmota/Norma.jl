@@ -362,8 +362,8 @@ function check_compression(
     compression = false
     nodal_reactions = get_dst_traction(bc)
     normals = compute_normal(mesh, bc.side_set_id, model)
-    local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(mesh, bc.side_set_id)
+    num_local_nodes = length(global_from_local_map)
     for local_node ∈ 1:num_local_nodes
         nodal_reaction = nodal_reactions[:, local_node]
         normal = normals[:, local_node]
