@@ -444,7 +444,7 @@ function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundar
         src_model,
         src_side_set_id,
     )
-    bc.transfer_operator = rectangular_projection_matrix * inv(square_projection_matrix)
+    bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
 end
 
 function get_dst_traction(bc::SMContactSchwarzBC)
