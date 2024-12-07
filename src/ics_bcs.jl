@@ -48,19 +48,19 @@ function SMContactSchwarzBC(
 )
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    global_to_local_map, num_nodes_per_side, side_set_node_indices =
-        get_side_set_global_to_local_map(input_mesh, side_set_id)
+    local_from_global_map, num_nodes_per_side, side_set_node_indices =
+        get_side_set_local_from_global_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_global_to_local_map =
-        get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
+    coupled_local_from_global_map =
+        get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     is_dirichlet = true
     transfer_operator =
-        zeros(length(global_to_local_map), length(coupled_global_to_local_map))
+        zeros(length(local_from_global_map), length(coupled_local_from_global_map))
     SMContactSchwarzBC(
         side_set_name,
         side_set_id,
@@ -88,16 +88,16 @@ function SMCouplingSchwarzBC(
     end
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    global_to_local_map, _, side_set_node_indices =
-        get_side_set_global_to_local_map(input_mesh, side_set_id)
+    local_from_global_map, _, side_set_node_indices =
+        get_side_set_local_from_global_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_global_to_local_map =
-        get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
+    coupled_local_from_global_map =
+        get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     tol = 1.0e-06
@@ -129,7 +129,7 @@ function SMCouplingSchwarzBC(
         )
     else #non-overlap
         transfer_operator =
-            zeros(length(global_to_local_map), length(coupled_global_to_local_map))
+            zeros(length(local_from_global_map), length(coupled_local_from_global_map))
         SMNonOverlapSchwarzBC(
             side_set_id,
             side_set_node_indices,
