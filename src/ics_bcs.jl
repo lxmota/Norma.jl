@@ -84,19 +84,19 @@ function SMContactSchwarzBC(
 )
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    global_to_local_map, num_nodes_per_side, side_set_node_indices =
-        get_side_set_global_to_local_map(input_mesh, side_set_id)
+    local_from_global_map, num_nodes_per_side, side_set_node_indices =
+        get_side_set_local_from_global_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_global_to_local_map =
-        get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
+    coupled_local_from_global_map =
+        get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     is_dirichlet = true
     transfer_operator =
-        zeros(length(global_to_local_map), length(coupled_global_to_local_map))
+        zeros(length(local_from_global_map), length(coupled_local_from_global_map))
     SMContactSchwarzBC(
         side_set_name,
         side_set_id,
@@ -124,17 +124,16 @@ function SMCouplingSchwarzBC(
     end
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    global_to_local_map, num_nodes_per_side, side_set_node_indices =
-        get_side_set_global_to_local_map(input_mesh, side_set_id)
+    local_from_global_map, _, side_set_node_indices =
+        get_side_set_local_from_global_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
-    coupled_bc_index = 0
     coupled_mesh = coupled_subsim.params["input_mesh"]
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_global_to_local_map =
-        get_side_set_global_to_local_map(coupled_mesh, coupled_side_set_id)[1]
+    coupled_local_from_global_map =
+        get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     tol = 1.0e-06
@@ -166,7 +165,7 @@ function SMCouplingSchwarzBC(
         )
     else #non-overlap
         transfer_operator =
-            zeros(length(global_to_local_map), length(coupled_global_to_local_map))
+            zeros(length(local_from_global_map), length(coupled_local_from_global_map))
         SMNonOverlapSchwarzBC(
             side_set_id,
             side_set_node_indices,
@@ -312,6 +311,7 @@ function apply_sm_schwarz_coupling_dirichlet(model::SolidMechanics, bc::Coupling
         point_posn = elem_posn * N
         point_velo = elem_velo * N
         point_acce = elem_acce * N
+        @debug "Applying Schwarz DBC as $point_posn"
         model.current[:, node_index] = point_posn
         model.velocity[:, node_index] = point_velo
         model.acceleration[:, node_index] = point_acce
@@ -322,11 +322,12 @@ end
 
 function apply_sm_schwarz_coupling_neumann(model::SolidMechanics, bc::CouplingSchwarzBoundaryCondition)
     schwarz_tractions = get_dst_traction(bc)
-    local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(model.mesh, bc.side_set_id)
+    num_local_nodes = length(global_from_local_map)
     for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
-        node_tractions = schwarz_tractions[3*local_node-2:3*local_node]
+        global_node = global_from_local_map[local_node]
+        node_tractions = schwarz_tractions[:, local_node]
+        @debug "Applying Schwarz NBC as $node_tractions"
         model.boundary_force[3*global_node-2:3*global_node] += node_tractions
     end
 end
@@ -469,11 +470,11 @@ end
 function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSchwarzBC)
     schwarz_tractions = get_dst_traction(bc)
     normals = compute_normal(model.mesh, bc.side_set_id, model)
-    local_to_global_map = get_side_set_local_to_global_map(model.mesh, bc.side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(model.mesh, bc.side_set_id)
+    num_local_nodes = length(global_from_local_map)
     for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
-        node_tractions = schwarz_tractions[3*local_node-2:3*local_node]
+        global_node = global_from_local_map[local_node]
+        node_tractions = schwarz_tractions[:, local_node]
         normal = normals[:, local_node]
         model.boundary_force[3*global_node-2:3*global_node] += transfer_normal_component(
             node_tractions,
@@ -484,18 +485,18 @@ function apply_sm_schwarz_contact_neumann(model::SolidMechanics, bc::SMContactSc
 end
 
 
-function reduce_traction(
+function local_traction_from_global_force(
     mesh::ExodusDatabase,
     side_set_id::Integer,
-    global_traction::Vector{Float64},
+    global_force::Vector{Float64},
 )
-    local_to_global_map = get_side_set_local_to_global_map(mesh, side_set_id)
-    num_local_nodes = length(local_to_global_map)
-    local_traction = zeros(3 * num_local_nodes)
+    global_from_local_map = get_side_set_global_from_local_map(mesh, side_set_id)
+    num_local_nodes = length(global_from_local_map)
+    local_traction = zeros(3, num_local_nodes)
     for local_node ∈ 1:num_local_nodes
-        global_node = local_to_global_map[local_node]
-        local_traction[3*local_node-2:3*local_node] =
-            global_traction[3*global_node-2:3*global_node]
+        global_node = global_from_local_map[local_node]
+        local_traction[:, local_node] =
+            global_force[3*global_node-2:3*global_node]
     end
     return local_traction
 end
@@ -516,46 +517,35 @@ function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundar
         src_model,
         src_side_set_id,
     )
-    bc.transfer_operator = rectangular_projection_matrix * inv(square_projection_matrix)
+    bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
 end
 
 function get_dst_traction(bc::SMContactSchwarzBC)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
-    src_global_traction = -bc.coupled_subsim.model.internal_force
-    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
-    src_traction_x = src_local_traction[1:3:end]
-    src_traction_y = src_local_traction[2:3:end]
-    src_traction_z = src_local_traction[3:3:end]
-    dst_traction_x = bc.transfer_operator * src_traction_x
-    dst_traction_y = bc.transfer_operator * src_traction_y
-    dst_traction_z = bc.transfer_operator * src_traction_z
-    dst_traction = zeros(3 * length(dst_traction_x))
-    dst_traction[1:3:end] = dst_traction_x
-    dst_traction[2:3:end] = dst_traction_y
-    dst_traction[3:3:end] = dst_traction_z
+    src_global_force = -bc.coupled_subsim.model.internal_force
+    src_local_traction = local_traction_from_global_force(src_mesh, src_side_set_id, src_global_force)
+    num_dst_nodes = size(bc.transfer_operator, 1)
+    dst_traction = zeros(3, num_dst_nodes)
+    dst_traction[1, :] = bc.transfer_operator * src_local_traction[1, :]
+    dst_traction[2, :] = bc.transfer_operator * src_local_traction[2, :]
+    dst_traction[3, :] = bc.transfer_operator * src_local_traction[3, :]
     return dst_traction
 end
 
 function get_dst_traction(bc::SMNonOverlapSchwarzBC)
     src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
-    src_global_traction = -bc.coupled_subsim.model.internal_force
-    src_local_traction = reduce_traction(src_mesh, src_side_set_id, src_global_traction)
-    src_traction_x = src_local_traction[1:3:end]
-    src_traction_y = src_local_traction[2:3:end]
-    src_traction_z = src_local_traction[3:3:end]
+    src_global_force = -bc.coupled_subsim.model.internal_force
+    src_local_traction = local_traction_from_global_force(src_mesh, src_side_set_id, src_global_force)
     compute_transfer_operator(bc.coupled_subsim.model, bc)
-    dst_traction_x = bc.transfer_operator * src_traction_x
-    dst_traction_y = bc.transfer_operator * src_traction_y
-    dst_traction_z = bc.transfer_operator * src_traction_z
-    dst_traction = zeros(3 * length(dst_traction_x))
-    dst_traction[1:3:end] = dst_traction_x
-    dst_traction[2:3:end] = dst_traction_y
-    dst_traction[3:3:end] = dst_traction_z
+    num_dst_nodes = size(bc.transfer_operator, 1)
+    dst_traction = zeros(3, num_dst_nodes)
+    dst_traction[1, :] = bc.transfer_operator * src_local_traction[1, :]
+    dst_traction[2, :] = bc.transfer_operator * src_local_traction[2, :]
+    dst_traction[3, :] = bc.transfer_operator * src_local_traction[3, :]
     return dst_traction
 end
-
 
 function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
     node_set_names = Exodus.read_names(mesh, NodeSet)

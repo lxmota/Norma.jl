@@ -36,12 +36,3 @@ jobs:
       - name: Run tests
         run: |
           julia --project=. -e 'using Pkg; Pkg.test()'
-
-      # Step 5: Upload test results (optional)
-      - name: Upload test results
-        if: always()  # Run this even if the test step fails
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: test-results.log
-
