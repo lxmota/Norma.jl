@@ -1,4 +1,5 @@
 module MiniTensor
+using LinearAlgebra: norm
 
 #
 # Lie groups and Lie algebra utilities, mostly algebra of rotations

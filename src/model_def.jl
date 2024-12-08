@@ -1,4 +1,5 @@
 abstract type Model end
+using SparseArrays
 
 mutable struct SolidMechanics <: Model
     mesh::ExodusDatabase
@@ -17,6 +18,7 @@ mutable struct SolidMechanics <: Model
     failed::Bool
     mesh_smoothing::Bool
     smooth_reference::String
+    global_transform::SparseArrays.Matrix{Float64}
 end
 
 # TODO: Add potential energy as in the above

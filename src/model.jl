@@ -76,6 +76,11 @@ function SolidMechanics(params::Dict{Any,Any})
     else
         smooth_reference = ""
     end
+
+    # BRP: define a global transform for inclined support
+    global_transform_t = Diagonal(ones(3 * num_nodes))
+    global_transform = sparse(global_transform_t)
+
     SolidMechanics(
         input_mesh,
         materials,
@@ -93,6 +98,7 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
+        global_transform
     )
 end
 
@@ -308,6 +314,19 @@ function evaluate(integrator::QuasiStatic, model::SolidMechanics)
     stiffness = Vector{Float64}()
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(blocks)
+
+    # BRP: bookkeeping parameters for inclined support BCs
+    inclined_support_node_indices = Vector{Int64}()
+    inclined_support_bc_indices = Vector{Int64}()
+    for (bc_idx, bc) in enumerate(model.boundary_conditions)
+        if isa(bc, SMDirichletInclined)
+            append!(inclined_support_node_indices, bc.node_set_node_indices)
+            for _ in bc.node_set_node_indices
+                push!(inclined_support_bc_indices, bc_idx)
+            end
+        end
+    end
+
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
         ρ = material.ρ
@@ -367,6 +386,16 @@ function evaluate(integrator::QuasiStatic, model::SolidMechanics)
             assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
         end
     end
+
+    # BRP Inclined Support Operations
+    T_local = Matrix(Diagonal(ones(num_dof)))
+    for (corresponding_bc_idx, inc_support_node_idx) in zip(inclined_support_bc_indices, inclined_support_node_indices)
+        T_nodal = model.boundary_conditions[corresponding_bc_idx].rotation_matrix
+        base = 3*(inc_support_node_idx-1) # Block index in global stiffness
+        T_local[base+1:base+3, base+1:base+3] *= T_nodal
+    end
+    model.global_transform = sparse(T_local)
+
     stiffness_matrix = sparse(rows, cols, stiffness)
     model.internal_force = internal_force
     return energy, internal_force, body_force, stiffness_matrix
