@@ -655,19 +655,8 @@ function find_and_project(
 end
 
 function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
-    _, num_nodes = size(nodes)
-    x_coords = 0.0
-    y_coords = 0.0
-    z_coords = 0.0
-    for i ∈ 1:num_nodes
-        x_coords = x_coords + nodes[1, i]
-        y_coords = y_coords + nodes[2, i]
-        z_coords = z_coords + nodes[3, i]
-    end
-    x_centroid = x_coords / num_nodes
-    y_centroid = y_coords / num_nodes
-    z_centroid = z_coords / num_nodes
-    centroid = [x_centroid, y_centroid, z_centroid]
+    num_nodes = size(nodes, 2)
+    centroid = sum(nodes, dims = 2) / num_nodes
     distance = norm(centroid - x)
     return distance
 end
