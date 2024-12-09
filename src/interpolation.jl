@@ -672,27 +672,27 @@ function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
     return distance
 end
 
-function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Integer)
+function get_side_set_local_from_global_map(mesh::ExodusDatabase, side_set_id::Integer)
     num_nodes_per_sides, side_set_node_indices =
         Exodus.read_side_set_node_list(mesh, side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    global_to_local_map = Dict{Int64,Int64}()
+    local_from_global_map = Dict{Int64,Int64}()
     for i ∈ 1:num_nodes
-        global_to_local_map[Int64(unique_node_indices[i])] = i
+        local_from_global_map[Int64(unique_node_indices[i])] = i
     end
-    return global_to_local_map, num_nodes_per_sides, side_set_node_indices
+    return local_from_global_map, num_nodes_per_sides, side_set_node_indices
 end
 
-function get_side_set_local_to_global_map(mesh::ExodusDatabase, side_set_id::Integer)
+function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::Integer)
     side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)[2]
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    local_to_global_map = zeros(Int64, num_nodes)
+    global_from_local_map = zeros(Int64, num_nodes)
     for i ∈ 1:num_nodes
-        local_to_global_map[i] = Int64(unique_node_indices[i])
+        global_from_local_map[i] = Int64(unique_node_indices[i])
     end
-    return local_to_global_map
+    return global_from_local_map
 end
 
 function get_square_projection_matrix(
@@ -700,9 +700,9 @@ function get_square_projection_matrix(
     model::SolidMechanics,
     side_set_id::Integer,
 )
-    global_to_local_map, num_nodes_sides, side_set_node_indices =
-        get_side_set_global_to_local_map(mesh, side_set_id)
-    num_nodes = length(global_to_local_map)
+    local_from_global_map, num_nodes_sides, side_set_node_indices =
+        get_side_set_local_from_global_map(mesh, side_set_id)
+    num_nodes = length(local_from_global_map)
     coords = model.current
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
@@ -722,7 +722,7 @@ function get_square_projection_matrix(
             wₚ = w[point]
             side_matrix += Nₚ * Nₚ' * j * wₚ
         end
-        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        local_indices = get.(Ref(local_from_global_map), side_nodes, 0)
         square_projection_matrix[local_indices, local_indices] += side_matrix
         side_set_node_index += num_nodes_side
     end
@@ -737,13 +737,13 @@ function get_rectangular_projection_matrix(
     src_model::SolidMechanics,
     src_side_set_id::Integer,
 )
-    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices =
-        get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
-    dst_num_nodes = length(dst_global_to_local_map)
+    dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
+        get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
+    dst_num_nodes = length(dst_local_from_global_map)
     dst_coords = dst_model.current
-    src_global_to_local_map, _, _ =
-        get_side_set_global_to_local_map(src_mesh, src_side_set_id)
-    src_num_nodes = length(src_global_to_local_map)
+    src_local_from_global_map, _, _ =
+        get_side_set_local_from_global_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_local_from_global_map)
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_local_indices = Array{Int64}(undef, 0)
     src_local_indices = Array{Int64}(undef, 0)
@@ -751,7 +751,7 @@ function get_rectangular_projection_matrix(
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes =
             dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
-        dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
+        dst_local_indices = get.(Ref(dst_local_from_global_map), dst_side_nodes, 0)
         dst_side_coordinates = dst_coords[:, dst_side_nodes]
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
@@ -767,7 +767,7 @@ function get_rectangular_projection_matrix(
                 find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
             src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
             src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
-            src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
+            src_local_indices = get.(Ref(src_local_from_global_map), src_side_nodes, 0)
             rectangular_projection_matrix[dst_local_indices, src_local_indices] +=
                 dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
         end
@@ -777,10 +777,10 @@ function get_rectangular_projection_matrix(
 end
 
 function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMechanics)
-    global_to_local_map, num_nodes_sides, side_set_node_indices =
-        get_side_set_global_to_local_map(mesh, side_set_id)
+    local_from_global_map, num_nodes_sides, side_set_node_indices =
+        get_side_set_local_from_global_map(mesh, side_set_id)
     coords = model.current
-    num_nodes = length(global_to_local_map)
+    num_nodes = length(local_from_global_map)
     space_dim, _ = size(coords)
     normals = zeros(space_dim, num_nodes)
     local_indices = Array{Int64}(undef, 0)
@@ -788,7 +788,7 @@ function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMe
     for num_nodes_side ∈ num_nodes_sides
         side_nodes =
             side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
-        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        local_indices = get.(Ref(local_from_global_map), side_nodes, 0)
         coordinates = coords[:, side_nodes]
         point_A = coordinates[:, 1]
         point_B = coordinates[:, 2]
