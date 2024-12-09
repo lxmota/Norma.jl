@@ -634,9 +634,9 @@ function find_and_project(
         face_nodes = model.current[:, face_node_indices]
         trial_point, ξ, distance, normal =
             closest_point_projection(parametric_dim, face_nodes, point)
-        distance_centr = get_distance_to_centroid(face_nodes, point)
-        if abs(distance_centr) < minimum_absolute_distance
-            minimum_absolute_distance = abs(distance_centr)
+        distance_center = get_distance_to_centroid(face_nodes, point)
+        if abs(distance_center) < minimum_absolute_distance
+            minimum_absolute_distance = abs(distance_center)
             point_new = trial_point
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
