@@ -24,13 +24,12 @@ boundary conditions:
     - node set: nodeset_positive_y
       component: z
       function: "0.0"
-  Schwarz coupling:
+  Schwarz nonoverlap:
     - side set: sideset_negative_y
       source: gauge.yaml
       source block: region_weld_1
       source side set: sideset_positive_y
       search tolerance: 5.0e-02
-      coupling type: nonoverlap
 solver:
   type: Hessian minimizer
   step: full Newton

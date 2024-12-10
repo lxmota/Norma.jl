@@ -80,12 +80,9 @@ function SMCouplingSchwarzBC(
     subsim::SingleDomainSimulation,
     coupled_subsim::SingleDomainSimulation,
     input_mesh::ExodusDatabase,
+    bc_type::String,
     bc_params::Dict{Any,Any},
 )
-    coupling_type = bc_params["coupling type"]
-    if ((coupling_type != "overlap") && (coupling_type != "nonoverlap"))
-        error("Undefined coupling type: ", coupling_type)
-    end
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
     local_from_global_map, _, side_set_node_indices =
@@ -117,17 +114,16 @@ function SMCouplingSchwarzBC(
         push!(interpolation_function_values, N)
     end
     is_dirichlet = true
-    if (coupling_type == "overlap")
+    if bc_type == "Schwarz overlap"
         SMOverlapSchwarzBC(
             side_set_node_indices,
             coupled_nodes_indices,
             interpolation_function_values,
             coupled_subsim,
             subsim,
-            is_dirichlet,
-            coupling_type
+            is_dirichlet
         )
-    else #non-overlap
+    elseif bc_type == "Schwarz nonoverlap"
         transfer_operator =
             zeros(length(local_from_global_map), length(coupled_local_from_global_map))
         SMNonOverlapSchwarzBC(
@@ -139,9 +135,10 @@ function SMCouplingSchwarzBC(
             subsim,
             coupled_side_set_id,
             transfer_operator,
-            is_dirichlet,
-            coupling_type
+            is_dirichlet
         )
+    else
+        error("Unknown boundary condition type : ", bc_type)
     end
 end
 
@@ -262,8 +259,7 @@ end
 function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     global_sim = bc.coupled_subsim.params["global_simulation"]
     schwarz_controller = global_sim.schwarz_controller
-    if schwarz_controller.schwarz_contact == true &&
-       schwarz_controller.active_contact == false
+    if typeof(bc) == SMContactSchwarzBC && schwarz_controller.active_contact == false
         return
     end
     empty_history = length(global_sim.schwarz_controller.time_hist) == 0
@@ -294,10 +290,10 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     interp_∂Ω_f =
         same_step == true ? ∂Ω_f_hist[end] : interpolate(time_hist, ∂Ω_f_hist, time)
     bc.coupled_subsim.model.internal_force = interp_∂Ω_f
-    if ((global_sim.schwarz_controller.schwarz_contact == true) || (bc.coupling_type == "nonoverlap"))
+    if typeof(bc) == SMContactSchwarzBC || typeof(bc) == SMNonOverlapSchwarzBC
         relaxation_parameter = global_sim.schwarz_controller.relaxation_parameter
-        Schwarz_iteration = global_sim.schwarz_controller.iteration_number
-        if Schwarz_iteration == 1
+        schwarz_iteration = global_sim.schwarz_controller.iteration_number
+        if schwarz_iteration == 1
             lambda_dispᵖʳᵉᵛ = zeros(length(interp_disp))
             lambda_veloᵖʳᵉᵛ = zeros(length(interp_velo))
             lambda_acceᵖʳᵉᵛ = zeros(length(interp_acce))
@@ -479,12 +475,12 @@ function node_set_id_from_name(node_set_name::String, mesh::ExodusDatabase)
     num_names = length(node_set_names)
     node_set_index = 0
     for index ∈ 1:num_names
-        if (node_set_name == node_set_names[index])
+        if node_set_name == node_set_names[index]
             node_set_index = index
             break
         end
     end
-    if (node_set_index == 0)
+    if node_set_index == 0
         error("node set ", node_set_name, " cannot be found in mesh")
     end
     node_set_ids = Exodus.read_ids(mesh, NodeSet)
@@ -497,12 +493,12 @@ function side_set_id_from_name(side_set_name::String, mesh::ExodusDatabase)
     num_names = length(side_set_names)
     side_set_index = 0
     for index ∈ 1:num_names
-        if (side_set_name == side_set_names[index])
+        if side_set_name == side_set_names[index]
             side_set_index = index
             break
         end
     end
-    if (side_set_index == 0)
+    if side_set_index == 0
         error("side set ", side_set_name, " cannot be found in mesh")
     end
     side_set_ids = Exodus.read_ids(mesh, SideSet)
@@ -515,12 +511,12 @@ function block_id_from_name(block_name::String, mesh::ExodusDatabase)
     num_names = length(block_names)
     block_index = 0
     for index ∈ 1:num_names
-        if (block_name == block_names[index])
+        if block_name == block_names[index]
             block_index = index
             break
         end
     end
-    if (block_index == 0)
+    if block_index == 0
         error("block ", block_name, " cannot be found in mesh")
     end
     block_ids = Exodus.read_ids(mesh, Block)
@@ -574,7 +570,7 @@ function create_bcs(params::Dict{Any,Any})
                 boundary_condition =
                     SMContactSchwarzBC(coupled_subsim, input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
-            elseif bc_type == "Schwarz coupling"
+            elseif bc_type == "Schwarz overlap" || bc_type == "Schwarz nonoverlap"
                 sim = params["global_simulation"]
                 subsim_name = params["name"]
                 subdomain_index = sim.subsim_name_index_map[subsim_name]
@@ -583,7 +579,7 @@ function create_bcs(params::Dict{Any,Any})
                 coupled_subdomain_index = sim.subsim_name_index_map[coupled_subsim_name]
                 coupled_subsim = sim.subsims[coupled_subdomain_index]
                 boundary_condition =
-                    SMCouplingSchwarzBC(subsim, coupled_subsim, input_mesh, bc_setting_params)
+                    SMCouplingSchwarzBC(subsim, coupled_subsim, input_mesh, bc_type, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             else
                 error("Unknown boundary condition type : ", bc_type)
@@ -663,7 +659,7 @@ function pair_bc(name::String, bc::ContactSchwarzBoundaryCondition)
 end
 
 function pair_bc(name::String, bc::CouplingSchwarzBoundaryCondition)
-    if (bc.coupling_type == "nonoverlap")
+    if typeof(bc) == SMNonOverlapSchwarzBC
         coupled_model = bc.coupled_subsim.model
         coupled_bcs = coupled_model.boundary_conditions
         for coupled_bc ∈ coupled_bcs

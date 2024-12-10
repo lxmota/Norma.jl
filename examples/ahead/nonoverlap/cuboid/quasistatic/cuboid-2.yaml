@@ -24,12 +24,11 @@ boundary conditions:
     - node set: nsz+
       component: z
       function: "1.0 * t"
-  Schwarz coupling:
+  Schwarz nonoverlap:
     - side set: ssz-
       source: cuboid-1.yaml
       source block: fine
       source side set: ssz+
-      coupling type: nonoverlap 
 solver:
 solver:
   type: Hessian minimizer
