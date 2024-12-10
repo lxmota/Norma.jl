@@ -342,13 +342,36 @@ function stress_update(
     return Fᵉ, Fᵖ, εᵖ, σ
 end
 
-struct Linear_Isotropic <: Thermal
+mutable struct OperatorInferenceDictionary <: OperatorInference
+    alpha::Float64
+    function OperatorInferenceDictionary(params::Dict{Any,Any})
+        alpha = 1.
+        new(alpha)
+    end
+
+end
+
+
+
+mutable struct Linear_Isotropic <: Thermal
     κ::Float64
     function Linear_Isotropic(params::Dict{Any,Any})
         κ = params["thermal conductivity"]
         new(κ)
     end
 end
+
+
+struct ConvectionDiffusionParams <: ConvectionDiffusion
+    c::Float64
+    nu::Float64
+    function ConvectionDiffusionParams(params::Dict{Any,Any})
+        c = params["c"]
+        nu = params["nu"]
+        new(c,nu)
+    end
+end
+
 
 function odot(A::Matrix{Float64}, B::Matrix{Float64})
     n, _ = size(A)
@@ -448,6 +471,10 @@ function second_from_fourth(AA::Array{Float64})
     end
     return A
 end
+
+function constitutive(material::Linear_Isotropic, F::Matrix{Float64})
+end
+
 
 function constitutive(material::SaintVenant_Kirchhoff, F::Matrix{Float64})
     C = F' * F
@@ -589,6 +616,10 @@ function create_material(params::Dict{Any,Any})
         return Neohookean(params)
     elseif model_name == "neohookeanAD"
         return NeohookeanAD(params)
+    elseif model_name == "linear isotropic"
+        return Linear_Isotropic(params)
+    elseif model_name == "operator inference dictionary"
+        return OperatorInferenceDictionary(params)
     else
         error("Unknown material model : ", model_name)
     end

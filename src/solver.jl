@@ -1,3 +1,4 @@
+import LinearAlgebra
 function create_step(solver_params::Dict{Any,Any})
     step_name = solver_params["step"]
     if step_name == "full Newton"
@@ -10,6 +11,45 @@ function create_step(solver_params::Dict{Any,Any})
         error("Unknown type of solver step: ", step_name)
     end
 end
+
+function NewtonSolver(params::Dict{Any,Any})
+    solver_params = params["solver"]
+    input_mesh = params["input_mesh"]
+    num_nodes = Exodus.num_nodes(input_mesh.init)
+    num_dof = num_nodes
+    minimum_iterations = solver_params["minimum iterations"]
+    maximum_iterations = solver_params["maximum iterations"]
+    absolute_tolerance = solver_params["absolute tolerance"]
+    relative_tolerance = solver_params["relative tolerance"]
+    absolute_error = 0.0
+    relative_error = 0.0
+    value = 0.0
+    residual = zeros(num_dof)
+    jacobian = spzeros(num_dof, num_dof)
+    solution = zeros(num_dof)
+    initial_norm = 0.0
+    converged = false
+    failed = false
+    step = create_step(solver_params)
+    NewtonSolver(
+        minimum_iterations,
+        maximum_iterations,
+        absolute_tolerance,
+        relative_tolerance,
+        absolute_error,
+        relative_error,
+        value,
+        residual,
+        jacobian,
+        solution,
+        initial_norm,
+        converged,
+        failed,
+        step,
+    )
+end
+
+
 
 function HessianMinimizer(params::Dict{Any,Any})
     solver_params = params["solver"]
@@ -140,6 +180,8 @@ function create_solver(params::Dict{Any,Any})
     solver_name = solver_params["type"]
     if solver_name == "Hessian minimizer"
         return HessianMinimizer(params)
+    elseif solver_name == "Newton solver"
+        return NewtonSolver(params)
     elseif solver_name == "explicit solver"
         return ExplicitSolver(params)
     elseif solver_name == "steepest descent"
@@ -176,6 +218,40 @@ function copy_solution_source_targets(
         model.current[:, node] = model.reference[:, node] + nodal_displacement
     end
 end
+
+
+
+#*************OP INF**********************
+
+#Used in correct
+# Moves solver field to model 
+function copy_solution_source_targets(
+    solver::Any,
+    model::LinearOpInfRom,
+    integrator::NewmarkGeneral,
+)
+    num_nodes, = size(solver.solution)
+    for node ∈ 1:num_nodes
+        model.state[node] = solver.solution[node] 
+    end
+end
+
+
+# Used in predict
+# Moves model field to solver
+function copy_solution_source_targets(
+    model::LinearOpInfRom,
+    integrator::NewmarkGeneral,
+    solver::Any,
+)
+    num_modes, = size(model.state)
+    for i ∈ 1 num_modes
+        integrator.state[i] = model.state[i] 
+    end
+    solver.solution = integrator.state
+end
+
+#******************************
 
 function copy_solution_source_targets(
     model::SolidMechanics,
@@ -304,6 +380,38 @@ function copy_solution_source_targets(
     solver.solution = integrator.acceleration
 end
 
+
+### Move to model?  
+function evaluate(integrator::NewmarkGeneral, solver::HessianMinimizer, model::LinearOpInfRom)
+    beta  = integrator.β
+    gamma = integrator.γ
+    dt = integrator.time_step
+
+    #Ax* = b
+    # Put in residual format
+    #e = [x* - x] -> x* = x + e
+    #Ax + Ae = b
+    #Ax - b = -Ae
+    #Ae = r, r = b - Ax 
+    ##M uddot + Ku = f
+
+    num_modes, = size(model.reduced_state)
+    I = Matrix{Float64}(LinearAlgebra.I, num_modes,num_modes)
+    LHS = I / (dt*dt*beta)  + model.opinf_rom["K"]
+    RHS = 0.0.*model.opinf_rom["f"] + model.reduced_boundary_forcing + 1.0/(dt*dt*beta)*( I * integrator.state) + 1.0/(beta*dt)*(I * integrator.state_dot)  + 1.0/(2.0*beta)*(1.0 - 2.0*beta)*(I * integrator.state_ddot)
+    residual = RHS - LHS * solver.solution 
+    solver.hessian = LHS
+
+    # negative sign shows up in compute step
+    solver.gradient = -residual 
+
+    # Update future steps
+    integrator.state_np1[:] =  solver.solution[:]
+    integrator.state_np1_ddot[:] =  1.0/(dt*dt*beta)*(integrator.state_np1 - integrator.state) - 1.0/(beta*dt)*integrator.state_dot - 1.0/(2*beta)*(1 - 2.0*beta)*integrator.state_ddot
+    integrator.state_np1_dot[:] = integrator.state_dot + (1.0 - gamma)*dt*integrator.state_ddot + gamma*dt*integrator.state_np1_ddot
+end
+
+
 function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
     stored_energy, internal_force, body_force, stiffness_matrix =
         evaluate(integrator, model)
@@ -316,6 +424,7 @@ function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::Soli
     solver.gradient = internal_force - external_force
     solver.hessian = stiffness_matrix
 end
+
 
 function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::SolidMechanics)
     stored_energy, internal_force, body_force, _ = evaluate(integrator, model)
@@ -426,6 +535,18 @@ function compute_step(
 end
 
 function compute_step(
+    _::NewmarkGeneral,
+    model::LinearOpInfRom,
+    solver::HessianMinimizer,
+    _::NewtonStep,
+)
+    free = model.free_dofs
+    return -solver.hessian[free, free] \ solver.gradient[free]
+end
+
+
+
+function compute_step(
     _::CentralDifference,
     model::SolidMechanics,
     solver::ExplicitSolver,
@@ -459,6 +580,18 @@ function update_solver_convergence_criterion(
 end
 
 function update_solver_convergence_criterion(
+    solver::NewtonSolver,
+    absolute_error::Float64,
+)
+    solver.absolute_error = absolute_error
+    solver.relative_error =
+        solver.initial_norm > 0.0 ? absolute_error / solver.initial_norm : absolute_error
+    converged_absolute = solver.absolute_error ≤ solver.absolute_tolerance
+    converged_relative = solver.relative_error ≤ solver.relative_tolerance
+    solver.converged = converged_absolute || converged_relative
+end
+
+function update_solver_convergence_criterion(
     solver::SteepestDescent,
     absolute_error::Float64,
 )
@@ -473,6 +606,27 @@ end
 function update_solver_convergence_criterion(solver::ExplicitSolver, _::Float64)
     solver.converged = true
 end
+
+
+function stop_solve(solver::NewtonSolver, iteration_number::Int64)
+    if solver.failed == true
+        return true
+    end
+    zero_residual = solver.absolute_error == 0.0
+    if zero_residual == true
+        return true
+    end
+    exceeds_minimum_iterations = iteration_number > solver.minimum_iterations
+    if exceeds_minimum_iterations == false
+        return false
+    end
+    exceeds_maximum_iterations = iteration_number > solver.maximum_iterations
+    if exceeds_maximum_iterations == true
+        return true
+    end
+    return solver.converged
+end
+
 
 function stop_solve(solver::HessianMinimizer, iteration_number::Int64)
     if solver.failed == true
@@ -516,8 +670,57 @@ function stop_solve(_::ExplicitSolver, _::Int64)
     return true
 end
 
+#=
+function solve(integrator::NewmarkGeneral, solver::Solver, model::Model)
+    # Advance states, set base solver state
+    predict(integrator, solver, model)
+
+    # Evaluate residual and jacobian
+    evaluate(integrator, solver, model)
+
+    if model.failed == true
+        return
+    end
+    residual = solver.gradient
+    norm_residual = norm(residual[model.free_dofs])
+    solver.initial_norm = norm_residual
+    iteration_number = 0
+    solver.failed = solver.failed || model.failed
+    step_type = solver.step
+    while true
+        # Solve J dx = r
+        step = compute_step(integrator, model, solver, step_type)
+
+        # Add dx to solution
+        solver.solution[model.free_dofs] += step
+
+        # 
+        correct(integrator, solver, model)
+
+        evaluate(integrator, solver, model)
+        if model.failed == true
+            return
+        end
+        residual = solver.gradient
+        norm_residual = norm(residual[model.free_dofs])
+        if iteration_number == 0
+            println("|R|=", norm_residual)
+        else
+            println("|R|=", norm_residual, ", solver iteration=", iteration_number)
+        end
+        update_solver_convergence_criterion(solver, norm_residual)
+        iteration_number += 1
+        if stop_solve(solver, iteration_number) == true
+            break
+        end
+    end
+end
+=#
+
+
 function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
     predict(integrator, solver, model)
+    # Evaluate residual and jacobian
     evaluate(integrator, solver, model)
     if model.failed == true
         return

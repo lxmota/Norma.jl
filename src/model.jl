@@ -1,6 +1,51 @@
 include("constitutive.jl")
 include("interpolation.jl")
 include("ics_bcs.jl")
+import NPZ
+
+function LinearOpInfRom(params::Dict{Any,Any})
+
+    params["mesh smoothing"] = false
+    fom_model = SolidMechanics(params)
+
+    opinf_model_file = params["model"]["model-file"]
+    opinf_model = NPZ.npzread(opinf_model_file)
+    basis = opinf_model["basis"]
+    num_dofs_per_node,num_nodes_basis,reduced_dim = size(basis)
+    num_dofs = reduced_dim
+
+    #=
+    coords = read_coordinates(fom_model.mesh)
+    num_nodes = Exodus.num_nodes(fom_model.mesh.init)
+    if (num_nodes_basis != num_nodes)
+      throw("Basis size incompatible with mesh")
+    end
+    =#
+
+    time = 0.0
+    failed = false
+    reduced_state = zeros(num_dofs)
+    reduced_boundary_forcing = zeros(num_dofs)
+    free_dofs = trues(num_dofs)
+    boundary_conditions = Vector{BoundaryCondition}()
+    LinearOpInfRom(
+#        input_mesh,
+#        materials,
+#        reference,
+        opinf_model,
+        basis,
+        reduced_state,
+        reduced_boundary_forcing,
+        free_dofs,
+        boundary_conditions,
+        time,
+        failed,
+        num_dofs_per_node,
+        fom_model,
+    )
+end
+
+
 
 function SolidMechanics(params::Dict{Any,Any})
     input_mesh = params["input_mesh"]
@@ -113,7 +158,7 @@ function HeatConduction(params::Dict{Any,Any})
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
     blocks = Exodus.read_sets(input_mesh, Block)
-    num_blks = length(elem_blk_ids)
+    num_blks = length(blocks)
     if (num_blks_params ≠ num_blks)
         error(
             "number of blocks in mesh ",
@@ -179,6 +224,96 @@ function HeatConduction(params::Dict{Any,Any})
     )
 end
 
+#=
+function AdvectionDiffusion(params::Dict{Any,Any})
+    input_mesh = params["input_mesh"]
+    model_params = params["model"]
+    coords = read_coordinates(input_mesh)
+    num_nodes = Exodus.num_nodes(input_mesh.init)
+    # What does reference do?
+    reference = Matrix{Float64}(undef, 3, num_nodes)
+    state = Vector{Float64}(undef, num_nodes)
+    # Also unsure about rate
+    rate = Vector{Float64}(undef, num_nodes)
+    for node ∈ 1:num_nodes
+        reference[:, node] = coords[:, node]
+        state[node] = 0.0
+        rate[node] = 0.0
+    end
+    material_params = model_params["material"]
+    material_blocks = material_params["blocks"]
+    num_blks_params = length(material_blocks)
+    blocks = Exodus.read_sets(input_mesh, Block)
+    num_blks = length(elem_blk_ids)
+    if (num_blks_params ≠ num_blks)
+        error(
+            "number of blocks in mesh ",
+            model_params["mesh"],
+            " (",
+            num_blks,
+            ") must be equal to number of blocks in materials file ",
+            model_params["material"],
+            " (",
+            num_blks_params,
+            ")",
+        )
+    end
+    elem_blk_names = Exodus.read_names(input_mesh, Block)
+    materials = Vector{ConvectionDiffusion}(undef, 0)
+    for elem_blk_name ∈ elem_blk_names
+        material_name = material_blocks[elem_blk_name]
+        material_props = material_params[material_name]
+        # I think I'll need to add this
+        material_model = create_material(material_props)
+        push!(materials, material_model)
+    end
+    time = 0.0
+    failed = false
+    internal_heat_flux = zeros(num_nodes)
+    boundary_heat_flux = zeros(num_nodes)
+    boundary_conditions = Vector{BoundaryCondition}()
+    free_dofs = trues(num_nodes)
+    flux = Vector{Vector{Vector{Vector{Float64}}}}()
+    stored_energy = Vector{Vector{Float64}}()
+    for block ∈ blocks
+        blk_id = block.id
+        element_type, num_blk_elems, _, _, _, _ =
+            Exodus.read_block_parameters(input_mesh, blk_id)
+        num_points = default_num_int_pts(element_type)
+        block_flux = Vector{Vector{Vector{Float64}}}()
+        block_stored_energy = Vector{Float64}()
+        for _ ∈ 1:num_blk_elems
+            element_flux = Vector{Vector{Float64}}()
+            for _ ∈ 1:num_points
+                push!(element_flux, zeros(3))
+            end
+            push!(block_flux, element_flux)
+            element_stored_energy = 0.0
+            push!(block_stored_energy, element_stored_energy)
+        end
+        push!(flux, block_flux)
+        push!(stored_energy, block_stored_energy)
+    end
+    HeatConduction(
+        input_mesh,
+        materials,
+        reference,
+        temperature,
+        rate,
+        internal_heat_flux,
+        boundary_heat_flux,
+        boundary_conditions,
+        flux,
+        stored_energy,
+        free_dofs,
+        time,
+        failed,
+    )
+end
+=#
+
+
+
 function create_model(params::Dict{Any,Any})
     model_params = params["model"]
     model_name = model_params["type"]
@@ -190,6 +325,9 @@ function create_model(params::Dict{Any,Any})
         return SolidMechanics(params)
     elseif model_name == "heat conduction"
         return HeatConduction(params)
+    elseif model_name == "linear opinf rom"
+        return LinearOpInfRom(params)
+
     else
         error("Unknown type of model : ", model_name)
     end
@@ -293,6 +431,12 @@ function assemble(
         end
     end
 end
+
+
+
+
+
+
 
 function evaluate(_::QuasiStatic, model::SolidMechanics)
     materials = model.materials

@@ -18,6 +18,14 @@ mutable struct SMDirichletBC <: RegularBoundaryCondition
     acce_num::Num
 end
 
+mutable struct HeatConductionDirichletBC <: RegularBoundaryCondition
+    node_set_name::String
+    node_set_id::Int64
+    node_set_node_indices::Vector{Int64}
+    temp_num::Num
+end
+
+
 mutable struct SMNeumannBC <: RegularBoundaryCondition
     side_set_name::String
     offset::Int64

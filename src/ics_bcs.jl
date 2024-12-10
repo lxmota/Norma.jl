@@ -1,5 +1,25 @@
+using Einsum
+
 @variables t, x, y, z
 D = Differential(t)
+
+
+function HeatConductionDirichletBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
+    node_set_name = bc_params["node set"]
+    expression = bc_params["function"]
+    offset = 1 
+    node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+    node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
+    # expression is an arbitrary function of t, x, y, z in the input file
+    temp_num = eval(Meta.parse(expression))
+    HeatConductionDirichletBC(
+        node_set_name,
+        node_set_id,
+        node_set_node_indices,
+        temp_num,
+    )
+end
+
 
 function SMDirichletBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     node_set_name = bc_params["node set"]
@@ -114,6 +134,21 @@ function SMSchwarzDBC(
     )
 end
 
+function apply_bc(model::LinearOpInfRom, bc::SMDirichletBC)
+    model.fom_model.time = model.time
+    apply_bc(model.fom_model,bc)
+    bc_vector = zeros(0)
+    for node_index ∈ bc.node_set_node_indices
+        dof_index = 3 * (node_index - 1) + bc.offset
+        disp_val = model.fom_model.current[bc.offset,node_index] - model.fom_model.reference[bc.offset, node_index]
+        push!(bc_vector,disp_val)
+    end
+    op_name = "B_"*bc.node_set_name 
+    bc_operator = model.opinf_rom[op_name] 
+    model.reduced_boundary_forcing[:] += bc_operator * bc_vector
+    end
+
+
 function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
     for node_index ∈ bc.node_set_node_indices
         values = Dict(
@@ -136,6 +171,24 @@ function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
         model.free_dofs[dof_index] = false
     end
 end
+
+
+function apply_bc(model::HeatConduction, bc::HeatConductionDirichletBC)
+    for node_index ∈ bc.node_set_node_indices
+        values = Dict(
+            t => model.time,
+            x => model.reference[1, node_index],
+            y => model.reference[2, node_index],
+            z => model.reference[3, node_index],
+        )
+        temp_sym = substitute(bc.temp_num, values)
+        temp_val = extract_value(temp_sym)
+        dof_index = node_index
+        model.temperature[node_index] =  temp_val
+        model.free_dofs[dof_index] = false
+    end
+end
+
 
 function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     ss_node_index = 1
@@ -496,8 +549,14 @@ function create_bcs(params::Dict{Any,Any})
     bc_params = params["boundary conditions"]
     for (bc_type, bc_type_params) ∈ bc_params
         for bc_setting_params ∈ bc_type_params
-            if bc_type == "Dirichlet"
+            if bc_type == "Dirichlet" && params["model"]["type"] == "solid mechanics" 
                 boundary_condition = SMDirichletBC(input_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)
+            elseif bc_type == "Dirichlet" && params["model"]["type"] == "linear opinf rom" 
+                boundary_condition = SMDirichletBC(input_mesh, bc_setting_params)
+                push!(boundary_conditions, boundary_condition)
+            elseif bc_type == "Dirichlet" && params["model"]["type"] == "heat conduction" 
+                boundary_condition = HeatConductionDirichletBC(input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Neumann"
                 boundary_condition = SMNeumannBC(input_mesh, bc_setting_params)
@@ -539,6 +598,27 @@ function apply_bcs(model::SolidMechanics)
     end
 end
 
+function apply_bcs(model::HeatConduction)
+    num_nodes = size(model.temperature)
+    model.boundary_heat_flux = zeros(num_nodes)
+    model.free_dofs = trues(num_nodes)
+    for boundary_condition ∈ model.boundary_conditions
+        apply_bc(model, boundary_condition)
+    end
+end
+
+function apply_bcs(model::LinearOpInfRom)
+
+    num_modes_ = size(model.reduced_state)
+    model.reduced_boundary_forcing[:] .= 0.0
+    for boundary_condition ∈ model.boundary_conditions
+        apply_bc(model, boundary_condition)
+    end
+
+
+end
+
+
 function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
     if haskey(params, "initial conditions") == false
         return
@@ -574,6 +654,66 @@ function apply_ics(params::Dict{Any,Any}, model::SolidMechanics)
         end
     end
 end
+
+
+function apply_ics(params::Dict{Any,Any}, model::HeatConduction)
+    if haskey(params, "initial conditions") == false
+        return
+    end
+    input_mesh = params["input_mesh"]
+    ic_params = params["initial conditions"]
+    for (ic_type, ic_type_params) ∈ ic_params
+        for ic ∈ ic_type_params
+            node_set_name = ic["node set"]
+            expr_str = ic["function"]
+            component = ic["component"]
+            offset = component_offset_from_string(component)
+            node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+            node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
+            # expr_str is an arbitrary function of x, y, z in the input file
+            ic_expr = Meta.parse(expr_str)
+            ic_eval = eval(ic_expr)
+            for node_index ∈ node_set_node_indices
+                values = Dict(
+                    x => model.reference[1, node_index],
+                    y => model.reference[2, node_index],
+                    z => model.reference[3, node_index],
+                )
+                ic_sym = substitute(ic_eval, values)
+                ic_val = extract_value(ic_sym)
+                model.temperature[offset, node_index] =  ic_val
+            end
+        end
+    end
+end
+
+
+function apply_ics(params::Dict{Any,Any}, model::LinearOpInfRom)
+
+    apply_ics(params,model.fom_model)
+
+    if haskey(params, "initial conditions") == false
+        return
+    end
+    n_var,n_node,n_mode = model.basis.size
+    n_var_fom,n_node_fom = size(model.fom_model.current)
+
+    # Make sure basis is the right size
+    if n_var != n_var_fom || n_node != n_node_fom 
+      throw("Basis is wrong size")
+    end
+
+    # project onto basis
+    for k in 1:n_mode
+      model.reduced_state[k] = 0.0
+      for j in 1:n_node
+        for n in 1:n_var
+          model.reduced_state[k] += model.basis[n,j,k]*(model.fom_model.current[n,j] - model.fom_model.reference[n,j])
+        end
+      end
+    end
+end
+
 
 function pair_schwarz_bcs(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims

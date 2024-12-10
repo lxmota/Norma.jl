@@ -11,7 +11,9 @@ function create_simulation(params::Dict{Any,Any}, name::String)
     sim_type = params["type"]
     if sim_type == "single"
         sim = SingleDomainSimulation(params)
+        print("Created single domain simulation, now making bcs \n")
         create_delayed_bcs(sim)
+        print("Created BCs \n")
         return sim
     elseif sim_type == "multi"
         sim = MultiDomainSimulation(params)
@@ -50,9 +52,13 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     output_mesh = Exodus.ExodusDatabase(output_mesh_file, "rw")
     params["output_mesh"] = output_mesh
     params["input_mesh"] = input_mesh
-    integrator = create_time_integrator(params)
-    solver = create_solver(params)
+
     model = create_model(params)
+
+    integrator = create_time_integrator(params,model)
+
+    solver = create_solver(params)
+
     failed = false
     return SingleDomainSimulation(name, params, integrator, solver, model, failed)
 end

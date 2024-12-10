@@ -55,7 +55,57 @@ function QuasiStatic(params::Dict{Any,Any})
     )
 end
 
-function Newmark(params::Dict{Any,Any})
+
+## Have this for OpInf right now, idealy work in to current newmark
+function NewmarkGeneral(params::Dict{Any,Any},model::LinearOpInfRom)
+    integrator_params = params["time integrator"]
+    initial_time = integrator_params["initial time"]
+    final_time = integrator_params["final time"]
+    time_step = integrator_params["time step"]
+    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
+    time = prev_time = initial_time
+    stop = 0
+    β = integrator_params["β"]
+    γ = integrator_params["γ"]
+    input_mesh = params["input_mesh"]
+    input_mesh = params["input_mesh"]
+    num_dof, = size(model.reduced_state)
+    state = zeros(num_dof)
+    state_dot = zeros(num_dof)
+    state_ddot = zeros(num_dof)
+    state_np1 = zeros(num_dof)
+    state_np1_dot = zeros(num_dof)
+    state_np1_ddot = zeros(num_dof)
+    disp_pre = zeros(num_dof)
+    velo_pre = zeros(num_dof)
+    stored_energy = 0.0
+    kinetic_energy = 0.0
+    NewmarkGeneral(
+        initial_time,
+        final_time,
+        time_step,
+        minimum_time_step,
+        decrease_factor,
+        maximum_time_step,
+        increase_factor,
+        prev_time,
+        time,
+        stop,
+        β,
+        γ,
+        state,
+        state_dot,
+        state_ddot,
+        state_np1,
+        state_np1_dot,
+        state_np1_ddot,
+        stored_energy,
+        kinetic_energy,
+    )
+end
+
+
+function Newmark(params::Dict{Any,Any},model::SolidMechanics)
     integrator_params = params["time integrator"]
     initial_time = integrator_params["initial time"]
     final_time = integrator_params["final time"]
@@ -143,13 +193,15 @@ function CentralDifference(params::Dict{Any,Any})
     )
 end
 
-function create_time_integrator(params::Dict{Any,Any})
+function create_time_integrator(params::Dict{Any,Any},model::Any)
     integrator_params = params["time integrator"]
     integrator_name = integrator_params["type"]
     if integrator_name == "quasi static"
         return QuasiStatic(params)
     elseif integrator_name == "Newmark"
-        return Newmark(params)
+        return Newmark(params,model)
+    elseif integrator_name == "NewmarkGeneral"
+        return NewmarkGeneral(params,model)
     elseif integrator_name == "central difference"
         return CentralDifference(params)
     else
@@ -168,6 +220,28 @@ function is_static_or_dynamic(integrator_name::String)
         error("Unknown type of time integrator : ", integrator_name)
     end
 end
+
+## Operator Inference 
+function initialize(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
+    integrator.state_np1 = 1.0 .* model.reduced_state 
+    integrator.state = 1.0 .* model.reduced_state 
+
+end
+
+function predict(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
+    # Move updated states
+    integrator.state = 1.0.*integrator.state_np1
+    integrator.state_dot = 1.0.*integrator.state_np1_dot
+    integrator.state_ddot = 1.0.*integrator.state_np1_ddot
+    solver.solution = 1.0 .* integrator.state
+    #copy_solution_source_targets(model, integrator, solver)
+end
+
+function correct(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
+    model.reduced_state[:] = solver.solution[:]
+end
+###
+
 
 function initialize(_::QuasiStatic, _::Any, _::SolidMechanics)
 end
@@ -274,6 +348,40 @@ function correct(
     integrator.velocity[free] += γ * Δt * a[free]
     copy_solution_source_targets(integrator, solver, model)
 end
+
+
+
+function initialize_writing(
+    params::Dict{Any,Any},
+    _::StaticTimeIntegrator,
+    model::HeatConduction,
+)
+    output_mesh = params["output_mesh"]
+    num_node_vars = Exodus.read_number_of_variables(output_mesh, NodalVariable)
+    temp_index = num_node_vars + 1
+    num_node_vars += 1
+    Exodus.write_number_of_variables(output_mesh, NodalVariable, num_node_vars)
+    Exodus.write_name(output_mesh, NodalVariable, Int32(temp_index), "temp")
+    num_element_vars = Exodus.read_number_of_variables(output_mesh, ElementVariable)
+    blocks = Exodus.read_sets(output_mesh, Block)
+    max_num_int_points = 0
+    for block ∈ blocks
+        blk_id = block.id
+        element_type = Exodus.read_block_parameters(output_mesh, blk_id)[1]
+        num_points = default_num_int_pts(element_type)
+        max_num_int_points = max(max_num_int_points, num_points)
+    end
+    ip_var_index = num_element_vars
+end
+
+function initialize_writing(
+    params::Dict{Any,Any},
+    integrator::DynamicTimeIntegrator,
+    model::LinearOpInfRom,
+)
+    initialize_writing(params,integrator,model.fom_model)
+end
+
 
 function initialize_writing(
     params::Dict{Any,Any},
@@ -476,6 +584,7 @@ function finalize_writing(params::Dict{Any,Any})
     Exodus.close(output_mesh)
 end
 
+
 function writedlm_nodal_array(filename::String, nodal_array::Matrix{Float64})
     open(filename, "w") do io
         for col ∈ 1:size(nodal_array, 2)
@@ -498,6 +607,9 @@ function write_step(params::Dict{Any,Any}, integrator::Any, model::Any)
             sim_id = params["global_simulation"].subsim_name_index_map[params["name"]]
         end
         write_step_csv(integrator, model, sim_id)
+        if haskey(params, "CSV write sidesets") == true
+          write_sideset_step_csv(params,integrator,model,sim_id)
+        end
     end
 end
 
@@ -519,10 +631,55 @@ function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics,
     end
 end
 
+
+function write_sideset_step_csv(params::Dict{Any,Any},integrator::DynamicTimeIntegrator, model::SolidMechanics, sim_id::Integer)
+  stop = integrator.stop
+  index_string = "-" * string(stop, pad = 4)
+  sim_id_string = string(sim_id, pad = 2) * "-"
+  input_mesh = params["input_mesh"]
+  bc_params = params["boundary conditions"]
+
+  for bc ∈ model.boundary_conditions
+      node_set_name = bc.node_set_name 
+      curr_filename = sim_id_string * node_set_name * "curr" * index_string * ".csv"
+      disp_filename = sim_id_string * node_set_name * "disp" * index_string * ".csv"
+      velo_filename = sim_id_string * node_set_name * "velo" * index_string * ".csv"
+      acce_filename = sim_id_string * node_set_name * "acce" * index_string * ".csv"
+
+      writedlm(curr_filename, model.current[bc.offset,bc.node_set_node_indices])
+      writedlm(velo_filename, model.velocity[bc.offset,bc.node_set_node_indices])
+      writedlm(acce_filename, model.acceleration[bc.offset,bc.node_set_node_indices])
+      writedlm(disp_filename, model.current[bc.offset,bc.node_set_node_indices] - model.reference[bc.offset,bc.node_set_node_indices])
+
+  end
+
+
+
+  #=
+  for (bc_type, bc_type_params) ∈ bc_params
+    for bc_setting_params ∈ bc_type_params
+      node_set_name = bc_setting_params["node set"]
+      node_set_id = node_set_id_from_name(node_set_name, input_mesh)
+      side_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
+      curr_filename = sim_id_string * node_set_name * "curr" * index_string * ".csv"
+      disp_filename = sim_id_string * node_set_name * "disp" * index_string * ".csv"
+      velo_filename = sim_id_string * node_set_name * "velo" * index_string * ".csv"
+      acce_filename = sim_id_string * node_set_name * "acce" * index_string * ".csv"
+      writedlm(curr_filename, model.current[bc.offset,bc.node_set_node_indices])
+      writedlm(velo_filename, model.velocity[bc.offset,side_set_node_indices])
+      writedlm(acce_filename, model.acceleration[bc.offset,side_set_node_indices])
+      writedlm(disp_filename, model.current[bc.offset,side_set_node_indices] - model.reference[bc.offset,side_set_node_indices])
+    end
+  end
+  =#
+end
+
+
 function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
+    free_dofs_filename = sim_id_string * "free_dofs" * index_string * ".csv"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     velo_filename = sim_id_string * "velo" * index_string * ".csv"
@@ -530,6 +687,7 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
     time_filename = sim_id_string * "time" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
     kinetic_filename = sim_id_string * "kinetic" * index_string * ".csv"
+    writedlm(free_dofs_filename, model.free_dofs)
     writedlm_nodal_array(curr_filename, model.current)
     writedlm_nodal_array(velo_filename, model.velocity)
     writedlm_nodal_array(acce_filename, model.acceleration)
@@ -542,6 +700,62 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
         writedlm_nodal_array(refe_filename, model.reference)
     end 
 end
+
+
+
+function write_step_csv(integrator::NewmarkGeneral, model::OpInfModel, sim_id::Integer)
+    stop = integrator.stop
+    index_string = "-" * string(stop, pad = 4)
+    sim_id_string = string(sim_id, pad = 2) * "-"
+    reduced_states_filename = sim_id_string * "reduced_states" * index_string * ".csv"
+    time_filename = sim_id_string * "time" * index_string * ".csv"
+    writedlm(reduced_states_filename, model.reduced_state)
+    write_step_csv(integrator,model.fom_model,sim_id)
+end
+
+
+
+function write_step_exodus(
+    params::Dict{Any,Any},
+    integrator::StaticTimeIntegrator,
+    model::HeatConduction,
+)
+    time = integrator.time
+    stop = integrator.stop
+    time_index = stop + 1
+    output_mesh = params["output_mesh"]
+    Exodus.write_time(output_mesh, time_index, time)
+    temp = model.temperature[:]
+    Exodus.write_values(output_mesh, NodalVariable, time_index, "temp", temp)
+end
+
+
+function write_step_exodus(
+    params::Dict{Any,Any},
+    integrator::DynamicTimeIntegrator,
+    model::LinearOpInfRom,
+)
+    #Re-construct full state
+    reduced_state = model.reduced_state[:]
+    for i = 1 : size(model.fom_model.current)[2]
+      x_dof_index = 3 * (i - 1) + 1 
+      y_dof_index = 3 * (i - 1) + 2 
+      z_dof_index = 3 * (i - 1) + 3 
+      if model.fom_model.free_dofs[x_dof_index]
+        model.fom_model.current[1,i] = model.basis[1,i,:]'reduced_state + model.fom_model.reference[1,i]
+      end  
+
+      if model.fom_model.free_dofs[y_dof_index]
+        model.fom_model.current[2,i] = model.basis[2,i,:]'reduced_state + model.fom_model.reference[2,i]
+      end
+ 
+      if model.fom_model.free_dofs[z_dof_index]
+        model.fom_model.current[3,i] = model.basis[3,i,:]'reduced_state+ model.fom_model.reference[3,i]
+      end
+    end
+    write_step_exodus(params,integrator,model.fom_model)
+end
+
 
 function write_step_exodus(
     params::Dict{Any,Any},
