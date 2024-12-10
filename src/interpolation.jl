@@ -693,10 +693,10 @@ function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::I
 end
 
 function get_square_projection_matrix(
-    mesh::ExodusDatabase,
     model::SolidMechanics,
     side_set_id::Integer,
 )
+    mesh = model.mesh
     local_from_global_map, num_nodes_sides, side_set_node_indices =
         get_side_set_local_from_global_map(mesh, side_set_id)
     num_nodes = length(local_from_global_map)
@@ -727,24 +727,23 @@ function get_square_projection_matrix(
 end
 
 function get_rectangular_projection_matrix(
-    dst_mesh::ExodusDatabase,
-    dst_model::SolidMechanics,
-    dst_side_set_id::Integer,
-    src_mesh::ExodusDatabase,
     src_model::SolidMechanics,
     src_side_set_id::Integer,
+    dst_model::SolidMechanics,
+    dst_side_set_id::Integer,
 )
+    src_mesh = src_model.mesh
+    src_local_from_global_map, _, _ = get_side_set_local_from_global_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_local_from_global_map)
+    src_local_indices = Array{Int64}(undef, 0)
+    dst_mesh = dst_model.mesh
     dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
         get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_local_from_global_map)
     dst_coords = dst_model.current
-    src_local_from_global_map, _, _ =
-        get_side_set_local_from_global_map(src_mesh, src_side_set_id)
-    src_num_nodes = length(src_local_from_global_map)
-    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_local_indices = Array{Int64}(undef, 0)
-    src_local_indices = Array{Int64}(undef, 0)
     dst_side_set_node_index = 1
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes =
             dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]

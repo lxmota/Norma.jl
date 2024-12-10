@@ -421,21 +421,13 @@ function local_traction_from_global_force(
 end
 
 function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
-    src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_model = bc.coupled_subsim.model
-    dst_mesh = dst_model.mesh
     dst_side_set_id = bc.side_set_id
     square_projection_matrix =
-        get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
-    rectangular_projection_matrix = get_rectangular_projection_matrix(
-        dst_mesh,
-        dst_model,
-        dst_side_set_id,
-        src_mesh,
-        src_model,
-        src_side_set_id,
-    )
+        get_square_projection_matrix(src_model, src_side_set_id)
+    rectangular_projection_matrix =
+        get_rectangular_projection_matrix(src_model, src_side_set_id, dst_model, dst_side_set_id)
     bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
 end
 
