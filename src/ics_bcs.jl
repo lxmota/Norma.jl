@@ -354,13 +354,13 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
     side_set_node_indices = unique(bc.side_set_node_indices)
     for node_index ∈ side_set_node_indices
         point = model.current[:, node_index]
-        point_new, ξ, _, closest_face_node_indices, closest_normal, _ = find_and_project(
+        new_point, ξ, _, closest_face_node_indices, closest_normal, _ = find_and_project(
             point,
             bc.coupled_mesh,
             bc.coupled_side_set_id,
             bc.coupled_subsim.model,
         )
-        model.current[:, node_index] = point_new
+        model.current[:, node_index] = new_point
         num_nodes = length(closest_face_node_indices)
         element_type = get_element_type(2, num_nodes)
         N, _, _ = interpolate(element_type, ξ)

@@ -609,6 +609,9 @@ function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Ve
     end
 end
 
+# Use a projection and find the minimum distance to the nodes of each face
+# on the side set because the contact or surfaces may be deformed
+# and not match each other exactly
 function find_and_project(
     point::Vector{Float64},
     mesh::ExodusDatabase,
@@ -619,46 +622,51 @@ function find_and_project(
     num_nodes_per_sides, side_set_node_indices =
         Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
-    point_new = point
+    new_point = point
     closest_face_nodes = Array{Float64}(undef, 0)
     closest_face_node_indices = Array{Int64}(undef, 0)
     space_dim = length(point)
     parametric_dim = space_dim - 1
     closest_ξ = zeros(parametric_dim)
     closest_normal = zeros(space_dim)
-    minimum_absolute_distance = Inf
-    closest_distance = 0.0
+    minimum_nodal_distance = Inf
+    closest_surface_distance = 0.0
     for num_nodes_side ∈ num_nodes_per_sides
         face_node_indices =
             side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
-        trial_point, ξ, distance, normal =
+        trial_point, ξ, surface_distance, normal =
             closest_point_projection(parametric_dim, face_nodes, point)
-        distance_center = get_distance_to_centroid(face_nodes, point)
-        if abs(distance_center) < minimum_absolute_distance
-            minimum_absolute_distance = abs(distance_center)
-            point_new = trial_point
+        nodal_distance = get_minimum_distance_to_nodes(face_nodes, point)
+        if nodal_distance < minimum_nodal_distance
+            minimum_nodal_distance = nodal_distance
+            new_point = trial_point
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
             closest_normal = normal
             closest_ξ = ξ
-            closest_distance = distance
+            closest_surface_distance = surface_distance
         end
         ss_node_index += num_nodes_side
     end
-    return point_new,
+    return new_point,
     closest_ξ,
     closest_face_nodes,
     closest_face_node_indices,
     closest_normal,
-    closest_distance
+    closest_surface_distance
 end
 
-function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
+function get_distance_to_centroid(nodes::Matrix{Float64}, point::Vector{Float64})
     num_nodes = size(nodes, 2)
     centroid = sum(nodes, dims = 2) / num_nodes
-    distance = norm(centroid - x)
+    distance = norm(centroid - point)
     return distance
+end
+
+function get_minimum_distance_to_nodes(nodes::Matrix{Float64}, point::Vector{Float64})
+    distances = norm.(eachcol(nodes) .- Ref(point))
+    return minimum(distances)
 end
 
 function get_side_set_local_from_global_map(mesh::ExodusDatabase, side_set_id::Integer)
