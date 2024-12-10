@@ -105,7 +105,7 @@ function SMCouplingSchwarzBC(
     for node_index ∈ side_set_node_indices
         point = subsim.model.reference[:, node_index]
         node_indices, ξ, found =
-            find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id, tol)
+            find_point_in_mesh(point, coupled_subsim.model, coupled_block_id, tol)
         if found == false
             error("Could not find subdomain ", subsim.name, " point ", point, " in subdomain ", coupled_subsim.name)
         end
@@ -183,13 +183,13 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     end
 end
 
-function find_in_mesh(
+function find_point_in_mesh(
     point::Vector{Float64},
     model::SolidMechanics,
-    mesh::ExodusDatabase,
     blk_id::Int,
     tol::Float64
 )
+    mesh = model.mesh
     element_type = Exodus.read_block_parameters(mesh, Int32(blk_id))[1]
     elem_blk_conn = get_block_connectivity(mesh, blk_id)
     num_blk_elems, num_elem_nodes = size(elem_blk_conn)
