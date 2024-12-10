@@ -456,9 +456,9 @@ function psi(x::Float64)
     y = abs(x)
     e2 = sqrt(eps())
     e4 = sqrt(e2)
-    if (y > e4)
+    if y > e4
         return sin(y) / y
-    elseif (y > e2)
+    elseif y > e2
         return 1.0 - y * y / 6.0
     else
         return 1.0

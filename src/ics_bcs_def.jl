@@ -50,7 +50,6 @@ mutable struct SMOverlapSchwarzBC <: OverlapSchwarzBoundaryCondition
     coupled_subsim::Simulation
     subsim::Simulation
     is_dirichlet::Bool
-    coupling_type::String
 end
 
 mutable struct SMNonOverlapSchwarzBC <: NonOverlapSchwarzBoundaryCondition
@@ -63,6 +62,5 @@ mutable struct SMNonOverlapSchwarzBC <: NonOverlapSchwarzBoundaryCondition
     coupled_side_set_id::Int64
     transfer_operator::Matrix{Float64}
     is_dirichlet::Bool
-    coupling_type::String
 end
 
