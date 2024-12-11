@@ -31,11 +31,7 @@ boundary conditions:
       function: "0"
   Inclined Dirichlet:
     - node set: nsx+
-      axis1: 0
-      axis2: 0
-      axis3: 1
-      angle deg: 30
-      local component: x
+      normal vector: [ 0.866025403784439, 0.5, 0 ]
       function: "-0.1*t"
 solver:
   type: Hessian minimizer

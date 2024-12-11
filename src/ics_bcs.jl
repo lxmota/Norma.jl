@@ -1,3 +1,5 @@
+include("minitensor.jl")
+
 @variables t, x, y, z
 D = Differential(t)
 
@@ -32,20 +34,20 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
     velo_num = expand_derivatives(D(disp_num))
     acce_num = expand_derivatives(D(velo_num))
     # For inclined support, the function is applied along the x direction
-    offset = component_offset_from_string(bc_params["local component"])
+    offset = component_offset_from_string("x")
 
-    # The local basis is determined from an axis angle representation
-    axis = zeros(3)
-    axis[1] = bc_params["axis1"]
-    axis[2] = bc_params["axis2"]
-    axis[3] = bc_params["axis3"]
+    # The local basis is determined from a normal vector
+    axis = bc_params["normal vector"]
     axis = axis/norm(axis)
-    angle = bc_params["angle deg"]
-    angle_rad = angle * π / 180
-    # Convert to rot matrix (source: http://motion.pratt.duke.edu/RoboticSystems/3DRotations.html)
-    a_skwsym = [ 0     -axis[3]    axis[2];  axis[3]    0     -axis[1];  -axis[2]   axis[1]    0 ]
-    rotation_matrix = (Diagonal(ones(3)) + sin(angle_rad)*a_skwsym + (1 - cos(angle_rad)) * a_skwsym * a_skwsym)'
-
+    e1 = [1.0, 0.0, 0.0]
+    w = cross(e1, axis)
+    s = norm(w)
+    θ = asin(s)
+    m = w/s
+    rv = θ * m
+    # Rotation is converted via the psuedo vector to rotation matrix
+    rotation_matrix = MiniTensor.rt_from_rv(rv)'
+    
     SMDirichletInclined(
         node_set_name,
         node_set_id,
