@@ -1,5 +1,3 @@
-include("minitensor.jl")
-
 @variables t, x, y, z
 D = Differential(t)
 
