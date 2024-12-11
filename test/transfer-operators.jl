@@ -7,8 +7,8 @@ include("../src/Norma.jl")
 include("helpers.jl")
 
 @testset "transfer-operators" begin
-    cp("../examples/contact/transfer_tests/cube_fine_nonconf.g", "src_mesh.g", force=true)
-    cp("../examples/contact/transfer_tests/cube_coarse_tet.g", "dst_mesh.g", force=true)
+    cp("../examples/contact/transfer_tests/cube_fine.g", "src_mesh.g", force=true)
+    cp("../examples/contact/transfer_tests/cube_coarse.g", "dst_mesh.g", force=true)
     src_mesh = Exodus.ExodusDatabase("src_mesh.g", "r")
     dst_mesh = Exodus.ExodusDatabase("dst_mesh.g", "r")
     rm("src_mesh.g")
@@ -23,7 +23,7 @@ include("helpers.jl")
     H = Norma.get_square_projection_matrix(src_mesh, src_side_set_id)
     L = Norma.get_rectangular_projection_matrix(dst_mesh, dst_side_set_id, src_mesh, src_side_set_id)
     dst_T = L * inv(H) * src_T
-    #display([dst_T dst_T_real])
+    display([dst_T dst_T_real])
     rel_er_tr = norm(dst_T - dst_T_real) / norm(dst_T_real)
     println("traction: relative error ", rel_er_tr) 
     @test norm(dst_T - dst_T_real) / norm(dst_T_real) ≈ 0.0 atol = 1.0e-08
@@ -31,7 +31,7 @@ include("helpers.jl")
     src_u = ones(length(src_T))
     dst_u = inv(M) * L * src_u
     dst_u_real = ones(length(dst_T_real))
-    #display([dst_u dst_u_real])
+    display([dst_u dst_u_real])
     rel_er_disp = norm(dst_u - dst_u_real) / norm(dst_u_real)
     println("displacement: relative error ", rel_er_disp) 
     @test norm(dst_u - dst_u_real) / norm(dst_u_real) ≈ 0.0 atol = 1.0e-08

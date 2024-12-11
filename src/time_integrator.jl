@@ -8,9 +8,9 @@ function adaptive_stepping_parameters(integrator_params::Dict{Any,Any})
     has_increase = haskey(integrator_params, "increase factor")
     has_any = has_minimum || has_decrease || has_maximum || has_increase
     has_all = has_minimum && has_decrease && has_maximum && has_increase
-    if (has_any == true && has_all == false)
+    if has_any == true && has_all == false
         error("Adaptive time stepping requires 4 parameters: minimum and maximum time steps and decrease and increase factors")
-    elseif (has_any == true && has_all == true)
+    elseif has_any == true && has_all == true
         minimum_time_step = integrator_params["minimum time step"]
         decrease_factor = integrator_params["decrease factor"]
         maximum_time_step = integrator_params["maximum time step"]
