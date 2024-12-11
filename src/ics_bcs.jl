@@ -105,7 +105,7 @@ function SMCouplingSchwarzBC(
     for node_index ∈ side_set_node_indices
         point = subsim.model.reference[:, node_index]
         node_indices, ξ, found =
-            find_in_mesh(point, coupled_subsim.model, coupled_mesh, coupled_block_id, tol)
+            find_point_in_mesh(point, coupled_subsim.model, coupled_block_id, tol)
         if found == false
             error("Could not find subdomain ", subsim.name, " point ", point, " in subdomain ", coupled_subsim.name)
         end
@@ -183,13 +183,13 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     end
 end
 
-function find_in_mesh(
+function find_point_in_mesh(
     point::Vector{Float64},
     model::SolidMechanics,
-    mesh::ExodusDatabase,
     blk_id::Int,
     tol::Float64
 )
+    mesh = model.mesh
     element_type = Exodus.read_block_parameters(mesh, Int32(blk_id))[1]
     elem_blk_conn = get_block_connectivity(mesh, blk_id)
     num_blk_elems, num_elem_nodes = size(elem_blk_conn)
@@ -350,12 +350,8 @@ function apply_sm_schwarz_contact_dirichlet(model::SolidMechanics, bc::SMContact
     side_set_node_indices = unique(bc.side_set_node_indices)
     for node_index ∈ side_set_node_indices
         point = model.current[:, node_index]
-        new_point, ξ, _, closest_face_node_indices, closest_normal, _ = find_and_project(
-            point,
-            bc.coupled_mesh,
-            bc.coupled_side_set_id,
-            bc.coupled_subsim.model,
-        )
+        new_point, ξ, _, closest_face_node_indices, closest_normal, _ =
+            project_point_to_side_set(point, bc.coupled_subsim.model, bc.coupled_side_set_id)
         model.current[:, node_index] = new_point
         num_nodes = length(closest_face_node_indices)
         element_type = get_element_type(2, num_nodes)
@@ -425,21 +421,13 @@ function local_traction_from_global_force(
 end
 
 function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
-    src_mesh = bc.coupled_subsim.model.mesh
     src_side_set_id = bc.coupled_side_set_id
     src_model = bc.coupled_subsim.model
-    dst_mesh = dst_model.mesh
     dst_side_set_id = bc.side_set_id
     square_projection_matrix =
-        get_square_projection_matrix(src_mesh, src_model, src_side_set_id)
-    rectangular_projection_matrix = get_rectangular_projection_matrix(
-        dst_mesh,
-        dst_model,
-        dst_side_set_id,
-        src_mesh,
-        src_model,
-        src_side_set_id,
-    )
+        get_square_projection_matrix(src_model, src_side_set_id)
+    rectangular_projection_matrix =
+        get_rectangular_projection_matrix(src_model, src_side_set_id, dst_model, dst_side_set_id)
     bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
 end
 

@@ -609,16 +609,16 @@ function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Ve
     end
 end
 
-# Use a projection and find the minimum distance to the nodes of each face
-# on the side set because the contact or surfaces may be deformed
-# and not match each other exactly
-function find_and_project(
+# Project a point to a side set and find the minimum distance of the projection
+# to the nodes of each face on the side set. This is done in place of a strict search
+# because the contact surfaces may be deformed and not match each other exactly.
+function project_point_to_side_set(
     point::Vector{Float64},
-    mesh::ExodusDatabase,
-    side_set_id::Integer,
     model::SolidMechanics,
+    side_set_id::Integer,
 )
-    #we assume that we know the contact surfaces in advance 
+    #we assume that we know the contact surfaces in advance
+    mesh = model.mesh
     num_nodes_per_sides, side_set_node_indices =
         Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
@@ -693,10 +693,10 @@ function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::I
 end
 
 function get_square_projection_matrix(
-    mesh::ExodusDatabase,
     model::SolidMechanics,
     side_set_id::Integer,
 )
+    mesh = model.mesh
     local_from_global_map, num_nodes_sides, side_set_node_indices =
         get_side_set_local_from_global_map(mesh, side_set_id)
     num_nodes = length(local_from_global_map)
@@ -727,24 +727,23 @@ function get_square_projection_matrix(
 end
 
 function get_rectangular_projection_matrix(
-    dst_mesh::ExodusDatabase,
-    dst_model::SolidMechanics,
-    dst_side_set_id::Integer,
-    src_mesh::ExodusDatabase,
     src_model::SolidMechanics,
     src_side_set_id::Integer,
+    dst_model::SolidMechanics,
+    dst_side_set_id::Integer,
 )
+    src_mesh = src_model.mesh
+    src_local_from_global_map, _, _ = get_side_set_local_from_global_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_local_from_global_map)
+    src_local_indices = Array{Int64}(undef, 0)
+    dst_mesh = dst_model.mesh
     dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
         get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_local_from_global_map)
     dst_coords = dst_model.current
-    src_local_from_global_map, _, _ =
-        get_side_set_local_from_global_map(src_mesh, src_side_set_id)
-    src_num_nodes = length(src_local_from_global_map)
-    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_local_indices = Array{Int64}(undef, 0)
-    src_local_indices = Array{Int64}(undef, 0)
     dst_side_set_node_index = 1
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes =
             dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
@@ -761,7 +760,7 @@ function get_rectangular_projection_matrix(
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
             _, ξ, src_side_coordinates, src_side_nodes, _, _ =
-                find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
+                project_point_to_side_set(dst_int_point_coord, src_model, src_side_set_id)
             src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
             src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
             src_local_indices = get.(Ref(src_local_from_global_map), src_side_nodes, 0)
