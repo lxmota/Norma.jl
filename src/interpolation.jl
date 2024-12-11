@@ -549,8 +549,8 @@ function map_to_parametric(
         hessian = nodes * dN'
         δ = -hessian \ residual
         ξ = ξ + δ
-        error = norm(δ)
-        if error <= tol
+        err = norm(δ)
+        if err <= tol
             break
         end
     end
@@ -866,7 +866,7 @@ function closest_point_projection(
     hessian = zeros(parametric_dim, parametric_dim)
     y = x
     yx = zeros(space_dim)
-    tol = 1.0e-12
+    tol = 1.0e-10
     normal = zeros(space_dim)
     iteration = 1
     max_iterations = 64
@@ -881,8 +881,8 @@ function closest_point_projection(
         hessian = ddyddξyx + dydξ * dydξ'
         δ = -hessian \ residual
         ξ = ξ + δ
-        error = norm(δ)
-        if error <= tol
+        err = norm(δ)
+        if err <= tol
             break
         end
         iteration += 1
