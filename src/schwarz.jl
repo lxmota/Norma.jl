@@ -335,12 +335,8 @@ function check_overlap(model::SolidMechanics, bc::SMContactSchwarzBC)
     overlap = false
     for node_index ∈ bc.side_set_node_indices
         point = model.current[:, node_index]
-        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(
-            point,
-            bc.coupled_mesh,
-            bc.coupled_side_set_id,
-            bc.coupled_subsim.model,
-        )
+        _, ξ, _, coupled_face_node_indices, _, distance =
+            project_point_to_side_set(point, bc.coupled_subsim.model, bc.coupled_side_set_id)
         num_nodes_coupled_side = length(coupled_face_node_indices)
         parametric_dim = length(ξ)
         element_type = get_element_type(parametric_dim, num_nodes_coupled_side)

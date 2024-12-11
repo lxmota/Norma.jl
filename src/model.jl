@@ -22,7 +22,7 @@ function SolidMechanics(params::Dict{Any,Any})
     num_blks_params = length(material_blocks)
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(blocks)
-    if (num_blks_params ≠ num_blks)
+    if num_blks_params ≠ num_blks
         error(
             "number of blocks in mesh ",
             model_params["mesh"],
@@ -120,7 +120,7 @@ function HeatConduction(params::Dict{Any,Any})
     num_blks_params = length(material_blocks)
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(elem_blk_ids)
-    if (num_blks_params ≠ num_blks)
+    if num_blks_params ≠ num_blks
         error(
             "number of blocks in mesh ",
             model_params["mesh"],

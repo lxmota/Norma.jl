@@ -609,67 +609,64 @@ function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Ve
     end
 end
 
-function find_and_project(
+# Project a point to a side set and find the minimum distance of the projection
+# to the nodes of each face on the side set. This is done in place of a strict search
+# because the contact surfaces may be deformed and not match each other exactly.
+function project_point_to_side_set(
     point::Vector{Float64},
-    mesh::ExodusDatabase,
-    side_set_id::Integer,
     model::SolidMechanics,
+    side_set_id::Integer,
 )
-    #we assume that we know the contact surfaces in advance 
+    #we assume that we know the contact surfaces in advance
+    mesh = model.mesh
     num_nodes_per_sides, side_set_node_indices =
         Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
-    point_new = point
+    new_point = point
     closest_face_nodes = Array{Float64}(undef, 0)
     closest_face_node_indices = Array{Int64}(undef, 0)
     space_dim = length(point)
     parametric_dim = space_dim - 1
     closest_ξ = zeros(parametric_dim)
     closest_normal = zeros(space_dim)
-    minimum_absolute_distance = Inf
-    closest_distance = 0.0
+    minimum_nodal_distance = Inf
+    closest_surface_distance = 0.0
     for num_nodes_side ∈ num_nodes_per_sides
         face_node_indices =
             side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
-        trial_point, ξ, distance, normal =
+        trial_point, ξ, surface_distance, normal =
             closest_point_projection(parametric_dim, face_nodes, point)
-        distance_centr = get_distance_to_centroid(face_nodes, point)
-        if abs(distance_centr) < minimum_absolute_distance
-            minimum_absolute_distance = abs(distance_centr)
-            point_new = trial_point
+        nodal_distance = get_minimum_distance_to_nodes(face_nodes, point)
+        if nodal_distance < minimum_nodal_distance
+            minimum_nodal_distance = nodal_distance
+            new_point = trial_point
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
             closest_normal = normal
             closest_ξ = ξ
-            closest_distance = distance
+            closest_surface_distance = surface_distance
         end
         ss_node_index += num_nodes_side
     end
-    return point_new,
+    return new_point,
     closest_ξ,
     closest_face_nodes,
     closest_face_node_indices,
     closest_normal,
-    closest_distance
+    closest_surface_distance
 end
 
-function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
-    _, num_nodes = size(nodes)
-    x_coords = 0.0
-    y_coords = 0.0
-    z_coords = 0.0
-    for i ∈ 1:num_nodes
-        x_coords = x_coords + nodes[1, i]
-        y_coords = y_coords + nodes[2, i]
-        z_coords = z_coords + nodes[3, i]
-    end
-    x_centroid = x_coords / num_nodes
-    y_centroid = y_coords / num_nodes
-    z_centroid = z_coords / num_nodes
-    centroid = [x_centroid, y_centroid, z_centroid]
-    distance = norm(centroid - x)
+function get_distance_to_centroid(nodes::Matrix{Float64}, point::Vector{Float64})
+    num_nodes = size(nodes, 2)
+    centroid = sum(nodes, dims = 2) / num_nodes
+    distance = norm(centroid - point)
     return distance
+end
+
+function get_minimum_distance_to_nodes(nodes::Matrix{Float64}, point::Vector{Float64})
+    distances = norm.(eachcol(nodes) .- Ref(point))
+    return minimum(distances)
 end
 
 function get_side_set_local_from_global_map(mesh::ExodusDatabase, side_set_id::Integer)
@@ -696,10 +693,10 @@ function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::I
 end
 
 function get_square_projection_matrix(
-    mesh::ExodusDatabase,
     model::SolidMechanics,
     side_set_id::Integer,
 )
+    mesh = model.mesh
     local_from_global_map, num_nodes_sides, side_set_node_indices =
         get_side_set_local_from_global_map(mesh, side_set_id)
     num_nodes = length(local_from_global_map)
@@ -730,24 +727,23 @@ function get_square_projection_matrix(
 end
 
 function get_rectangular_projection_matrix(
-    dst_mesh::ExodusDatabase,
-    dst_model::SolidMechanics,
-    dst_side_set_id::Integer,
-    src_mesh::ExodusDatabase,
     src_model::SolidMechanics,
     src_side_set_id::Integer,
+    dst_model::SolidMechanics,
+    dst_side_set_id::Integer,
 )
+    src_mesh = src_model.mesh
+    src_local_from_global_map, _, _ = get_side_set_local_from_global_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_local_from_global_map)
+    src_local_indices = Array{Int64}(undef, 0)
+    dst_mesh = dst_model.mesh
     dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
         get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_local_from_global_map)
     dst_coords = dst_model.current
-    src_local_from_global_map, _, _ =
-        get_side_set_local_from_global_map(src_mesh, src_side_set_id)
-    src_num_nodes = length(src_local_from_global_map)
-    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     dst_local_indices = Array{Int64}(undef, 0)
-    src_local_indices = Array{Int64}(undef, 0)
     dst_side_set_node_index = 1
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes =
             dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
@@ -764,7 +760,7 @@ function get_rectangular_projection_matrix(
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
             _, ξ, src_side_coordinates, src_side_nodes, _, _ =
-                find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
+                project_point_to_side_set(dst_int_point_coord, src_model, src_side_set_id)
             src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
             src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
             src_local_indices = get.(Ref(src_local_from_global_map), src_side_nodes, 0)

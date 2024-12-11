@@ -268,9 +268,6 @@ refine surface 23 26 numsplit 1 depth 1
 
 mesh volume 1 2 5
 
-nodeset 1 surface 30 37 26 8 20 41 47
-nodeset 1 name "surface_symmetry"
-
 nodeset 2 surface 16
 nodeset 2 name "surface_negative_y"
 
@@ -290,9 +287,6 @@ delete mesh volume all propagate
 volume all size {sizeElementFine}
 
 mesh volume all 
-
-nodeset 1 surface 30 37 26 8 20 41 47
-nodeset 1 name "surface_symmetry"
 
 nodeset 2 surface 16
 nodeset 2 name "surface_negative_y"
@@ -320,15 +314,11 @@ mesh volume 1 2 4 5 6
 
 reset nodeset
 
-nodeset 1 surface 30 37 26 8 20 41 47 
+#nodeset 2 surface 29
+#nodeset 2 name "nodeset_negative_y"
 
-nodeset 1 name "nodeset_symmetry"
-
-nodeset 2 surface 29
-nodeset 2 name "nodeset_negative_y"
-
-nodeset 3 surface 39
-nodeset 3 name "nodeset_positive_y"
+#nodeset 3 surface 39
+#nodeset 3 name "nodeset_positive_y"
 
 #sideset 2 surface 29
 #sideset 2 name "sideset_negative_y"
@@ -352,9 +342,6 @@ mesh volume 3 6
 
 reset nodeset
 
-nodeset 1 surface 30 37
-
-nodeset 1 name "nodeset_symmetry"
 
 nodeset 2 surface 16
 nodeset 2 name "nodeset_negative_y"
@@ -379,10 +366,6 @@ volume 4 7 size {sizeElementCoarse}
 mesh volume 4 7
 
 reset nodeset
-
-nodeset 1 surface 41 47
-
-nodeset 1 name "nodeset_symmetry"
 
 nodeset 2 surface 17
 nodeset 2 name "nodeset_negative_y"
@@ -423,7 +406,7 @@ reset
 import mesh geometry "gauge.g" 
 sideset 1 surface 17 
 sideset 1 name "sideset_negative_y" 
-sideset 2 surface 2 
+sideset 2 surface 1 
 sideset 2 name "sideset_positive_y" 
 block all element type HEX8
 export mesh "gauge.g" block all overwrite

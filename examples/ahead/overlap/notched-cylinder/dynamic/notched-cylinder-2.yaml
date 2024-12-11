@@ -7,7 +7,7 @@ model:
     blocks:
       coarse: hyperelastic
     hyperelastic:
-      model: Saint-Venant Kirchhoff
+      model: neohookean
       elastic modulus: 1440.0
       Poisson's ratio: 0.25
       density: 1000.0
@@ -26,12 +26,11 @@ boundary conditions:
     - node set: +Z_top
       component: z
       function: "0.0064 * t"
-  Schwarz coupling:
+  Schwarz overlap:
     - side set: -Z_topSS
       source: notched-cylinder-1.yaml
       source side set: +Z_bottomSS
       source block: fine
-      coupling type: overlap
 solver:
   type: Hessian minimizer
   step: full Newton

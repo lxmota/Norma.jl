@@ -7,10 +7,9 @@ model:
     blocks:
       coarse: hyperelastic
     hyperelastic:
-      #model: neohookean
       model: neohookean
       elastic modulus: 1.0e+09
-      Poisson's ratio: 0.25
+      Poisson's ratio: 0.0
       density: 1000.0
 time integrator:
   type: Newmark
@@ -38,12 +37,11 @@ boundary conditions:
     - node set: nsz-
       component: z
       function: "0.0"
-  Schwarz coupling:
+  Schwarz nonoverlap:
     - side set: ssz+
       source: clamped-2.yaml
       source block: fine
       source side set: ssz-
-      coupling type: nonoverlap 
 solver:
   type: Hessian minimizer
   step: full Newton
