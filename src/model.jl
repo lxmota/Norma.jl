@@ -40,8 +40,8 @@ function LinearOpInfRom(params::Dict{Any,Any})
         boundary_conditions,
         time,
         failed,
-        num_dofs_per_node,
         fom_model,
+        num_dofs,
     )
 end
 
@@ -90,6 +90,7 @@ function SolidMechanics(params::Dict{Any,Any})
     end
     time = 0.0
     failed = false
+    num_dofs = 3 * num_nodes
     internal_force = zeros(3 * num_nodes)
     boundary_force = zeros(3 * num_nodes)
     boundary_conditions = Vector{BoundaryCondition}()
@@ -138,6 +139,7 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
+        num_dofs,
     )
 end
 

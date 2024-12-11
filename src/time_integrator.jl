@@ -105,7 +105,7 @@ function NewmarkGeneral(params::Dict{Any,Any},model::LinearOpInfRom)
 end
 
 
-function Newmark(params::Dict{Any,Any},model::SolidMechanics)
+function Newmark(params::Dict{Any,Any},model::Any)
     integrator_params = params["time integrator"]
     initial_time = integrator_params["initial time"]
     final_time = integrator_params["final time"]
@@ -115,10 +115,11 @@ function Newmark(params::Dict{Any,Any},model::SolidMechanics)
     stop = 0
     β = integrator_params["β"]
     γ = integrator_params["γ"]
-    input_mesh = params["input_mesh"]
-    input_mesh = params["input_mesh"]
-    num_nodes = Exodus.num_nodes(input_mesh.init)
-    num_dof = 3 * num_nodes
+    #input_mesh = params["input_mesh"]
+    #input_mesh = params["input_mesh"]
+    #num_nodes = Exodus.num_nodes(input_mesh.init)
+    #num_dof = 3 * num_nodes
+    num_dof = model.num_dof
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
@@ -237,8 +238,48 @@ function predict(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
     #copy_solution_source_targets(model, integrator, solver)
 end
 
+
 function correct(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
     model.reduced_state[:] = solver.solution[:]
+end
+
+
+function initialize(integrator::Newmark, solver::HessianMinimizer, model::LinearOpInfRom)
+    integrator.displacement[:] = model.reduced_state[:]
+    solver.solution[:] = model.reduced_state[:]
+    #integrator.velocity[:] .= 0.0
+    #integrator.acceleration[:] .= 0.0
+    #kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
+    #integrator.kinetic_energy = kinetic_energy
+    #integrator.stored_energy = stored_energy
+    #integrator.acceleration[free] = mass_matrix[free, free] \ inertial_force[free]
+    #copy_solution_source_targets(integrator, solver, model)
+end
+
+function predict(integrator::Newmark, solver::Any, model::LinearOpInfRom)
+    dt = integrator.time_step
+    beta = integrator.β
+    gamma = integrator.γ
+    integrator.disp_pre[:] = integrator.displacement[:] = integrator.displacement[:] + dt*integrator.velocity + 1.0/2.0*dt*dt*(1.0 - 2.0*beta)*integrator.acceleration
+    integrator.velo_pre[:] = integrator.velocity[:] += dt*(1.0 - gamma)*integrator.acceleration
+    solver.solution[:] = integrator.displacement[:]
+    model.reduced_state[:] = integrator.displacement[:]
+end
+
+
+
+function correct(integrator::Newmark, solver::Any, model::LinearOpInfRom)
+
+    dt = integrator.time_step
+    beta = integrator.β
+    gamma = integrator.γ
+
+    integrator.displacement[:] = solver.solution[:]
+    integrator.acceleration[:] = (solver.solution - integrator.disp_pre)/(beta*dt*dt)
+    integrator.velocity[:] = integrator.velo_pre + dt*gamma*integrator.acceleration[:] 
+
+    model.reduced_state[:] = solver.solution[:]
+
 end
 ###
 
@@ -269,7 +310,9 @@ function initialize(integrator::Newmark, solver::HessianMinimizer, model::SolidM
 end
 
 function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
+    # Copy model fields into integrator fields, set solver solution
     copy_solution_source_targets(model, integrator, solver)
+
     free = model.free_dofs
     fixed = .!free
     Δt = integrator.time_step
@@ -284,6 +327,7 @@ function predict(integrator::Newmark, solver::HessianMinimizer, model::SolidMech
     vᵖʳᵉ[free] = v[free] += (1.0 - γ) * Δt * a[free]
     uᵖʳᵉ[fixed] = u[fixed]
     vᵖʳᵉ[fixed] = v[fixed]
+    # Copy integrator fields into model fields, set solver solution
     copy_solution_source_targets(integrator, solver, model)
 end
 
@@ -703,7 +747,7 @@ end
 
 
 
-function write_step_csv(integrator::NewmarkGeneral, model::OpInfModel, sim_id::Integer)
+function write_step_csv(integrator::DynamicTimeIntegrator, model::OpInfModel, sim_id::Integer)
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"

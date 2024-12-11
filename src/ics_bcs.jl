@@ -323,6 +323,7 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
         bc.coupled_subsim.integrator.velocity = interp_velo
         bc.coupled_subsim.integrator.acceleration = interp_acce
     end
+    # Copies from integrator to model
     copy_solution_source_targets(
         bc.coupled_subsim.integrator,
         bc.coupled_subsim.solver,
@@ -333,6 +334,7 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     bc.coupled_subsim.integrator.velocity = saved_velo
     bc.coupled_subsim.integrator.acceleration = saved_acce
     bc.coupled_subsim.model.internal_force = saved_∂Ω_f
+    # Copy from integrator to model
     copy_solution_source_targets(
         bc.coupled_subsim.integrator,
         bc.coupled_subsim.solver,

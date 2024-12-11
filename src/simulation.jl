@@ -57,7 +57,7 @@ function SingleDomainSimulation(params::Dict{Any,Any})
 
     integrator = create_time_integrator(params,model)
 
-    solver = create_solver(params)
+    solver = create_solver(params,model)
 
     failed = false
     return SingleDomainSimulation(name, params, integrator, solver, model, failed)

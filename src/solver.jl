@@ -51,11 +51,12 @@ end
 
 
 
-function HessianMinimizer(params::Dict{Any,Any})
+function HessianMinimizer(params::Dict{Any,Any},model::Any)
     solver_params = params["solver"]
-    input_mesh = params["input_mesh"]
-    num_nodes = Exodus.num_nodes(input_mesh.init)
-    num_dof = 3 * num_nodes
+    #input_mesh = params["input_mesh"]
+    #num_nodes = Exodus.num_nodes(input_mesh.init)
+    #num_dof = 3 * num_nodes
+    num_dof = model.num_dof
     minimum_iterations = solver_params["minimum iterations"]
     maximum_iterations = solver_params["maximum iterations"]
     absolute_tolerance = solver_params["absolute tolerance"]
@@ -175,11 +176,11 @@ function SteepestDescentStep(params::Dict{Any,Any})
     SteepestDescentStep(step_length)
 end
 
-function create_solver(params::Dict{Any,Any})
+function create_solver(params::Dict{Any,Any},model::Any)
     solver_params = params["solver"]
     solver_name = solver_params["type"]
     if solver_name == "Hessian minimizer"
-        return HessianMinimizer(params)
+        return HessianMinimizer(params,model)
     elseif solver_name == "Newton solver"
         return NewtonSolver(params)
     elseif solver_name == "explicit solver"
@@ -382,6 +383,32 @@ end
 
 
 ### Move to model?  
+function evaluate(integrator::Newmark, solver::HessianMinimizer, model::LinearOpInfRom)
+    beta  = integrator.β
+    gamma = integrator.γ
+    dt = integrator.time_step
+
+    #Ax* = b
+    # Put in residual format
+    #e = [x* - x] -> x* = x + e
+    #Ax + Ae = b
+    #Ax - b = -Ae
+    #Ae = r, r = b - Ax 
+    ##M uddot + Ku = f
+     
+
+    I = Matrix{Float64}(LinearAlgebra.I, model.num_dof,model.num_dof)
+    LHS = I / (dt*dt*beta)  + Matrix{Float64}(model.opinf_rom["K"])
+    RHS = model.opinf_rom["f"] + model.reduced_boundary_forcing + 1.0/(dt*dt*beta).*integrator.disp_pre
+    #dF = model.opinf_rom["f"] + model.reduced_boundary_forcing[:] - I*integrator.acceleration - model.opinf_rom["K"]*integrator.displacement
+    #dF =  model.opinf_rom["f"] + model.reduced_boundary_forcing[:] + I*integrator.acceleration - model.opinf_rom["K"]*integrator.displacement
+
+    residual = RHS - LHS * solver.solution 
+    solver.hessian[:,:] = LHS
+    solver.gradient[:] = -residual 
+end
+
+
 function evaluate(integrator::NewmarkGeneral, solver::HessianMinimizer, model::LinearOpInfRom)
     beta  = integrator.β
     gamma = integrator.γ
@@ -535,13 +562,14 @@ function compute_step(
 end
 
 function compute_step(
-    _::NewmarkGeneral,
+    _::DynamicTimeIntegrator,
     model::LinearOpInfRom,
     solver::HessianMinimizer,
     _::NewtonStep,
 )
-    free = model.free_dofs
-    return -solver.hessian[free, free] \ solver.gradient[free]
+    return -inv(Matrix(solver.hessian))* solver.gradient
+
+#    return -solver.hessian\ solver.gradient
 end
 
 
