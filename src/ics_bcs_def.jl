@@ -28,7 +28,7 @@ mutable struct SMDirichletInclined <: RegularBoundaryCondition
     velo_num::Num
     acce_num::Num
     rotation_matrix::Matrix{Float64}
-    offset::Int64
+    reference_normal::Vector{Float64}
 end
 
 mutable struct SMNeumannBC <: RegularBoundaryCondition

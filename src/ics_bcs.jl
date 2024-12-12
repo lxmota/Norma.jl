@@ -33,19 +33,8 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
     acce_num = expand_derivatives(D(velo_num))
     # For inclined support, the function is applied along the x direction
     offset = component_offset_from_string("x")
-
-    # The local basis is determined from a normal vector
-    axis = bc_params["normal vector"]
-    axis = axis/norm(axis)
-    e1 = [1.0, 0.0, 0.0]
-    w = cross(e1, axis)
-    s = norm(w)
-    θ = asin(s)
-    m = w/s
-    rv = θ * m
-    # Rotation is converted via the psuedo vector to rotation matrix
-    rotation_matrix = MiniTensor.rt_from_rv(rv)'
-    
+    rotation_matrix = Diagonal(ones(3))
+    reference_normal = bc_params["normal vector"]
     SMDirichletInclined(
         node_set_name,
         node_set_id,
@@ -54,7 +43,7 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
         velo_num,
         acce_num,
         rotation_matrix,
-        offset
+        reference_normal
     )
 end
 
@@ -220,6 +209,17 @@ function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
 end
 
 function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
+    # The local basis is determined from a normal vector
+    axis = bc.reference_normal
+    axis = axis/norm(axis)
+    e1 = [1.0, 0.0, 0.0]
+    w = cross(axis,e1)
+    s = norm(w)
+    θ = asin(s)
+    m = w/s
+    rv = θ * m
+    # Rotation is converted via the psuedo vector to rotation matrix
+    bc.rotation_matrix = MiniTensor.rt_from_rv(rv)
     for node_index ∈ bc.node_set_node_indices
         values = Dict(
             t => model.time,
@@ -237,17 +237,15 @@ function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
         acce_val_loc = extract_value(acce_sym)
 
         # Rotate the local displacements to the global frame
-        disp_vector_local = zeros(3)
-        disp_vector_local[bc.offset] = disp_val_loc 
-        velo_vector_local = zeros(3)
-        velo_vector_local[bc.offset] = velo_val_loc 
-        accel_vector_local = zeros(3)
-        accel_vector_local[bc.offset] = acce_val_loc     
+
+        disp_vector_local = [ disp_val_loc, 0, 0 ] 
+        velo_vector_local= [ velo_val_loc, 0, 0 ]
+        accel_vector_local= [ acce_val_loc, 0, 0 ]
         disp_vector_glob = bc.rotation_matrix' * disp_vector_local
         velo_vector_glob = bc.rotation_matrix' * velo_vector_local
         accel_vector_glob = bc.rotation_matrix' * accel_vector_local
 
-        dof_index = 3 * (node_index - 1) + bc.offset
+        dof_index = 3 * node_index - 2 # Inclined support is only applied in local X
         model.current[:, node_index] =
             model.reference[:, node_index] + disp_vector_glob
         model.velocity[:, node_index] = velo_vector_glob
