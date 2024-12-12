@@ -348,7 +348,7 @@ function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::Soli
     solver.value = stored_energy
     external_force = body_force + model.boundary_force
     solver.gradient = model.global_transform * (internal_force - external_force)
-    solver.hessian = model.global_transform * stiffness_matrix
+    solver.hessian = model.global_transform * stiffness_matrix * model.global_transform'
 end
 
 function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::SolidMechanics)
