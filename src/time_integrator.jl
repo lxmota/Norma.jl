@@ -56,54 +56,6 @@ function QuasiStatic(params::Dict{Any,Any})
 end
 
 
-## Have this for OpInf right now, idealy work in to current newmark
-function NewmarkGeneral(params::Dict{Any,Any},model::LinearOpInfRom)
-    integrator_params = params["time integrator"]
-    initial_time = integrator_params["initial time"]
-    final_time = integrator_params["final time"]
-    time_step = integrator_params["time step"]
-    minimum_time_step, decrease_factor, maximum_time_step, increase_factor = adaptive_stepping_parameters(integrator_params)
-    time = prev_time = initial_time
-    stop = 0
-    β = integrator_params["β"]
-    γ = integrator_params["γ"]
-    input_mesh = params["input_mesh"]
-    input_mesh = params["input_mesh"]
-    num_dof, = size(model.reduced_state)
-    state = zeros(num_dof)
-    state_dot = zeros(num_dof)
-    state_ddot = zeros(num_dof)
-    state_np1 = zeros(num_dof)
-    state_np1_dot = zeros(num_dof)
-    state_np1_ddot = zeros(num_dof)
-    disp_pre = zeros(num_dof)
-    velo_pre = zeros(num_dof)
-    stored_energy = 0.0
-    kinetic_energy = 0.0
-    NewmarkGeneral(
-        initial_time,
-        final_time,
-        time_step,
-        minimum_time_step,
-        decrease_factor,
-        maximum_time_step,
-        increase_factor,
-        prev_time,
-        time,
-        stop,
-        β,
-        γ,
-        state,
-        state_dot,
-        state_ddot,
-        state_np1,
-        state_np1_dot,
-        state_np1_ddot,
-        stored_energy,
-        kinetic_energy,
-    )
-end
-
 
 function Newmark(params::Dict{Any,Any},model::Any)
     integrator_params = params["time integrator"]
@@ -201,8 +153,6 @@ function create_time_integrator(params::Dict{Any,Any},model::Any)
         return QuasiStatic(params)
     elseif integrator_name == "Newmark"
         return Newmark(params,model)
-    elseif integrator_name == "NewmarkGeneral"
-        return NewmarkGeneral(params,model)
     elseif integrator_name == "central difference"
         return CentralDifference(params)
     else
@@ -222,28 +172,7 @@ function is_static_or_dynamic(integrator_name::String)
     end
 end
 
-## Operator Inference 
-function initialize(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
-    integrator.state_np1 = 1.0 .* model.reduced_state 
-    integrator.state = 1.0 .* model.reduced_state 
-
-end
-
-function predict(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
-    # Move updated states
-    integrator.state = 1.0.*integrator.state_np1
-    integrator.state_dot = 1.0.*integrator.state_np1_dot
-    integrator.state_ddot = 1.0.*integrator.state_np1_ddot
-    solver.solution = 1.0 .* integrator.state
-    #copy_solution_source_targets(model, integrator, solver)
-end
-
-
-function correct(integrator::NewmarkGeneral, solver::Any, model::LinearOpInfRom)
-    model.reduced_state[:] = solver.solution[:]
-end
-
-
+#OpInf
 function initialize(integrator::Newmark, solver::HessianMinimizer, model::LinearOpInfRom)
     integrator.displacement[:] = model.reduced_state[:]
     solver.solution[:] = model.reduced_state[:]

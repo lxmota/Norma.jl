@@ -231,45 +231,32 @@ function copy_solution_source_targets(
     displacement = integrator.displacement
     velocity = integrator.velocity
     acceleration = integrator.acceleration
-    #solver.solution = displacement
-    for i in 1:3
-      model.fom_model.current[i,:] = model.fom_model.reference[i,:] + model.basis[i,:,:] * displacement
-      model.fom_model.velocity[i,:] = model.basis[i,:,:] * velocity
-      model.fom_model.acceleration[i,:] = model.basis[i,:,:] * acceleration
+    # Clean this up; maybe make a free dofs 2d array or move to a basis in matrix format
+    for i = 1 : size(model.fom_model.current)[2]
+      x_dof_index = 3 * (i - 1) + 1 
+      y_dof_index = 3 * (i - 1) + 2 
+      z_dof_index = 3 * (i - 1) + 3 
+      if model.fom_model.free_dofs[x_dof_index]
+        model.fom_model.current[1,i] = model.basis[1,i,:]'displacement + model.fom_model.reference[1,i]
+        model.fom_model.velocity[1,i] = model.basis[1,i,:]'velocity
+        model.fom_model.acceleration[1,i] = model.basis[1,i,:]'acceleration
+      end  
+
+      if model.fom_model.free_dofs[y_dof_index]
+        model.fom_model.current[2,i] = model.basis[2,i,:]'displacement + model.fom_model.reference[2,i]
+        model.fom_model.velocity[2,i] = model.basis[2,i,:]'velocity
+        model.fom_model.acceleration[2,i] = model.basis[2,i,:]'acceleration
+      end
+ 
+      if model.fom_model.free_dofs[z_dof_index]
+        model.fom_model.current[3,i] = model.basis[3,i,:]'displacement + model.fom_model.reference[3,i]
+        model.fom_model.velocity[3,i] = model.basis[3,i,:]'velocity
+        model.fom_model.acceleration[3,i] = model.basis[3,i,:]'acceleration
+      end
     end
+
 end
 
-
-#=
-#Used in correct
-# Moves solver field to model 
-function copy_solution_source_targets(
-    solver::Any,
-    model::LinearOpInfRom,
-    integrator::NewmarkGeneral,
-)
-    num_nodes, = size(solver.solution)
-    for node ∈ 1:num_nodes
-        model.state[node] = solver.solution[node] 
-    end
-end
-
-
-# Used in predict
-# Moves model field to solver
-function copy_solution_source_targets(
-    model::LinearOpInfRom,
-    integrator::NewmarkGeneral,
-    solver::Any,
-)
-    num_modes, = size(model.state)
-    for i ∈ 1 num_modes
-        integrator.state[i] = model.state[i] 
-    end
-    solver.solution = integrator.state
-end
-=#
-#******************************
 
 function copy_solution_source_targets(
     model::SolidMechanics,
@@ -423,36 +410,6 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::LinearOp
     residual = RHS - LHS * solver.solution 
     solver.hessian[:,:] = LHS
     solver.gradient[:] = -residual 
-end
-
-
-function evaluate(integrator::NewmarkGeneral, solver::HessianMinimizer, model::LinearOpInfRom)
-    beta  = integrator.β
-    gamma = integrator.γ
-    dt = integrator.time_step
-
-    #Ax* = b
-    # Put in residual format
-    #e = [x* - x] -> x* = x + e
-    #Ax + Ae = b
-    #Ax - b = -Ae
-    #Ae = r, r = b - Ax 
-    ##M uddot + Ku = f
-
-    num_modes, = size(model.reduced_state)
-    I = Matrix{Float64}(LinearAlgebra.I, num_modes,num_modes)
-    LHS = I / (dt*dt*beta)  + model.opinf_rom["K"]
-    RHS = 0.0.*model.opinf_rom["f"] + model.reduced_boundary_forcing + 1.0/(dt*dt*beta)*( I * integrator.state) + 1.0/(beta*dt)*(I * integrator.state_dot)  + 1.0/(2.0*beta)*(1.0 - 2.0*beta)*(I * integrator.state_ddot)
-    residual = RHS - LHS * solver.solution 
-    solver.hessian = LHS
-
-    # negative sign shows up in compute step
-    solver.gradient = -residual 
-
-    # Update future steps
-    integrator.state_np1[:] =  solver.solution[:]
-    integrator.state_np1_ddot[:] =  1.0/(dt*dt*beta)*(integrator.state_np1 - integrator.state) - 1.0/(beta*dt)*integrator.state_dot - 1.0/(2*beta)*(1 - 2.0*beta)*integrator.state_ddot
-    integrator.state_np1_dot[:] = integrator.state_dot + (1.0 - gamma)*dt*integrator.state_ddot + gamma*dt*integrator.state_np1_ddot
 end
 
 
@@ -714,53 +671,6 @@ end
 function stop_solve(_::ExplicitSolver, _::Int64)
     return true
 end
-
-#=
-function solve(integrator::NewmarkGeneral, solver::Solver, model::Model)
-    # Advance states, set base solver state
-    predict(integrator, solver, model)
-
-    # Evaluate residual and jacobian
-    evaluate(integrator, solver, model)
-
-    if model.failed == true
-        return
-    end
-    residual = solver.gradient
-    norm_residual = norm(residual[model.free_dofs])
-    solver.initial_norm = norm_residual
-    iteration_number = 0
-    solver.failed = solver.failed || model.failed
-    step_type = solver.step
-    while true
-        # Solve J dx = r
-        step = compute_step(integrator, model, solver, step_type)
-
-        # Add dx to solution
-        solver.solution[model.free_dofs] += step
-
-        # 
-        correct(integrator, solver, model)
-
-        evaluate(integrator, solver, model)
-        if model.failed == true
-            return
-        end
-        residual = solver.gradient
-        norm_residual = norm(residual[model.free_dofs])
-        if iteration_number == 0
-            println("|R|=", norm_residual)
-        else
-            println("|R|=", norm_residual, ", solver iteration=", iteration_number)
-        end
-        update_solver_convergence_criterion(solver, norm_residual)
-        iteration_number += 1
-        if stop_solve(solver, iteration_number) == true
-            break
-        end
-    end
-end
-=#
 
 
 function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
