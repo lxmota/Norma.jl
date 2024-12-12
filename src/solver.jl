@@ -223,7 +223,24 @@ end
 
 
 #*************OP INF**********************
+function copy_solution_source_targets(
+    integrator::Newmark,
+    solver::HessianMinimizer,
+    model::LinearOpInfRom,
+)
+    displacement = integrator.displacement
+    velocity = integrator.velocity
+    acceleration = integrator.acceleration
+    #solver.solution = displacement
+    for i in 1:3
+      model.fom_model.current[i,:] = model.fom_model.reference[i,:] + model.basis[i,:,:] * displacement
+      model.fom_model.velocity[i,:] = model.basis[i,:,:] * velocity
+      model.fom_model.acceleration[i,:] = model.basis[i,:,:] * acceleration
+    end
+end
 
+
+#=
 #Used in correct
 # Moves solver field to model 
 function copy_solution_source_targets(
@@ -251,7 +268,7 @@ function copy_solution_source_targets(
     end
     solver.solution = integrator.state
 end
-
+=#
 #******************************
 
 function copy_solution_source_targets(

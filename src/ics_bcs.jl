@@ -145,7 +145,8 @@ function apply_bc(model::LinearOpInfRom, bc::SMDirichletBC)
     end
     op_name = "B_"*bc.node_set_name 
     bc_operator = model.opinf_rom[op_name] 
-    model.reduced_boundary_forcing[:] += bc_operator * bc_vector
+    # SM Dirichlet BC are only defined on a single x,y,z
+    model.reduced_boundary_forcing[:] += bc_operator[1,:,:] * bc_vector
     end
 
 
@@ -232,6 +233,17 @@ function find_in_mesh(
     return node_indices, ξ, false
 end
 
+
+function find_in_mesh(
+    point::Vector{Float64},
+    model::LinearOpInfRom,
+    mesh::ExodusDatabase,
+    blk_id::Int,
+)
+    node_indices, ξ, found =  find_in_mesh(point,model.fom_model,mesh,blk_id)
+    return node_indices, ξ, found 
+end
+
 function apply_bc_detail(model::SolidMechanics, bc::SMContactSchwarzBC)
     if bc.is_dirichlet == true
         apply_sm_schwarz_contact_dirichlet(model, bc)
@@ -241,6 +253,7 @@ function apply_bc_detail(model::SolidMechanics, bc::SMContactSchwarzBC)
 end
 
 function apply_bc_detail(model::SolidMechanics, bc::SMSchwarzDBC)
+  if (typeof(bc.coupled_subsim.model) == SolidMechanics)
     for i ∈ 1:length(bc.node_set_node_indices)
         node_index = bc.node_set_node_indices[i]
         coupled_node_indices = bc.coupled_nodes_indices[i]
@@ -257,14 +270,53 @@ function apply_bc_detail(model::SolidMechanics, bc::SMSchwarzDBC)
         dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
         model.free_dofs[dof_index] .= false
     end
+  elseif (typeof(bc.coupled_subsim.model) == LinearOpInfRom)
+    for i ∈ 1:length(bc.node_set_node_indices)
+        node_index = bc.node_set_node_indices[i]
+        coupled_node_indices = bc.coupled_nodes_indices[i]
+        N = bc.interpolation_function_values[i]
+        elem_posn = bc.coupled_subsim.model.fom_model.current[:, coupled_node_indices]
+        elem_velo = bc.coupled_subsim.model.fom_model.velocity[:, coupled_node_indices]
+        elem_acce = bc.coupled_subsim.model.fom_model.acceleration[:, coupled_node_indices]
+        point_posn = elem_posn * N
+        point_velo = elem_velo * N
+        point_acce = elem_acce * N
+        model.current[:, node_index] = point_posn
+        model.velocity[:, node_index] = point_velo
+        model.acceleration[:, node_index] = point_acce
+        dof_index = [3 * node_index - 2, 3 * node_index - 1, 3 * node_index]
+        model.free_dofs[dof_index] .= false
+    end
+  end
 end
 
-function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
+function apply_bc_detail(model::LinearOpInfRom, bc::SMSchwarzDBC)
+  if (typeof(bc.coupled_subsim.model) == SolidMechanics)
+    ## Apply BC to the FOM vector
+    apply_bc_detail(model.fom_model,bc)
+    
+    # populate our own BC vector
+    bc_vector = zeros(3,length(bc.node_set_node_indices))
+    for i ∈ 1:length(bc.node_set_node_indices)
+        node_index = bc.node_set_node_indices[i]
+        bc_vector[:,i] = model.fom_model.current[:, node_index] - model.fom_model.reference[:, node_index]
+    end
+    op_name = "B_"*bc.node_set_name 
+    bc_operator = model.opinf_rom[op_name] 
+    for i in 1:3
+        model.reduced_boundary_forcing[:] += bc_operator[i,:,:] * bc_vector[i,:]
+    end
+  else
+    throw("ROM-ROM coupling not supported yet")
+  end 
+end
+
+
+function apply_bc(model::LinearOpInfRom, bc::SchwarzBoundaryCondition)
     global_sim = bc.coupled_subsim.params["global_simulation"]
     schwarz_controller = global_sim.schwarz_controller
-    if schwarz_controller.schwarz_contact == true &&
-       schwarz_controller.active_contact == false
-        return
+    if schwarz_controller.schwarz_contact == true
+        throw("Contact not implemented for op-inf") 
     end
     empty_history = length(global_sim.schwarz_controller.time_hist) == 0
     same_step = schwarz_controller.same_step == true
@@ -334,6 +386,113 @@ function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
     bc.coupled_subsim.integrator.velocity = saved_velo
     bc.coupled_subsim.integrator.acceleration = saved_acce
     bc.coupled_subsim.model.internal_force = saved_∂Ω_f
+    # Copy from integrator to model
+    copy_solution_source_targets(
+        bc.coupled_subsim.integrator,
+        bc.coupled_subsim.solver,
+        bc.coupled_subsim.model,
+    )
+end
+
+
+
+
+
+function apply_bc(model::SolidMechanics, bc::SchwarzBoundaryCondition)
+    global_sim = bc.coupled_subsim.params["global_simulation"]
+    schwarz_controller = global_sim.schwarz_controller
+    if schwarz_controller.schwarz_contact == true &&
+       schwarz_controller.active_contact == false
+        return
+    end
+    empty_history = length(global_sim.schwarz_controller.time_hist) == 0
+    same_step = schwarz_controller.same_step == true
+    if empty_history == true
+        apply_bc_detail(model, bc)
+        return
+    end
+    # Save solution of coupled simulation
+    saved_disp = bc.coupled_subsim.integrator.displacement
+    saved_velo = bc.coupled_subsim.integrator.velocity
+    saved_acce = bc.coupled_subsim.integrator.acceleration
+    if typeof(bc.coupled_subsim.model) == SolidMechanics
+        saved_∂Ω_f = bc.coupled_subsim.model.internal_force
+    elseif typeof(bc.coupled_subsim.model) == LinearOpInfRom
+        saved_∂Ω_f = bc.coupled_subsim.model.fom_model.internal_force
+    end
+    time = model.time
+    # Update values in coupled sim to correspond to correct time index 
+    coupled_name = bc.coupled_subsim.name
+    coupled_index = global_sim.subsim_name_index_map[coupled_name]
+    time_hist = global_sim.schwarz_controller.time_hist[coupled_index]
+    disp_hist = global_sim.schwarz_controller.disp_hist[coupled_index]
+    velo_hist = global_sim.schwarz_controller.velo_hist[coupled_index]
+    acce_hist = global_sim.schwarz_controller.acce_hist[coupled_index]
+    ∂Ω_f_hist = global_sim.schwarz_controller.∂Ω_f_hist[coupled_index]
+
+    interp_disp =
+        same_step == true ? disp_hist[end] : interpolate(time_hist, disp_hist, time)
+    interp_velo =
+        same_step == true ? velo_hist[end] : interpolate(time_hist, velo_hist, time)
+    interp_acce =
+        same_step == true ? acce_hist[end] : interpolate(time_hist, acce_hist, time)
+    interp_∂Ω_f =
+        same_step == true ? ∂Ω_f_hist[end] : interpolate(time_hist, ∂Ω_f_hist, time)
+
+    if typeof(bc.coupled_subsim.model) == SolidMechanics
+      bc.coupled_subsim.model.internal_force = interp_∂Ω_f
+    elseif typeof(bc.coupled_subsim.model) == LinearOpInfRom
+      bc.coupled_subsim.model.fom_model.internal_force = interp_∂Ω_f
+    end
+
+    if global_sim.schwarz_controller.schwarz_contact == true
+        relaxation_parameter = global_sim.schwarz_controller.relaxation_parameter
+        Schwarz_iteration = global_sim.schwarz_controller.iteration_number
+        if Schwarz_iteration == 1
+            lambda_dispᵖʳᵉᵛ = zeros(length(interp_disp))
+            lambda_veloᵖʳᵉᵛ = zeros(length(interp_velo))
+            lambda_acceᵖʳᵉᵛ = zeros(length(interp_acce))
+        else
+            lambda_dispᵖʳᵉᵛ = global_sim.schwarz_controller.lambda_disp[coupled_index]
+            lambda_veloᵖʳᵉᵛ = global_sim.schwarz_controller.lambda_velo[coupled_index]
+            lambda_acceᵖʳᵉᵛ = global_sim.schwarz_controller.lambda_acce[coupled_index]
+        end
+        bc.coupled_subsim.integrator.displacement =
+            global_sim.schwarz_controller.lambda_disp[coupled_index] =
+                relaxation_parameter * interp_disp +
+                (1 - relaxation_parameter) * lambda_dispᵖʳᵉᵛ
+        bc.coupled_subsim.integrator.velocity =
+            global_sim.schwarz_controller.lambda_velo[coupled_index] =
+                relaxation_parameter * interp_velo +
+                (1 - relaxation_parameter) * lambda_veloᵖʳᵉᵛ
+        bc.coupled_subsim.integrator.acceleration =
+            global_sim.schwarz_controller.lambda_acce[coupled_index] =
+                relaxation_parameter * interp_acce +
+                (1 - relaxation_parameter) * lambda_acceᵖʳᵉᵛ
+    else
+        
+        bc.coupled_subsim.integrator.displacement = interp_disp
+        bc.coupled_subsim.integrator.velocity = interp_velo
+        bc.coupled_subsim.integrator.acceleration = interp_acce
+    end
+    # Copies from integrator to model
+    copy_solution_source_targets(
+        bc.coupled_subsim.integrator,
+        bc.coupled_subsim.solver,
+        bc.coupled_subsim.model,
+    )
+    apply_bc_detail(model, bc)
+
+    # Re-setup correct conditions 
+    bc.coupled_subsim.integrator.displacement = saved_disp
+    bc.coupled_subsim.integrator.velocity = saved_velo
+    bc.coupled_subsim.integrator.acceleration = saved_acce
+    if typeof(bc.coupled_subsim.model) == SolidMechanics
+      bc.coupled_subsim.model.internal_force = saved_∂Ω_f
+    elseif typeof(bc.coupled_subsim.model) == LinearOpInfRom
+      bc.coupled_subsim.model.fom_model.internal_force = saved_∂Ω_f
+    end
+
     # Copy from integrator to model
     copy_solution_source_targets(
         bc.coupled_subsim.integrator,
@@ -616,7 +775,6 @@ function apply_bcs(model::LinearOpInfRom)
     for boundary_condition ∈ model.boundary_conditions
         apply_bc(model, boundary_condition)
     end
-
 
 end
 

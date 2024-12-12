@@ -83,7 +83,7 @@ end
 
 function create_schwarz_controller(params::Dict{Any,Any})
     type = params["subdomains type"]
-    if type == "static solid mechanics" || type == "dynamic solid mechanics"
+    if type == "static solid mechanics" || type == "dynamic solid mechanics" || type == "dynamic linear opinf rom"
         return SolidSchwarzController(params)
     else
         error("Unknown type of Schwarz controller : ", type)
@@ -134,13 +134,19 @@ function save_stop_solutions(
     schwarz_controller::SolidSchwarzController,
     sims::Vector{SingleDomainSimulation},
 )
+
     for i ∈ 1:schwarz_controller.num_domains
         schwarz_controller.stop_disp[i] = deepcopy(sims[i].integrator.displacement)
         schwarz_controller.stop_velo[i] = deepcopy(sims[i].integrator.velocity)
         schwarz_controller.stop_acce[i] = deepcopy(sims[i].integrator.acceleration)
-        schwarz_controller.stop_∂Ω_f[i] = deepcopy(sims[i].model.internal_force)
+        if typeof(sims[i].model) == SolidMechanics
+          schwarz_controller.stop_∂Ω_f[i] = deepcopy(sims[i].model.internal_force)
+        elseif typeof(sims[i].model) == LinearOpInfRom
+          schwarz_controller.stop_∂Ω_f[i] = deepcopy(sims[i].model.fom_model.internal_force)
+        end
     end
 end
+
 
 function restore_stop_solutions(sim::MultiDomainSimulation)
     restore_stop_solutions(sim.schwarz_controller, sim.subsims)
@@ -154,7 +160,11 @@ function restore_stop_solutions(
         sims[i].integrator.displacement = deepcopy(schwarz_controller.stop_disp[i])
         sims[i].integrator.velocity = deepcopy(schwarz_controller.stop_velo[i])
         sims[i].integrator.acceleration = deepcopy(schwarz_controller.stop_acce[i])
-        sims[i].model.internal_force = deepcopy(schwarz_controller.stop_∂Ω_f[i])
+        if typeof(sims[i].model) == SolidMechanics
+            sims[i].model.internal_force = deepcopy(schwarz_controller.stop_∂Ω_f[i])
+        elseif typeof(sims[i].model) == LinearOpInfRom
+            sims[i].model.fom_model.internal_force = deepcopy(schwarz_controller.stop_∂Ω_f[i])
+        end
         copy_solution_source_targets(sims[i].integrator, sims[i].solver, sims[i].model)
     end
 end
@@ -271,8 +281,13 @@ function save_history_snapshot(
         deepcopy(sims[subsim_index].integrator.velocity)
     schwarz_controller.acce_hist[subsim_index][stop_index] =
         deepcopy(sims[subsim_index].integrator.acceleration)
-    schwarz_controller.∂Ω_f_hist[subsim_index][stop_index] =
-        deepcopy(sims[subsim_index].model.internal_force)
+    if typeof(sims[subsim_index].model) == SolidMechanics
+      schwarz_controller.∂Ω_f_hist[subsim_index][stop_index] =
+          deepcopy(sims[subsim_index].model.internal_force)
+    elseif typeof(sims[subsim_index].model) == LinearOpInfRom
+      schwarz_controller.∂Ω_f_hist[subsim_index][stop_index] =
+          deepcopy(sims[subsim_index].model.fom_model.internal_force)
+    end
 end
 
 function update_schwarz_convergence_criterion(sim::MultiDomainSimulation)

@@ -50,4 +50,5 @@ mutable struct LinearOpInfRom <: OpInfModel
     failed::Bool
     fom_model::SolidMechanics
     num_dof::Int64
+    reference::Matrix{Float64}
 end

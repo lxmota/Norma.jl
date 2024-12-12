@@ -689,12 +689,17 @@ function write_sideset_step_csv(params::Dict{Any,Any},integrator::DynamicTimeInt
       disp_filename = sim_id_string * node_set_name * "disp" * index_string * ".csv"
       velo_filename = sim_id_string * node_set_name * "velo" * index_string * ".csv"
       acce_filename = sim_id_string * node_set_name * "acce" * index_string * ".csv"
-
-      writedlm(curr_filename, model.current[bc.offset,bc.node_set_node_indices])
-      writedlm(velo_filename, model.velocity[bc.offset,bc.node_set_node_indices])
-      writedlm(acce_filename, model.acceleration[bc.offset,bc.node_set_node_indices])
-      writedlm(disp_filename, model.current[bc.offset,bc.node_set_node_indices] - model.reference[bc.offset,bc.node_set_node_indices])
-
+      if (typeof(bc) == SMDirichletBC)
+        writedlm(curr_filename, model.current[bc.offset,bc.node_set_node_indices])
+        writedlm(velo_filename, model.velocity[bc.offset,bc.node_set_node_indices])
+        writedlm(acce_filename, model.acceleration[bc.offset,bc.node_set_node_indices])
+        writedlm(disp_filename, model.current[bc.offset,bc.node_set_node_indices] - model.reference[bc.offset,bc.node_set_node_indices])
+      elseif (typeof(bc) == SMSchwarzDBC)
+        writedlm_nodal_array(curr_filename, model.current[:,bc.node_set_node_indices])
+        writedlm_nodal_array(velo_filename, model.velocity[:,bc.node_set_node_indices])
+        writedlm_nodal_array(acce_filename, model.acceleration[:,bc.node_set_node_indices])
+        writedlm_nodal_array(disp_filename, model.current[:,bc.node_set_node_indices] - model.reference[:,bc.node_set_node_indices])
+      end
   end
 
 

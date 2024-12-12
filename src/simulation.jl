@@ -92,9 +92,10 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         integrator_name = subsim.params["time integrator"]["type"]
         subsim_type =
             is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
+        print(subsim_type)
         if sim_type == "none"
             sim_type = subsim_type
-        elseif subsim_type ≠ sim_type
+        elseif subsim_type ≠ sim_type && subsim_type != "dynamic linear opinf rom"
             error("Multidomain subdomains must all have the same physics")
         end
         push!(subsims, subsim)

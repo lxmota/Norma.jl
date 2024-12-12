@@ -7,13 +7,12 @@ function LinearOpInfRom(params::Dict{Any,Any})
 
     params["mesh smoothing"] = false
     fom_model = SolidMechanics(params)
-
+    reference = fom_model.reference
     opinf_model_file = params["model"]["model-file"]
     opinf_model = NPZ.npzread(opinf_model_file)
     basis = opinf_model["basis"]
     num_dofs_per_node,num_nodes_basis,reduced_dim = size(basis)
     num_dofs = reduced_dim
-
     #=
     coords = read_coordinates(fom_model.mesh)
     num_nodes = Exodus.num_nodes(fom_model.mesh.init)
@@ -29,9 +28,6 @@ function LinearOpInfRom(params::Dict{Any,Any})
     free_dofs = trues(num_dofs)
     boundary_conditions = Vector{BoundaryCondition}()
     LinearOpInfRom(
-#        input_mesh,
-#        materials,
-#        reference,
         opinf_model,
         basis,
         reduced_state,
@@ -42,6 +38,7 @@ function LinearOpInfRom(params::Dict{Any,Any})
         failed,
         fom_model,
         num_dofs,
+        reference,
     )
 end
 
