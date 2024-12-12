@@ -30,13 +30,26 @@ if __name__ == "__main__":
     ss_tspace = {}
     reduced_sideset_snapshots = {}
     for sideset in sidesets:
-        ss_tspace[sideset] = romtools.VectorSpaceFromPOD(snapshots=sideset_snapshots[sideset],
+        if sideset_snapshots[sideset].shape[0] ==  1:
+          ss_tspace[sideset] = romtools.VectorSpaceFromPOD(snapshots=sideset_snapshots[sideset],
                                               truncater=my_energy_truncater,
                                               shifter = None,
                                               orthogonalizer=romtools.vector_space.utils.EuclideanL2Orthogonalizer(),
                                               scaler = romtools.vector_space.utils.NoOpScaler())
-        reduced_sideset_snapshots[sideset] = romtools.rom.optimal_l2_projection(sideset_snapshots[sideset],ss_tspace[sideset]) 
-    
+          reduced_sideset_snapshots[sideset] = romtools.rom.optimal_l2_projection(sideset_snapshots[sideset],ss_tspace[sideset]) 
+        else:
+          comp_trial_space = []
+          for i in range(0,3):
+            tspace = romtools.VectorSpaceFromPOD(snapshots=sideset_snapshots[sideset][i:i+1],
+                                              truncater=my_energy_truncater,
+                                              shifter = None,
+                                              orthogonalizer=romtools.vector_space.utils.EuclideanL2Orthogonalizer(),
+                                              scaler = romtools.vector_space.utils.NoOpScaler())
+            comp_trial_space.append(tspace)
+          ss_tspace[sideset] = romtools.CompositeVectorSpace(comp_trial_space)
+          reduced_sideset_snapshots[sideset] = romtools.rom.optimal_l2_projection(sideset_snapshots[sideset],ss_tspace[sideset]) 
+
+
     ##accumulate sideset_snapshots into one large data matrix for opinf
     #stacked_sideset_snapshots = None
     #for sideset in sidesets:
@@ -67,7 +80,7 @@ if __name__ == "__main__":
     uhat = romtools.rom.optimal_l2_projection(displacement_snapshots,trial_space)
     u_ddots = normaopinf.calculus.d2dx2(displacement_snapshots,times)
     uhat_ddots = romtools.rom.optimal_l2_projection(u_ddots*1.,trial_space)
-    l2solver = opinf.lstsq.L2Solver(regularizer=1e-11)
+    l2solver = opinf.lstsq.L2Solver(regularizer=1e-8)
     opinf_model = opinf.models.ContinuousModel("AB",solver=l2solver)
     
     opinf_model.fit(states=uhat, ddts=uhat_ddots,inputs=reduced_stacked_sideset_snapshots)

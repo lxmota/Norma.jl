@@ -7,5 +7,5 @@ time step: 0.01
 same time step for domains: true
 minimum iterations: 1
 maximum iterations: 16
-relative tolerance: 1.0e-06
-absolute tolerance: 1.0e-06
+relative tolerance: 1.0e-12
+absolute tolerance: 1.0e-08
