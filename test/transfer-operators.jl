@@ -15,10 +15,6 @@
     rm("transfer.yaml")
     rm("src.yaml")
     rm("dst.yaml")
-    rm("src.g")
-    rm("dst.g")
-    rm("src.e")
-    rm("dst.e")
     src_side_set_id = 5
     dst_side_set_id = 6
     src_T = get_boundary_traction_force(src_mesh, src_side_set_id)
@@ -38,4 +34,12 @@
     rel_er_disp = norm(dst_u - dst_u_real) / norm(dst_u_real)
     println("displacement: relative error ", rel_er_disp) 
     @test norm(dst_u - dst_u_real) / norm(dst_u_real) ≈ 0.0 atol = 1.0e-08
-end
+    Exodus.close(src_sim.params["input_mesh"])
+    Exodus.close(src_sim.params["output_mesh"])
+    Exodus.close(dst_sim.params["input_mesh"])
+    Exodus.close(dst_sim.params["output_mesh"])
+    rm("src.g")
+    rm("dst.g")
+    rm("src.e")
+    rm("dst.e")
+    end
