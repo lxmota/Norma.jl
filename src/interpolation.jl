@@ -609,52 +609,37 @@ function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Ve
     end
 end
 
-# Project a point to a side set and find the minimum distance of the projection
-# to the nodes of each face on the side set. This is done in place of a strict search
-# because the contact surfaces may be deformed and not match each other exactly.
-function project_point_to_side_set(
-    point::Vector{Float64},
-    model::SolidMechanics,
-    side_set_id::Integer,
-)
-    #we assume that we know the contact surfaces in advance
+function closest_face_to_point(point::Vector{Float64}, model::SolidMechanics, side_set_id::Integer)
     mesh = model.mesh
-    num_nodes_per_sides, side_set_node_indices =
-        Exodus.read_side_set_node_list(mesh, side_set_id)
+    num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
-    new_point = point
     closest_face_nodes = Array{Float64}(undef, 0)
     closest_face_node_indices = Array{Int64}(undef, 0)
-    space_dim = length(point)
-    parametric_dim = space_dim - 1
-    closest_ξ = zeros(parametric_dim)
-    closest_normal = zeros(space_dim)
     minimum_nodal_distance = Inf
-    closest_surface_distance = 0.0
     for num_nodes_side ∈ num_nodes_per_sides
-        face_node_indices =
-            side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
+        face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
-        trial_point, ξ, surface_distance, normal =
-            closest_point_projection(parametric_dim, face_nodes, point)
         nodal_distance = get_minimum_distance_to_nodes(face_nodes, point)
         if nodal_distance < minimum_nodal_distance
             minimum_nodal_distance = nodal_distance
-            new_point = trial_point
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
-            closest_normal = normal
-            closest_ξ = ξ
-            closest_surface_distance = surface_distance
         end
         ss_node_index += num_nodes_side
-    end
-    return new_point,
-    closest_ξ,
-    closest_face_nodes,
-    closest_face_node_indices,
-    closest_normal,
-    closest_surface_distance
+   end
+   return closest_face_nodes, closest_face_node_indices, minimum_nodal_distance
+end
+
+# Find the minimum distance of a point to the nodes of each face on the side set
+# and then project the point that closest face in the side set.
+# This is done in place of a strict search because the contact surfaces may be deformed
+# and not match each other exactly. We assume that we know the contact surfaces in advance
+function project_point_to_side_set(point::Vector{Float64}, model::SolidMechanics, side_set_id::Integer)
+    face_nodes, face_node_indices, _ = closest_face_to_point(point, model, side_set_id)
+    space_dim = length(point)
+    parametric_dim = space_dim - 1
+    new_point, ξ, surface_distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
+    return new_point, ξ, face_nodes, face_node_indices, normal, surface_distance
 end
 
 function get_distance_to_centroid(nodes::Matrix{Float64}, point::Vector{Float64})
