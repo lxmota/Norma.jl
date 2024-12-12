@@ -689,8 +689,7 @@ function get_square_projection_matrix(
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
-        side_nodes =
-            side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
         side_coordinates = coords[:, side_nodes]
         element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
@@ -720,13 +719,11 @@ function get_rectangular_projection_matrix(
     src_mesh = src_model.mesh
     src_local_from_global_map, _, _ = get_side_set_local_from_global_map(src_mesh, src_side_set_id)
     src_num_nodes = length(src_local_from_global_map)
-    src_local_indices = Array{Int64}(undef, 0)
     dst_mesh = dst_model.mesh
     dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
         get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_local_from_global_map)
     dst_coords = dst_model.current
-    dst_local_indices = Array{Int64}(undef, 0)
     dst_side_set_node_index = 1
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     for dst_num_nodes_side ∈ dst_num_nodes_sides
