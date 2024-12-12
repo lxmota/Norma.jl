@@ -522,7 +522,7 @@ function get_dst_traction(bc::SMNonOverlapSchwarzBC)
     src_side_set_id = bc.coupled_side_set_id
     src_global_force = -bc.coupled_subsim.model.internal_force
     src_local_traction = local_traction_from_global_force(src_mesh, src_side_set_id, src_global_force)
-    compute_transfer_operator(bc.coupled_subsim.model, bc)
+    compute_transfer_operator(bc.subsim.model, bc)
     num_dst_nodes = size(bc.transfer_operator, 1)
     dst_traction = zeros(3, num_dst_nodes)
     dst_traction[1, :] = bc.transfer_operator * src_local_traction[1, :]
