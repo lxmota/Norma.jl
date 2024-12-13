@@ -4,23 +4,6 @@ using Einsum
 D = Differential(t)
 
 
-function HeatConductionDirichletBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
-    node_set_name = bc_params["node set"]
-    expression = bc_params["function"]
-    offset = 1 
-    node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-    node_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
-    # expression is an arbitrary function of t, x, y, z in the input file
-    temp_num = eval(Meta.parse(expression))
-    HeatConductionDirichletBC(
-        node_set_name,
-        node_set_id,
-        node_set_node_indices,
-        temp_num,
-    )
-end
-
-
 function SMDirichletBC(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any})
     node_set_name = bc_params["node set"]
     expression = bc_params["function"]
