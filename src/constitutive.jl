@@ -352,16 +352,6 @@ mutable struct Linear_Isotropic <: Thermal
 end
 
 
-struct ConvectionDiffusionParams <: ConvectionDiffusion
-    c::Float64
-    nu::Float64
-    function ConvectionDiffusionParams(params::Dict{Any,Any})
-        c = params["c"]
-        nu = params["nu"]
-        new(c,nu)
-    end
-end
-
 
 function odot(A::Matrix{Float64}, B::Matrix{Float64})
     n, _ = size(A)

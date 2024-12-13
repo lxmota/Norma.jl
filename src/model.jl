@@ -37,7 +37,6 @@ function LinearOpInfRom(params::Dict{Any,Any})
         time,
         failed,
         fom_model,
-        num_dofs,
         reference,
     )
 end
@@ -136,7 +135,6 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
-        num_dofs,
     )
 end
 

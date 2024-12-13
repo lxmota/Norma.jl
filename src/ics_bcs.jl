@@ -157,22 +157,6 @@ function apply_bc(model::SolidMechanics, bc::SMDirichletBC)
 end
 
 
-function apply_bc(model::HeatConduction, bc::HeatConductionDirichletBC)
-    for node_index ∈ bc.node_set_node_indices
-        values = Dict(
-            t => model.time,
-            x => model.reference[1, node_index],
-            y => model.reference[2, node_index],
-            z => model.reference[3, node_index],
-        )
-        temp_sym = substitute(bc.temp_num, values)
-        temp_val = extract_value(temp_sym)
-        dof_index = node_index
-        model.temperature[node_index] =  temp_val
-        model.free_dofs[dof_index] = false
-    end
-end
-
 
 function apply_bc(model::SolidMechanics, bc::SMNeumannBC)
     ss_node_index = 1
@@ -698,9 +682,6 @@ function create_bcs(params::Dict{Any,Any})
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Dirichlet" && params["model"]["type"] == "linear opinf rom" 
                 boundary_condition = SMDirichletBC(input_mesh, bc_setting_params)
-                push!(boundary_conditions, boundary_condition)
-            elseif bc_type == "Dirichlet" && params["model"]["type"] == "heat conduction" 
-                boundary_condition = HeatConductionDirichletBC(input_mesh, bc_setting_params)
                 push!(boundary_conditions, boundary_condition)
             elseif bc_type == "Neumann"
                 boundary_condition = SMNeumannBC(input_mesh, bc_setting_params)

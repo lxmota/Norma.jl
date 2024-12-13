@@ -71,7 +71,7 @@ function Newmark(params::Dict{Any,Any},model::Any)
     #input_mesh = params["input_mesh"]
     #num_nodes = Exodus.num_nodes(input_mesh.init)
     #num_dof = 3 * num_nodes
-    num_dof = model.num_dof
+    num_dof, = size(model.free_dofs)
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)

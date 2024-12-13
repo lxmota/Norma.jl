@@ -18,7 +18,6 @@ mutable struct SolidMechanics <: Model
     failed::Bool
     mesh_smoothing::Bool
     smooth_reference::String
-    num_dof::Int64
 end
 
 # TODO: Add potential energy as in the above
@@ -49,6 +48,5 @@ mutable struct LinearOpInfRom <: OpInfModel
     time::Float64
     failed::Bool
     fom_model::SolidMechanics
-    num_dof::Int64
     reference::Matrix{Float64}
 end

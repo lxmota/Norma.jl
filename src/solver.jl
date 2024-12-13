@@ -56,7 +56,7 @@ function HessianMinimizer(params::Dict{Any,Any},model::Any)
     #input_mesh = params["input_mesh"]
     #num_nodes = Exodus.num_nodes(input_mesh.init)
     #num_dof = 3 * num_nodes
-    num_dof = model.num_dof
+    num_dof, = size(model.free_dofs)
     minimum_iterations = solver_params["minimum iterations"]
     maximum_iterations = solver_params["maximum iterations"]
     absolute_tolerance = solver_params["absolute tolerance"]
@@ -401,7 +401,8 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::LinearOp
     ##M uddot + Ku = f
      
 
-    I = Matrix{Float64}(LinearAlgebra.I, model.num_dof,model.num_dof)
+    num_dof, = size(model.free_dofs)
+    I = Matrix{Float64}(LinearAlgebra.I, num_dof,num_dof)
     LHS = I / (dt*dt*beta)  + Matrix{Float64}(model.opinf_rom["K"])
     RHS = model.opinf_rom["f"] + model.reduced_boundary_forcing + 1.0/(dt*dt*beta).*integrator.disp_pre
     #dF = model.opinf_rom["f"] + model.reduced_boundary_forcing[:] - I*integrator.acceleration - model.opinf_rom["K"]*integrator.displacement
