@@ -342,16 +342,6 @@ function stress_update(
     return Fᵉ, Fᵖ, εᵖ, σ
 end
 
-mutable struct OperatorInferenceDictionary <: OperatorInference
-    alpha::Float64
-    function OperatorInferenceDictionary(params::Dict{Any,Any})
-        alpha = 1.
-        new(alpha)
-    end
-
-end
-
-
 
 mutable struct Linear_Isotropic <: Thermal
     κ::Float64
@@ -618,8 +608,6 @@ function create_material(params::Dict{Any,Any})
         return NeohookeanAD(params)
     elseif model_name == "linear isotropic"
         return Linear_Isotropic(params)
-    elseif model_name == "operator inference dictionary"
-        return OperatorInferenceDictionary(params)
     else
         error("Unknown material model : ", model_name)
     end
