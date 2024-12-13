@@ -663,7 +663,7 @@ function get_side_set_local_from_global_map(mesh::ExodusDatabase, side_set_id::I
     for i ∈ 1:num_nodes
         local_from_global_map[Int64(unique_node_indices[i])] = i
     end
-    return local_from_global_map, num_nodes_per_sides, side_set_node_indices
+    return local_from_global_map, num_nodes_per_sides, Int64.(side_set_node_indices)
 end
 
 function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::Integer)

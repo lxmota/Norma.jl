@@ -101,6 +101,30 @@ function SMContactSchwarzBC(
     )
 end
 
+function SMNonOverlapSchwarzBC(side_set_id::Int64,
+    side_set_node_indices::Vector{Int64},
+    coupled_nodes_indices::Vector{Vector{Int64}},
+    interpolation_function_values::Vector{Vector{Float64}},
+    coupled_subsim::Simulation,
+    subsim::Simulation,
+    coupled_side_set_id::Int64,
+    is_dirichlet::Bool)
+    square_projection_matrix =
+        get_square_projection_matrix(coupled_subsim.model, coupled_side_set_id)
+    rectangular_projection_matrix =
+        get_rectangular_projection_matrix(coupled_subsim.model, coupled_side_set_id, subsim.model, side_set_id)
+    transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
+    return SMNonOverlapSchwarzBC(side_set_id,
+        side_set_node_indices,
+        coupled_nodes_indices,
+        interpolation_function_values,
+        coupled_subsim,
+        subsim,
+        coupled_side_set_id,
+        transfer_operator,
+        is_dirichlet)
+end
+
 function SMCouplingSchwarzBC(
     subsim::SingleDomainSimulation,
     coupled_subsim::SingleDomainSimulation,
@@ -149,8 +173,6 @@ function SMCouplingSchwarzBC(
             is_dirichlet
         )
     elseif bc_type == "Schwarz nonoverlap"
-        transfer_operator =
-            zeros(length(local_from_global_map), length(coupled_local_from_global_map))
         SMNonOverlapSchwarzBC(
             side_set_id,
             side_set_node_indices,
@@ -159,7 +181,6 @@ function SMCouplingSchwarzBC(
             coupled_subsim,
             subsim,
             coupled_side_set_id,
-            transfer_operator,
             is_dirichlet
         )
     else
@@ -520,7 +541,6 @@ function get_dst_traction(bc::SMNonOverlapSchwarzBC)
     src_side_set_id = bc.coupled_side_set_id
     src_global_force = -bc.coupled_subsim.model.internal_force
     src_local_traction = local_traction_from_global_force(src_mesh, src_side_set_id, src_global_force)
-    compute_transfer_operator(bc.subsim.model, bc)
     num_dst_nodes = size(bc.transfer_operator, 1)
     dst_traction = zeros(3, num_dst_nodes)
     dst_traction[1, :] = bc.transfer_operator * src_local_traction[1, :]
