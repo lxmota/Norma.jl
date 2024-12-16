@@ -71,6 +71,19 @@ function HessianMinimizer(params::Dict{Any,Any},model::Any)
     converged = false
     failed = false
     step = create_step(solver_params)
+    ls_backtrack_factor = 0.5
+    ls_decrease_factor = 1.0e-04
+    ls_max_iters = 16
+    if haskey(solver_params, "line search backtrack factor")
+        ls_backtrack_factor = solver_params["line search backtrack factor"]
+    end
+    if haskey(solver_params, "line search decrease factor")
+        ls_decrease_factor = solver_params["line search decrease factor"]
+    end
+    if haskey(solver_params, "line search maximum iterations")
+        ls_max_iters = solver_params["line search maximum iterations"]
+    end
+    line_search = BackTrackLineSearch(ls_backtrack_factor, ls_decrease_factor, ls_max_iters)
     HessianMinimizer(
         minimum_iterations,
         maximum_iterations,
@@ -86,6 +99,7 @@ function HessianMinimizer(params::Dict{Any,Any},model::Any)
         converged,
         failed,
         step,
+        line_search
     )
 end
 
@@ -110,7 +124,7 @@ function ExplicitSolver(params::Dict{Any,Any})
         initial_norm,
         converged,
         failed,
-        step,
+        step
     )
 end
 
@@ -132,6 +146,19 @@ function SteepestDescent(params::Dict{Any,Any})
     converged = false
     failed = false
     step = create_step(solver_params)
+    ls_backtrack_factor = 0.5
+    ls_decrease_factor = 1.0e-04
+    ls_max_iters = 16
+    if haskey(solver_params, "line search backtrack factor")
+        ls_backtrack_factor = solver_params["line search backtrack factor"]
+    end
+    if haskey(solver_params, "line search decrease factor")
+        ls_decrease_factor = solver_params["line search decrease factor"]
+    end
+    if haskey(solver_params, "line search maximum iterations")
+        ls_max_iters = solver_params["line search maximum iterations"]
+    end
+    line_search = BackTrackLineSearch(ls_backtrack_factor, ls_decrease_factor, ls_max_iters)
     SteepestDescent(
         minimum_iterations,
         maximum_iterations,
@@ -146,6 +173,7 @@ function SteepestDescent(params::Dict{Any,Any})
         converged,
         failed,
         step,
+        line_search
     )
 end
 
@@ -197,8 +225,11 @@ function copy_solution_source_targets(
     solver::Any,
     model::SolidMechanics,
 )
-    displacement = integrator.displacement
-    solver.solution = displacement
+    displacement_local = integrator.displacement
+    solver.solution = displacement_local
+    # BRP: apply inclined support inverse transform
+    displacement = model.global_transform' * displacement_local
+
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
@@ -211,8 +242,9 @@ function copy_solution_source_targets(
     model::SolidMechanics,
     integrator::QuasiStatic,
 )
-    displacement = solver.solution
-    integrator.displacement = displacement
+    displacement_local = solver.solution
+    integrator.displacement = displacement_local
+    displacement = model.global_transform' * displacement_local
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
@@ -268,6 +300,8 @@ function copy_solution_source_targets(
         nodal_displacement = model.current[:, node] - model.reference[:, node]
         integrator.displacement[3*node-2:3*node] = nodal_displacement
     end
+    # Convert integrator displacement from global to local
+    integrator.displacement = model.global_transform * integrator.displacement
     solver.solution = integrator.displacement
 end
 
@@ -423,8 +457,8 @@ function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::Soli
     integrator.stored_energy = stored_energy
     solver.value = stored_energy
     external_force = body_force + model.boundary_force
-    solver.gradient = internal_force - external_force
-    solver.hessian = stiffness_matrix
+    solver.gradient = model.global_transform * (internal_force - external_force)
+    solver.hessian = model.global_transform * stiffness_matrix * model.global_transform'
 end
 
 
@@ -483,8 +517,9 @@ function backtrack_line_search(
     model::SolidMechanics,
     direction::Vector{Float64},
 )
-    backtrack_factor = 0.1
-    decrease_factor = 1.0e-04
+    backtrack_factor = solver.line_search.backtrack_factor
+    decrease_factor = solver.line_search.decrease_factor
+    max_iters = solver.line_search.max_iters
     free = model.free_dofs
     resid = solver.gradient
     merit = 0.5 * dot(resid, resid)
@@ -492,8 +527,7 @@ function backtrack_line_search(
     step_length = solver.step.step_length
     step = step_length * direction
     initial_solution = 1.0 * solver.solution
-    max_ls_iters = 20
-    for _ ∈ 1:max_ls_iters
+    for _ ∈ 1:max_iters
         merit_old = merit
         step = step_length * direction
         solver.solution[free] = initial_solution[free] + step[free]
@@ -707,5 +741,8 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
         if stop_solve(solver, iteration_number) == true
             break
         end
+    end
+    if typeof(model) == SolidMechanics
+      solver.gradient = model.global_transform' * solver.gradient
     end
 end

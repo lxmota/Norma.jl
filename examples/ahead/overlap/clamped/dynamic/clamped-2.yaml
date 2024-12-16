@@ -9,7 +9,7 @@ model:
     hyperelastic:
       model: neohookean
       elastic modulus: 1.0e+09
-      Poisson's ratio: 0.25
+      Poisson's ratio: 0.0
       density: 1000.0
 time integrator:
   type: Newmark
@@ -37,10 +37,11 @@ boundary conditions:
     - node set: nsz+
       component: z
       function: "0.0"
-  Schwarz Dirichlet:
-    - node set: nsz-
+  Schwarz overlap:
+    - side set: ssz-
       source: clamped-1.yaml
       source block: coarse
+      source side set: ssz+
 solver:
   type: Hessian minimizer
   step: full Newton

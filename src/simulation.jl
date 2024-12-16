@@ -11,13 +11,11 @@ function create_simulation(params::Dict{Any,Any}, name::String)
     sim_type = params["type"]
     if sim_type == "single"
         sim = SingleDomainSimulation(params)
-        print("Created single domain simulation, now making bcs \n")
-        create_delayed_bcs(sim)
-        print("Created BCs \n")
+        create_bcs(sim)
         return sim
     elseif sim_type == "multi"
         sim = MultiDomainSimulation(params)
-        create_delayed_bcs(sim)
+        create_bcs(sim)
         return sim
     else
         error("Unknown type of simulation: ", sim_type)
@@ -30,14 +28,14 @@ function create_simulation(input_file::String)
     return create_simulation(params, input_file)
 end
 
-function create_delayed_bcs(sim::SingleDomainSimulation)
+function create_bcs(sim::SingleDomainSimulation)
     boundary_conditions = create_bcs(sim.params)
     sim.model.boundary_conditions = boundary_conditions
 end
 
-function create_delayed_bcs(sim::MultiDomainSimulation)
+function create_bcs(sim::MultiDomainSimulation)
     for subsim ∈ sim.subsims
-        create_delayed_bcs(subsim)
+        create_bcs(subsim)
     end
     pair_schwarz_bcs(sim)
 end
@@ -46,7 +44,7 @@ function SingleDomainSimulation(params::Dict{Any,Any})
     name = params["name"]
     input_mesh_file = params["input mesh file"]
     output_mesh_file = params["output mesh file"]
-    rm(output_mesh_file, force = true)
+    rm(output_mesh_file, force=true)
     input_mesh = Exodus.ExodusDatabase(input_mesh_file, "r")
     Exodus.copy(input_mesh, output_mesh_file)
     output_mesh = Exodus.ExodusDatabase(output_mesh_file, "rw")

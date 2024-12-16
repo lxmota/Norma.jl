@@ -63,7 +63,7 @@ function SolidMechanics(params::Dict{Any,Any})
     num_blks_params = length(material_blocks)
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(blocks)
-    if (num_blks_params ≠ num_blks)
+    if num_blks_params ≠ num_blks
         error(
             "number of blocks in mesh ",
             model_params["mesh"],
@@ -118,6 +118,11 @@ function SolidMechanics(params::Dict{Any,Any})
     else
         smooth_reference = ""
     end
+
+    # BRP: define a global transform for inclined support
+    global_transform_t = Diagonal(ones(3 * num_nodes))
+    global_transform = sparse(global_transform_t)
+
     SolidMechanics(
         input_mesh,
         materials,
@@ -135,6 +140,7 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
+        global_transform
     )
 end
 
@@ -155,8 +161,8 @@ function HeatConduction(params::Dict{Any,Any})
     material_blocks = material_params["blocks"]
     num_blks_params = length(material_blocks)
     blocks = Exodus.read_sets(input_mesh, Block)
-    num_blks = length(blocks)
-    if (num_blks_params ≠ num_blks)
+    num_blks = length(elem_blk_ids)
+    if num_blks_params ≠ num_blks
         error(
             "number of blocks in mesh ",
             model_params["mesh"],
@@ -368,254 +374,6 @@ function avg_edge_length_tet_h(u::Vector{Float64}, v::Vector{Float64}, w::Vector
     return h
 end
 
-
-function voigt_cauchy_from_stress(
-    _::Solid,
-    P::Matrix{Float64},
-    F::Matrix{Float64},
-    J::Float64,
-)
-    σ = F * P' ./ J
-    return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
-end
-
-function voigt_cauchy_from_stress(
-    _::Linear_Elastic,
-    σ::Matrix{Float64},
-    _::Matrix{Float64},
-    _::Float64,
-)
-    return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
-end
-
-function assemble(
-    rows::Vector{Int64},
-    cols::Vector{Int64},
-    global_stiffness::Vector{Float64},
-    element_stiffness::Matrix{Float64},
-    dofs::Vector{Int64},
-)
-    num_dofs = length(dofs)
-    for i ∈ 1:num_dofs
-        I = dofs[i]
-        for j ∈ 1:num_dofs
-            J = dofs[j]
-            push!(rows, I)
-            push!(cols, J)
-            push!(global_stiffness, element_stiffness[i, j])
-        end
-    end
-end
-
-function assemble(
-    rows::Vector{Int64},
-    cols::Vector{Int64},
-    global_stiffness::Vector{Float64},
-    global_mass::Vector{Float64},
-    element_stiffness::Matrix{Float64},
-    element_mass::Matrix{Float64},
-    dofs::Vector{Int64},
-)
-    num_dofs = length(dofs)
-    for i ∈ 1:num_dofs
-        I = dofs[i]
-        for j ∈ 1:num_dofs
-            J = dofs[j]
-            push!(rows, I)
-            push!(cols, J)
-            push!(global_mass, element_mass[i, j])
-            push!(global_stiffness, element_stiffness[i, j])
-        end
-    end
-end
-
-
-
-
-
-
-
-function evaluate(_::QuasiStatic, model::SolidMechanics)
-    materials = model.materials
-    input_mesh = model.mesh
-    mesh_smoothing = model.mesh_smoothing
-    num_nodes = size(model.reference)[2]
-    num_dof = 3 * num_nodes
-    energy = 0.0
-    internal_force = zeros(num_dof)
-    body_force = zeros(num_dof)
-    rows = Vector{Int64}()
-    cols = Vector{Int64}()
-    stiffness = Vector{Float64}()
-    blocks = Exodus.read_sets(input_mesh, Block)
-    num_blks = length(blocks)
-    for blk_index ∈ 1:num_blks
-        material = materials[blk_index]
-        ρ = material.ρ
-        block = blocks[blk_index]
-        blk_id = block.id
-        element_type = Exodus.read_block_parameters(input_mesh, blk_id)[1]
-        num_points = default_num_int_pts(element_type)
-        _, dNdξ, elem_weights = isoparametric(element_type, num_points)
-        elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-        num_blk_elems, num_elem_nodes = size(elem_blk_conn)
-        num_elem_dofs = 3 * num_elem_nodes
-        elem_dofs = zeros(Int64, num_elem_dofs)
-        for blk_elem_index ∈ 1:num_blk_elems
-            conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
-            node_indices = elem_blk_conn[conn_indices]
-            if mesh_smoothing == true
-                elem_ref_pos =
-                    create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
-            else
-                elem_ref_pos = model.reference[:, node_indices]
-            end
-            elem_cur_pos = model.current[:, node_indices]
-            element_energy = 0.0
-            element_internal_force = zeros(num_elem_dofs)
-            element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
-            elem_dofs[1:3:num_elem_dofs-2] = 3 .* node_indices .- 2
-            elem_dofs[2:3:num_elem_dofs-1] = 3 .* node_indices .- 1
-            elem_dofs[3:3:num_elem_dofs] = 3 .* node_indices
-            for point ∈ 1:num_points
-                dNdξₚ = dNdξ[:, :, point]
-                dXdξ = dNdξₚ * elem_ref_pos'
-                dxdξ = dNdξₚ * elem_cur_pos'
-                if det(dxdξ) ≤ 0.0
-                    model.failed = true
-                    @warn "evaluation of model has failed with a non-positive Jacobian"
-                    return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof)
-                end
-                dxdX = dXdξ \ dxdξ
-                dNdX = dXdξ \ dNdξₚ
-                B = gradient_operator(dNdX)
-                j = det(dXdξ)
-                J = det(dxdX)
-                F = dxdX
-                W, P, A = constitutive(material, F)
-                stress = P[1:9]
-                moduli = second_from_fourth(A)
-                w = elem_weights[point]
-                element_energy += W * j * w
-                element_internal_force += B' * stress * j * w
-                element_stiffness += B' * moduli * B * j * w
-                voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
-                model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
-            end
-            energy += element_energy
-            model.stored_energy[blk_index][blk_elem_index] = element_energy
-            internal_force[elem_dofs] += element_internal_force
-            assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
-        end
-    end
-    stiffness_matrix = sparse(rows, cols, stiffness)
-    model.internal_force = internal_force
-    return energy, internal_force, body_force, stiffness_matrix
-end
-
-function evaluate(integrator::Newmark, model::SolidMechanics)
-    materials = model.materials
-    input_mesh = model.mesh
-    mesh_smoothing = model.mesh_smoothing
-    num_nodes = size(model.reference)[2]
-    num_dof = 3 * num_nodes
-    energy = 0.0
-    internal_force = zeros(num_dof)
-    body_force = zeros(num_dof)
-    rows = Vector{Int64}()
-    cols = Vector{Int64}()
-    stiffness = Vector{Float64}()
-    mass = Vector{Float64}()
-    blocks = Exodus.read_sets(input_mesh, Block)
-    num_blks = length(blocks)
-    for blk_index ∈ 1:num_blks
-        material = materials[blk_index]
-        ρ = material.ρ
-        block = blocks[blk_index]
-        blk_id = block.id
-        element_type = Exodus.read_block_parameters(input_mesh, blk_id)[1]
-        num_points = default_num_int_pts(element_type)
-        N, dNdξ, elem_weights = isoparametric(element_type, num_points)
-        elem_blk_conn = get_block_connectivity(input_mesh, blk_id)
-        num_blk_elems, num_elem_nodes = size(elem_blk_conn)
-        num_elem_dofs = 3 * num_elem_nodes
-        elem_dofs = zeros(Int64, num_elem_dofs)
-        for blk_elem_index ∈ 1:num_blk_elems
-            conn_indices = (blk_elem_index-1)*num_elem_nodes+1:blk_elem_index*num_elem_nodes
-            node_indices = elem_blk_conn[conn_indices]
-            if mesh_smoothing == true
-                elem_ref_pos =
-                    create_smooth_reference(element_type, model.reference[:, node_indices])
-            else
-                elem_ref_pos = model.reference[:, node_indices]
-            end
-            elem_cur_pos = model.current[:, node_indices]
-            element_energy = 0.0
-            element_internal_force = zeros(num_elem_dofs)
-            element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
-            element_mass = zeros(num_elem_dofs, num_elem_dofs)
-            index_x = 1:3:num_elem_dofs.-2
-            index_y = index_x .+ 1
-            index_z = index_x .+ 2
-            elem_dofs[index_x] = 3 .* node_indices .- 2
-            elem_dofs[index_y] = 3 .* node_indices .- 1
-            elem_dofs[index_z] = 3 .* node_indices
-            for point ∈ 1:num_points
-                dNdξₚ = dNdξ[:, :, point]
-                dXdξ = dNdξₚ * elem_ref_pos'
-                dxdξ = dNdξₚ * elem_cur_pos'
-                if det(dxdξ) ≤ 0.0
-                    model.failed = true
-                    @warn "evaluation of model has failed with a non-positive Jacobian"
-                    return 0.0,
-                    zeros(num_dof),
-                    zeros(num_dof),
-                    spzeros(num_dof, num_dof),
-                    spzeros(num_dof, num_dof)
-                end
-                dxdX = dXdξ \ dxdξ
-                dNdX = dXdξ \ dNdξₚ
-                B = gradient_operator(dNdX)
-                j = det(dXdξ)
-                J = det(dxdX)
-                F = dxdX
-                W, P, A = constitutive(material, F)
-                stress = P[1:9]
-                moduli = second_from_fourth(A)
-                w = elem_weights[point]
-                element_energy += W * j * w
-                element_internal_force += B' * stress * j * w
-                element_stiffness += B' * moduli * B * j * w
-                reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
-                element_mass[index_x, index_x] += reduced_mass
-                element_mass[index_y, index_y] += reduced_mass
-                element_mass[index_z, index_z] += reduced_mass
-                voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
-                model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
-            end
-            energy += element_energy
-            model.stored_energy[blk_index][blk_elem_index] = element_energy
-            internal_force[elem_dofs] += element_internal_force
-            assemble(
-                rows,
-                cols,
-                stiffness,
-                mass,
-                element_stiffness,
-                element_mass,
-                elem_dofs,
-            )
-        end
-    end
-    stiffness_matrix = sparse(rows, cols, stiffness)
-    mass_matrix = sparse(rows, cols, mass)
-    if mesh_smoothing == true
-        internal_force -= integrator.velocity
-    end
-    model.internal_force = internal_force
-    return energy, internal_force, body_force, stiffness_matrix, mass_matrix
-end
-
 function get_minimum_edge_length(
     nodal_coordinates::Matrix{Float64},
     edges::Vector{Tuple{Int64,Int64}},
@@ -695,7 +453,67 @@ function set_time_step(integrator::CentralDifference, model::SolidMechanics)
     integrator.time_step = min(stable_time_step, integrator.user_time_step)
 end
 
-function evaluate(_::CentralDifference, model::SolidMechanics)
+function voigt_cauchy_from_stress(
+    _::Solid,
+    P::Matrix{Float64},
+    F::Matrix{Float64},
+    J::Float64,
+)
+    σ = F * P' ./ J
+    return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
+end
+
+function voigt_cauchy_from_stress(
+    _::Linear_Elastic,
+    σ::Matrix{Float64},
+    _::Matrix{Float64},
+    _::Float64,
+)
+    return [σ[1, 1], σ[2, 2], σ[3, 3], σ[2, 3], σ[1, 3], σ[1, 2]]
+end
+
+function assemble(
+    rows::Vector{Int64},
+    cols::Vector{Int64},
+    global_stiffness::Vector{Float64},
+    element_stiffness::Matrix{Float64},
+    dofs::Vector{Int64},
+)
+    num_dofs = length(dofs)
+    for i ∈ 1:num_dofs
+        I = dofs[i]
+        for j ∈ 1:num_dofs
+            J = dofs[j]
+            push!(rows, I)
+            push!(cols, J)
+            push!(global_stiffness, element_stiffness[i, j])
+        end
+    end
+end
+
+function assemble(
+    rows::Vector{Int64},
+    cols::Vector{Int64},
+    global_stiffness::Vector{Float64},
+    global_mass::Vector{Float64},
+    element_stiffness::Matrix{Float64},
+    element_mass::Matrix{Float64},
+    dofs::Vector{Int64},
+)
+    num_dofs = length(dofs)
+    for i ∈ 1:num_dofs
+        I = dofs[i]
+        for j ∈ 1:num_dofs
+            J = dofs[j]
+            push!(rows, I)
+            push!(cols, J)
+            push!(global_mass, element_mass[i, j])
+            push!(global_stiffness, element_stiffness[i, j])
+        end
+    end
+end
+
+function evaluate(integrator::TimeIntegrator, model::SolidMechanics)
     materials = model.materials
     input_mesh = model.mesh
     mesh_smoothing = model.mesh_smoothing
@@ -704,12 +522,37 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
     energy = 0.0
     internal_force = zeros(num_dof)
     body_force = zeros(num_dof)
-    lumped_mass = zeros(num_dof)
+    rows = Vector{Int64}()
+    cols = Vector{Int64}()
+    stiffness = Vector{Float64}()
     blocks = Exodus.read_sets(input_mesh, Block)
     num_blks = length(blocks)
+    if typeof(integrator) == Newmark
+        mass = Vector{Float64}()
+    end
+    if typeof(integrator) == CentralDifference
+        lumped_mass = zeros(num_dof)
+    end
+
+    if typeof(integrator) == QuasiStatic
+        # Data for inclined DBCs
+        inclined_support_node_indices = Vector{Int64}()
+        inclined_support_bc_indices = Vector{Int64}()
+        for (bc_idx, bc) in enumerate(model.boundary_conditions)
+            if isa(bc, SMDirichletInclined)
+                append!(inclined_support_node_indices, bc.node_set_node_indices)
+                for _ in bc.node_set_node_indices
+                    push!(inclined_support_bc_indices, bc_idx)
+                end
+            end
+        end
+    end
+
     for blk_index ∈ 1:num_blks
         material = materials[blk_index]
-        ρ = material.ρ
+        if typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
+            ρ = material.ρ
+        end
         block = blocks[blk_index]
         blk_id = block.id
         element_type = Exodus.read_block_parameters(input_mesh, blk_id)[1]
@@ -724,14 +567,20 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
             node_indices = elem_blk_conn[conn_indices]
             if mesh_smoothing == true
                 elem_ref_pos =
-                    create_smooth_reference(element_type, model.reference[:, node_indices])
+                    create_smooth_reference(model.smooth_reference, element_type, model.reference[:, node_indices])
             else
                 elem_ref_pos = model.reference[:, node_indices]
             end
             elem_cur_pos = model.current[:, node_indices]
             element_energy = 0.0
             element_internal_force = zeros(num_elem_dofs)
-            element_lumped_mass = zeros(num_elem_dofs)
+            element_stiffness = zeros(num_elem_dofs, num_elem_dofs)
+            if typeof(integrator) == Newmark
+                element_mass = zeros(num_elem_dofs, num_elem_dofs)
+            end
+            if typeof(integrator) == CentralDifference
+                element_lumped_mass = zeros(num_elem_dofs)
+            end
             index_x = 1:3:num_elem_dofs.-2
             index_y = index_x .+ 1
             index_z = index_x .+ 2
@@ -745,7 +594,15 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
                 if det(dxdξ) ≤ 0.0
                     model.failed = true
                     @warn "evaluation of model has failed with a non-positive Jacobian"
-                    return 0.0, zeros(num_dof), zeros(num_dof), zeros(num_dof)
+                    if typeof(integrator) == QuasiStatic
+                        return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof)
+                    elseif typeof(integrator) == Newmark
+                        return 0.0, zeros(num_dof), zeros(num_dof), spzeros(num_dof, num_dof), spzeros(num_dof, num_dof)
+                    elseif typeof(integrator) == CentralDifference
+                        return 0.0, zeros(num_dof), zeros(num_dof), zeros(num_dof)
+                    else
+                        error("Unknown type of time integrator", typeof(integrator))
+                    end
                 end
                 dxdX = dXdξ \ dxdξ
                 dNdX = dXdξ \ dNdξₚ
@@ -753,25 +610,70 @@ function evaluate(_::CentralDifference, model::SolidMechanics)
                 j = det(dXdξ)
                 J = det(dxdX)
                 F = dxdX
-                W, P, _ = constitutive(material, F)
+                W, P, A = constitutive(material, F)
                 stress = P[1:9]
+                moduli = second_from_fourth(A)
                 w = elem_weights[point]
                 element_energy += W * j * w
                 element_internal_force += B' * stress * j * w
-                reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
-                reduced_lumped_mass = sum(reduced_mass, dims = 2)
-                element_lumped_mass[index_x] += reduced_lumped_mass
-                element_lumped_mass[index_y] += reduced_lumped_mass
-                element_lumped_mass[index_z] += reduced_lumped_mass
+                element_stiffness += B' * moduli * B * j * w
+                if typeof(integrator) == Newmark
+                    reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
+                    element_mass[index_x, index_x] += reduced_mass
+                    element_mass[index_y, index_y] += reduced_mass
+                    element_mass[index_z, index_z] += reduced_mass
+                end
+                if typeof(integrator) == CentralDifference
+                    reduced_mass = N[:, point] * N[:, point]' * ρ * j * w
+                    reduced_lumped_mass = sum(reduced_mass, dims=2)
+                    element_lumped_mass[index_x] += reduced_lumped_mass
+                    element_lumped_mass[index_y] += reduced_lumped_mass
+                    element_lumped_mass[index_z] += reduced_lumped_mass
+                end
                 voigt_cauchy = voigt_cauchy_from_stress(material, P, F, J)
                 model.stress[blk_index][blk_elem_index][point] = voigt_cauchy
             end
             energy += element_energy
             model.stored_energy[blk_index][blk_elem_index] = element_energy
             internal_force[elem_dofs] += element_internal_force
-            lumped_mass[elem_dofs] += element_lumped_mass
+            if typeof(integrator) == QuasiStatic
+                assemble(rows, cols, stiffness, element_stiffness, elem_dofs)
+            end
+            if typeof(integrator) == Newmark
+                assemble(rows, cols, stiffness, mass, element_stiffness, element_mass, elem_dofs)
+            end
+            if typeof(integrator) == CentralDifference
+                lumped_mass[elem_dofs] += element_lumped_mass
+            end
         end
     end
+
+    if typeof(integrator) == QuasiStatic
+        # For inclined DBCs
+        T_local = Matrix(Diagonal(ones(num_dof)))
+        for (corresponding_bc_idx, inc_support_node_idx) in zip(inclined_support_bc_indices, inclined_support_node_indices)
+            T_nodal = model.boundary_conditions[corresponding_bc_idx].rotation_matrix
+            base = 3*(inc_support_node_idx-1) # Block index in global stiffness
+            T_local[base+1:base+3, base+1:base+3] *= T_nodal
+        end
+        model.global_transform = sparse(T_local)
+    end
+
+    stiffness_matrix = sparse(rows, cols, stiffness)
+    if typeof(integrator) == Newmark
+        mass_matrix = sparse(rows, cols, mass)
+    end
+    if mesh_smoothing == true
+        internal_force -= integrator.velocity
+    end
     model.internal_force = internal_force
-    return energy, internal_force, body_force, lumped_mass
+    if typeof(integrator) == QuasiStatic
+        return energy, internal_force, body_force, stiffness_matrix
+    elseif typeof(integrator) == Newmark
+        return energy, internal_force, body_force, stiffness_matrix, mass_matrix
+    elseif typeof(integrator) == CentralDifference
+        return energy, internal_force, body_force, lumped_mass
+    else
+        error("Unknown type of time integrator", typeof(integrator))
+    end
 end

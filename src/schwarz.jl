@@ -115,8 +115,8 @@ function schwarz(sim::MultiDomainSimulation)
             return
         end
         iteration_number += 1
-        ΔX = update_schwarz_convergence_criterion(sim)
-        println("Schwarz criterion |ΔX|=", ΔX)
+        ΔX, Δx = update_schwarz_convergence_criterion(sim)
+        println("Schwarz criterion |ΔX|=", ΔX, " |ΔX|/|X|=", Δx)
         if stop_schwarz(sim, iteration_number) == true
             println("Performed ", iteration_number - 1, " Schwarz iterations")
             break
@@ -205,8 +205,12 @@ function subcycle(sim::MultiDomainSimulation, is_schwarz::Bool)
                 break
             end
             subsim.model.time = subsim.integrator.time
+            @debug "Subdomain : $(subsim.name), Time : $(subsim.model.time)"
+            @debug "Before applying BCs"
             apply_bcs(subsim)
+            @debug "After applying BCs and before advance"
             advance(subsim)
+            @debug "After advance"
             if subsim.failed == true
                 sim.failed = true
                 return
@@ -315,7 +319,7 @@ function update_schwarz_convergence_criterion(
     conv_abs = schwarz_controller.absolute_error ≤ schwarz_controller.absolute_tolerance
     conv_rel = schwarz_controller.relative_error ≤ schwarz_controller.relative_tolerance
     schwarz_controller.converged = conv_abs || conv_rel
-    return norm_diff
+    return schwarz_controller.absolute_error, schwarz_controller.relative_error
 end
 
 function stop_schwarz(sim::MultiDomainSimulation, iteration_number::Int64)
@@ -346,12 +350,8 @@ function check_overlap(model::SolidMechanics, bc::SMContactSchwarzBC)
     overlap = false
     for node_index ∈ bc.side_set_node_indices
         point = model.current[:, node_index]
-        _, ξ, _, coupled_face_node_indices, _, distance = find_and_project(
-            point,
-            bc.coupled_mesh,
-            bc.coupled_side_set_id,
-            bc.coupled_subsim.model,
-        )
+        _, ξ, _, coupled_face_node_indices, _, distance =
+            project_point_to_side_set(point, bc.coupled_subsim.model, bc.coupled_side_set_id)
         num_nodes_coupled_side = length(coupled_face_node_indices)
         parametric_dim = length(ξ)
         element_type = get_element_type(parametric_dim, num_nodes_coupled_side)
@@ -371,14 +371,14 @@ function check_compression(
 )
     compression_tol = 0.0
     compression = false
-    reactions = get_dst_traction(bc)
+    nodal_reactions = get_dst_traction(bc)
     normals = compute_normal(mesh, bc.side_set_id, model)
-    local_to_global_map = get_side_set_local_to_global_map(mesh, bc.side_set_id)
-    num_local_nodes = length(local_to_global_map)
+    global_from_local_map = get_side_set_global_from_local_map(mesh, bc.side_set_id)
+    num_local_nodes = length(global_from_local_map)
     for local_node ∈ 1:num_local_nodes
-        reaction_node = reactions[3*local_node-2:3*local_node]
+        nodal_reaction = nodal_reactions[:, local_node]
         normal = normals[:, local_node]
-        normal_traction = dot(reaction_node, normal)
+        normal_traction = dot(nodal_reaction, normal)
         compressive_traction = normal_traction ≤ compression_tol
         if compressive_traction == true
             compression = true
@@ -425,7 +425,7 @@ function write_scharz_params_csv(sim::MultiDomainSimulation)
     stop = sim.schwarz_controller.stop
     csv_interval = get(sim.params, "CSV output interval", 0)
     if csv_interval > 0 && stop % csv_interval == 0
-        index_string = "-" * string(stop, pad = 4)
+        index_string = "-" * string(stop, pad=4)
         contact_filename = "contact" * index_string * ".csv"
         writedlm(contact_filename, sim.schwarz_controller.active_contact, '\n')
         iters_filename = "iterations" * index_string * ".csv"

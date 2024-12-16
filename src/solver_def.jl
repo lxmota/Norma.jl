@@ -1,8 +1,15 @@
 abstract type Solver end
 abstract type Minimizer <: Solver end
 abstract type Step end
+abstract type LineSearch end
 
 using SparseArrays
+
+struct BackTrackLineSearch <: LineSearch
+    backtrack_factor::Float64
+    decrease_factor::Float64
+    max_iters::Int64
+end
 
 mutable struct HessianMinimizer <: Minimizer
     minimum_iterations::Int64
@@ -19,6 +26,7 @@ mutable struct HessianMinimizer <: Minimizer
     converged::Bool
     failed::Bool
     step::Step
+    line_search::BackTrackLineSearch
 end
 
 mutable struct NewtonSolver <: Solver
@@ -64,6 +72,7 @@ mutable struct SteepestDescent <: Solver
     converged::Bool
     failed::Bool
     step::Step
+    line_search::BackTrackLineSearch
 end
 
 struct NewtonStep <: Step

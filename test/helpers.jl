@@ -48,20 +48,20 @@ using Symbolics
 @variables t
 
 function get_boundary_traction_force(mesh::ExodusDatabase, side_set_id::Int64)
-    expression = "1. * t" 
-    t = 1.
+    expression = "1.0 * t" 
+    t = 1.0
     traction_num = eval(Meta.parse(expression))
     coords = read_coordinates(mesh)
     num_nodes = size(coords)[2]
-    global_to_local_map, num_nodes_sides, side_set_node_indices = Norma.get_side_set_global_to_local_map(mesh, side_set_id)
-    num_nodes = length(global_to_local_map)
+    local_from_global_map, num_nodes_sides, side_set_node_indices = Norma.get_side_set_local_from_global_map(mesh, side_set_id)
+    num_nodes = length(local_from_global_map)
     boundary_tractions_force = zeros(num_nodes)
     ss_node_index = 1
     for side ∈ num_nodes_sides
         side_nodes = side_set_node_indices[ss_node_index:ss_node_index+side-1]
         side_coordinates = coords[:,side_nodes]
         nodal_force_component = Norma.get_side_set_nodal_forces(side_coordinates, traction_num, t)
-        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        local_indices = get.(Ref(local_from_global_map), side_nodes, 0)
         boundary_tractions_force[local_indices] += nodal_force_component
         ss_node_index += side
     end

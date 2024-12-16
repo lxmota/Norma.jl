@@ -7,7 +7,7 @@ model:
     blocks:
       coarse: hyperelastic
     hyperelastic:
-      model: Saint-Venant Kirchhoff
+      model: neohookean
       elastic modulus: 1440.0
       Poisson's ratio: 0.25
       density: 1000.0
@@ -17,18 +17,19 @@ time integrator:
   γ: 0.5
 boundary conditions:
   Dirichlet:
-    - node set: +X_top
-      component: y
-      function: "0.0"
-    - node set: +Y_top
+    - node set: -X_top
       component: x
+      function: "0.0"
+    - node set: -Y_top
+      component: y
       function: "0.0"
     - node set: +Z_top
       component: z
       function: "0.0064 * t"
-  Schwarz Dirichlet:
-    - node set: -Z_top
+  Schwarz overlap:
+    - side set: -Z_topSS
       source: notched-cylinder-1.yaml
+      source side set: +Z_bottomSS
       source block: fine
 solver:
   type: Hessian minimizer

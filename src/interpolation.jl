@@ -456,7 +456,7 @@ using Symbolics
 function get_side_set_nodal_forces(
     nodal_coord::Matrix{Float64},
     traction_num::Num,
-    time::Float64,
+    time::Float64
 )
     _, num_side_nodes = size(nodal_coord)
     element_type = get_element_type(2, num_side_nodes)
@@ -479,24 +479,78 @@ function get_side_set_nodal_forces(
     return nodal_force_component
 end
 
+
+# Given 3 points p1, p2, p3 that define a plane
+# determine if point p is in the same side of the normal
+# to the plane as defined by the right hand rule.
+function in_normal_side(p::Vector{Float64}, p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, tol::Float64)
+    v1 = p2 - p1
+    v2 = p3 - p1
+    h = min(norm(v1), norm(v2))
+    n = normalize(cross(v1, v2))
+    v = p - p1
+    s = dot(v, n)
+    return s ≥ -tol * h
+end
+
+function in_tetrahedron(p::Vector{Float64}, p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, p4::Vector{Float64}, tol::Float64)
+    if in_normal_side(p, p1, p2, p3, tol) == false
+        return false
+    end
+    if in_normal_side(p, p1, p4, p2, tol) == false
+        return false
+    end
+    if in_normal_side(p, p2, p4, p3, tol) == false
+        return false
+    end
+    if in_normal_side(p, p3, p4, p1, tol) == false
+        return false
+    end
+    return true
+end
+
+# The assumtion is that the faces are planar, which is ok since this function is used a a rough approximation.
+function in_hexahedron(p::Vector{Float64}, p1::Vector{Float64}, p2::Vector{Float64}, p3::Vector{Float64}, p4::Vector{Float64}, p5::Vector{Float64}, p6::Vector{Float64}, p7::Vector{Float64}, p8::Vector{Float64}, tol::Float64)
+    if in_normal_side(p, p1, p2, p3, tol) == false
+        return false
+    end
+    if in_normal_side(p, p1, p5, p6, tol) == false
+        return false
+    end
+    if in_normal_side(p, p2, p6, p7, tol) == false
+        return false
+    end
+    if in_normal_side(p, p3, p7, p8, tol) == false
+        return false
+    end
+    if in_normal_side(p, p4, p8, p5, tol) == false
+        return false
+    end
+    if in_normal_side(p, p5, p8, p7, tol) == false
+        return false
+    end
+    return true
+end
+
 function map_to_parametric(
     element_type::String,
     nodes::Matrix{Float64},
-    point::Vector{Float64},
+    point::Vector{Float64}
 )
     tol = 1.0e-08
+    max_iters = 1024
     dim = length(point)
     ξ = zeros(dim)
     hessian = zeros(dim, dim)
-    while true
+    for _ ∈ 1:max_iters
         N, dN, _ = interpolate(element_type, ξ)
         trial_point = nodes * N
         residual = trial_point - point
         hessian = nodes * dN'
         δ = -hessian \ residual
         ξ = ξ + δ
-        error = norm(δ)
-        if error <= tol
+        err = norm(δ)
+        if err <= tol
             break
         end
     end
@@ -521,21 +575,14 @@ function interpolate(element_type::String, ξ::Vector{Float64})
     end
 end
 
-function is_inside_parametric(element_type::String, ξ::Vector{Float64})
-    tol = 1.0e-06
-    return is_inside_parametric(element_type, ξ, tol)
-end
-
-function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64)
+function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Float64=1.0e-06)
     factor = 1.0 + tol
     if element_type == "BAR2"
         return -factor ≤ ξ ≤ factor
-    elseif element_type == "TRI3"
-        return reduce(*, -tol * ones(2) .≤ ξ .≤ factor * ones(2))
+    elseif element_type == "TRI3" || element_type == "TETRA4" || element_type == "TETRA10"
+        return sum(ξ) ≤ factor
     elseif element_type == "QUAD4"
         return reduce(*, -factor * ones(2) .≤ ξ .≤ factor * ones(2))
-    elseif element_type == "TETRA4" || element_type == "TETRA10"
-        return reduce(*, -tol * ones(3) .≤ ξ .≤ factor * ones(3))
     elseif element_type == "HEX8"
         return reduce(*, -factor * ones(3) .≤ ξ .≤ factor * ones(3))
     else
@@ -543,111 +590,106 @@ function is_inside_parametric(element_type::String, ξ::Vector{Float64}, tol::Fl
     end
 end
 
-function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64})
+function is_inside(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64=1.0e-06)
+    ξ = zeros(length(point))
+    if is_inside_guess(element_type, nodes, point, 0.1) == false
+        return ξ, false
+    end
     ξ = map_to_parametric(element_type, nodes, point)
-    return is_inside_parametric(element_type, ξ)
+    return ξ, is_inside_parametric(element_type, ξ, tol)
 end
 
-function find_and_project(
-    point::Vector{Float64},
-    mesh::ExodusDatabase,
-    side_set_id::Integer,
-    model::SolidMechanics,
-)
-    #we assume that we know the contact surfaces in advance 
-    num_nodes_per_sides, side_set_node_indices =
-        Exodus.read_side_set_node_list(mesh, side_set_id)
+function is_inside_guess(element_type::String, nodes::Matrix{Float64}, point::Vector{Float64}, tol::Float64=1.0e-06)
+    if element_type == "TETRA4" || element_type == "TETRA10"
+        return in_tetrahedron(point, nodes[:, 1], nodes[:, 2], nodes[:, 3], nodes[:, 4], tol)
+    elseif element_type == "HEX8"
+        return in_hexahedron(point, nodes[:, 1], nodes[:, 2], nodes[:, 3], nodes[:, 4], nodes[:, 5], nodes[:, 6], nodes[:, 7], nodes[:, 8], tol)
+    else
+        error("Invalid element type: ", element_type)
+    end
+end
+
+function closest_face_to_point(point::Vector{Float64}, model::SolidMechanics, side_set_id::Integer)
+    mesh = model.mesh
+    num_nodes_per_sides, side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)
     ss_node_index = 1
-    point_new = point
     closest_face_nodes = Array{Float64}(undef, 0)
     closest_face_node_indices = Array{Int64}(undef, 0)
-    space_dim = length(point)
-    parametric_dim = space_dim - 1
-    closest_ξ = zeros(parametric_dim)
-    closest_normal = zeros(space_dim)
-    minimum_absolute_distance = Inf
-    closest_distance = 0.0
+    minimum_nodal_distance = Inf
     for num_nodes_side ∈ num_nodes_per_sides
-        face_node_indices =
-            side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
+        face_node_indices = side_set_node_indices[ss_node_index:ss_node_index+num_nodes_side-1]
         face_nodes = model.current[:, face_node_indices]
-        trial_point, ξ, distance, normal =
-            closest_point_projection(parametric_dim, face_nodes, point)
-        distance_centr = get_distance_to_centroid(face_nodes, point)
-        if abs(distance_centr) < minimum_absolute_distance
-            minimum_absolute_distance = abs(distance_centr)
-            point_new = trial_point
+        nodal_distance = get_minimum_distance_to_nodes(face_nodes, point)
+        if nodal_distance < minimum_nodal_distance
+            minimum_nodal_distance = nodal_distance
             closest_face_nodes = face_nodes
             closest_face_node_indices = face_node_indices
-            closest_normal = normal
-            closest_ξ = ξ
-            closest_distance = distance
         end
         ss_node_index += num_nodes_side
-    end
-    return point_new,
-    closest_ξ,
-    closest_face_nodes,
-    closest_face_node_indices,
-    closest_normal,
-    closest_distance
+   end
+   return closest_face_nodes, closest_face_node_indices, minimum_nodal_distance
 end
 
-function get_distance_to_centroid(nodes::Matrix{Float64}, x::Vector{Float64})
-    _, num_nodes = size(nodes)
-    x_coords = 0.0
-    y_coords = 0.0
-    z_coords = 0.0
-    for i ∈ 1:num_nodes
-        x_coords = x_coords + nodes[1, i]
-        y_coords = y_coords + nodes[2, i]
-        z_coords = z_coords + nodes[3, i]
-    end
-    x_centroid = x_coords / num_nodes
-    y_centroid = y_coords / num_nodes
-    z_centroid = z_coords / num_nodes
-    centroid = [x_centroid, y_centroid, z_centroid]
-    distance = norm(centroid - x)
+# Find the minimum distance of a point to the nodes of each face on the side set
+# and then project the point that closest face in the side set.
+# This is done in place of a strict search because the contact surfaces may be deformed
+# and not match each other exactly. We assume that we know the contact surfaces in advance
+function project_point_to_side_set(point::Vector{Float64}, model::SolidMechanics, side_set_id::Integer)
+    face_nodes, face_node_indices, _ = closest_face_to_point(point, model, side_set_id)
+    space_dim = length(point)
+    parametric_dim = space_dim - 1
+    new_point, ξ, surface_distance, normal = closest_point_projection(parametric_dim, face_nodes, point)
+    return new_point, ξ, face_nodes, face_node_indices, normal, surface_distance
+end
+
+function get_distance_to_centroid(nodes::Matrix{Float64}, point::Vector{Float64})
+    num_nodes = size(nodes, 2)
+    centroid = sum(nodes, dims = 2) / num_nodes
+    distance = norm(centroid - point)
     return distance
 end
 
-function get_side_set_global_to_local_map(mesh::ExodusDatabase, side_set_id::Integer)
+function get_minimum_distance_to_nodes(nodes::Matrix{Float64}, point::Vector{Float64})
+    distances = norm.(eachcol(nodes) .- Ref(point))
+    return minimum(distances)
+end
+
+function get_side_set_local_from_global_map(mesh::ExodusDatabase, side_set_id::Integer)
     num_nodes_per_sides, side_set_node_indices =
         Exodus.read_side_set_node_list(mesh, side_set_id)
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    global_to_local_map = Dict{Int64,Int64}()
+    local_from_global_map = Dict{Int64,Int64}()
     for i ∈ 1:num_nodes
-        global_to_local_map[Int64(unique_node_indices[i])] = i
+        local_from_global_map[Int64(unique_node_indices[i])] = i
     end
-    return global_to_local_map, num_nodes_per_sides, side_set_node_indices
+    return local_from_global_map, num_nodes_per_sides, Int64.(side_set_node_indices)
 end
 
-function get_side_set_local_to_global_map(mesh::ExodusDatabase, side_set_id::Integer)
+function get_side_set_global_from_local_map(mesh::ExodusDatabase, side_set_id::Integer)
     side_set_node_indices = Exodus.read_side_set_node_list(mesh, side_set_id)[2]
     unique_node_indices = unique(side_set_node_indices)
     num_nodes = length(unique_node_indices)
-    local_to_global_map = zeros(Int64, num_nodes)
+    global_from_local_map = zeros(Int64, num_nodes)
     for i ∈ 1:num_nodes
-        local_to_global_map[i] = Int64(unique_node_indices[i])
+        global_from_local_map[i] = Int64(unique_node_indices[i])
     end
-    return local_to_global_map
+    return global_from_local_map
 end
 
 function get_square_projection_matrix(
-    mesh::ExodusDatabase,
     model::SolidMechanics,
     side_set_id::Integer,
 )
-    global_to_local_map, num_nodes_sides, side_set_node_indices =
-        get_side_set_global_to_local_map(mesh, side_set_id)
-    num_nodes = length(global_to_local_map)
+    mesh = model.mesh
+    local_from_global_map, num_nodes_sides, side_set_node_indices =
+        get_side_set_local_from_global_map(mesh, side_set_id)
+    num_nodes = length(local_from_global_map)
     coords = model.current
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
-        side_nodes =
-            side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
+        side_nodes = side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
         side_coordinates = coords[:, side_nodes]
         element_type = get_element_type(2, Int64(num_nodes_side))
         num_int_points = default_num_int_pts(element_type)
@@ -661,7 +703,7 @@ function get_square_projection_matrix(
             wₚ = w[point]
             side_matrix += Nₚ * Nₚ' * j * wₚ
         end
-        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        local_indices = get.(Ref(local_from_global_map), side_nodes, 0)
         square_projection_matrix[local_indices, local_indices] += side_matrix
         side_set_node_index += num_nodes_side
     end
@@ -669,28 +711,25 @@ function get_square_projection_matrix(
 end
 
 function get_rectangular_projection_matrix(
-    dst_mesh::ExodusDatabase,
-    dst_model::SolidMechanics,
-    dst_side_set_id::Integer,
-    src_mesh::ExodusDatabase,
     src_model::SolidMechanics,
     src_side_set_id::Integer,
+    dst_model::SolidMechanics,
+    dst_side_set_id::Integer,
 )
-    dst_global_to_local_map, dst_num_nodes_sides, dst_side_set_node_indices =
-        get_side_set_global_to_local_map(dst_mesh, dst_side_set_id)
-    dst_num_nodes = length(dst_global_to_local_map)
+    src_mesh = src_model.mesh
+    src_local_from_global_map, _, _ = get_side_set_local_from_global_map(src_mesh, src_side_set_id)
+    src_num_nodes = length(src_local_from_global_map)
+    dst_mesh = dst_model.mesh
+    dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
+        get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
+    dst_num_nodes = length(dst_local_from_global_map)
     dst_coords = dst_model.current
-    src_global_to_local_map, _, _ =
-        get_side_set_global_to_local_map(src_mesh, src_side_set_id)
-    src_num_nodes = length(src_global_to_local_map)
-    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
-    dst_local_indices = Array{Int64}(undef, 0)
-    src_local_indices = Array{Int64}(undef, 0)
     dst_side_set_node_index = 1
+    rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     for dst_num_nodes_side ∈ dst_num_nodes_sides
         dst_side_nodes =
             dst_side_set_node_indices[dst_side_set_node_index:dst_side_set_node_index+dst_num_nodes_side-1]
-        dst_local_indices = get.(Ref(dst_global_to_local_map), dst_side_nodes, 0)
+        dst_local_indices = get.(Ref(dst_local_from_global_map), dst_side_nodes, 0)
         dst_side_coordinates = dst_coords[:, dst_side_nodes]
         dst_element_type = get_element_type(2, Int64(dst_num_nodes_side))
         dst_num_int_points = default_num_int_pts(dst_element_type)
@@ -702,12 +741,11 @@ function get_rectangular_projection_matrix(
             dst_j = norm(cross(dst_dXdξ[1, :], dst_dXdξ[2, :]))
             dst_wₚ = dst_w[dst_point]
             dst_int_point_coord = dst_side_coordinates * dst_Nₚ
-            is_inside = false
             _, ξ, src_side_coordinates, src_side_nodes, _, _ =
-                find_and_project(dst_int_point_coord, src_mesh, src_side_set_id, src_model)
+                project_point_to_side_set(dst_int_point_coord, src_model, src_side_set_id)
             src_side_element_type = get_element_type(2, size(src_side_coordinates)[2])
             src_Nₚ, _, _ = interpolate(src_side_element_type, ξ)
-            src_local_indices = get.(Ref(src_global_to_local_map), src_side_nodes, 0)
+            src_local_indices = get.(Ref(src_local_from_global_map), src_side_nodes, 0)
             rectangular_projection_matrix[dst_local_indices, src_local_indices] +=
                 dst_Nₚ * src_Nₚ' * dst_j * dst_wₚ
         end
@@ -717,10 +755,10 @@ function get_rectangular_projection_matrix(
 end
 
 function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMechanics)
-    global_to_local_map, num_nodes_sides, side_set_node_indices =
-        get_side_set_global_to_local_map(mesh, side_set_id)
+    local_from_global_map, num_nodes_sides, side_set_node_indices =
+        get_side_set_local_from_global_map(mesh, side_set_id)
     coords = model.current
-    num_nodes = length(global_to_local_map)
+    num_nodes = length(local_from_global_map)
     space_dim, _ = size(coords)
     normals = zeros(space_dim, num_nodes)
     local_indices = Array{Int64}(undef, 0)
@@ -728,7 +766,7 @@ function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMe
     for num_nodes_side ∈ num_nodes_sides
         side_nodes =
             side_set_node_indices[side_set_node_index:side_set_node_index+num_nodes_side-1]
-        local_indices = get.(Ref(global_to_local_map), side_nodes, 0)
+        local_indices = get.(Ref(local_from_global_map), side_nodes, 0)
         coordinates = coords[:, side_nodes]
         point_A = coordinates[:, 1]
         point_B = coordinates[:, 2]
@@ -806,7 +844,7 @@ function closest_point_projection(
     hessian = zeros(parametric_dim, parametric_dim)
     y = x
     yx = zeros(space_dim)
-    tol = 1.0e-12
+    tol = 1.0e-10
     normal = zeros(space_dim)
     iteration = 1
     max_iterations = 64
@@ -821,8 +859,8 @@ function closest_point_projection(
         hessian = ddyddξyx + dydξ * dydξ'
         δ = -hessian \ residual
         ξ = ξ + δ
-        error = norm(δ)
-        if error <= tol
+        err = norm(δ)
+        if err <= tol
             break
         end
         iteration += 1

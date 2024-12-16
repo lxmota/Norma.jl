@@ -20,7 +20,7 @@ if __name__ == "__main__":
     displacement_snapshots[free_dofs[:,:]==False] = 0.
     
     #Get sideset snapshots
-    sidesets = ["nsx-","nsy-","nsz-","nsz+"]
+    sidesets = ["nsx-","nsy-","ssz-","nsz+"]
     sideset_snapshots = normaopinf.readers.load_sideset_displacement_csv_files(solution_directory=cur_dir,sidesets=sidesets,solution_id=solution_id,skip_files=1)
     
     

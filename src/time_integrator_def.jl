@@ -19,6 +19,7 @@ mutable struct QuasiStatic <: StaticTimeIntegrator
     velocity::Vector{Float64}
     acceleration::Vector{Float64}
     stored_energy::Float64
+    initial_equilibrium::Bool
 end
 
 mutable struct Newmark <: DynamicTimeIntegrator

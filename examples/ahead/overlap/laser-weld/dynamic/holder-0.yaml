@@ -1,5 +1,5 @@
 type: single
-input mesh file: ../../../single/laser-weld/LaserWeldSimplified_Specimen_Holder0.g
+input mesh file: ../../../single/laser-weld/holder-0.g
 output mesh file: holder-0.e
 model:
   type: solid mechanics
@@ -17,16 +17,20 @@ time integrator:
   γ: 0.5
 boundary conditions:
   Dirichlet:
-    - node set: surface_symmetry
+    - node set: nodeset_negative_y
       component: x
       function: "0.0"
-    - node set: surface_negative_y
+    - node set: nodeset_negative_y
       component: y
       function: "-0.1 * t"
-  Schwarz Dirichlet:
-    - node set: surface_positive_y
+    - node set: nodeset_negative_y
+      component: z
+      function: "0.0"
+  Schwarz overlap:
+    - side set: sideset_positive_y
       source: gauge.yaml
       source block: region_weld_0
+      source side set: sideset_negative_y
 solver:
   type: Hessian minimizer
   step: full Newton

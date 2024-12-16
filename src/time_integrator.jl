@@ -8,9 +8,9 @@ function adaptive_stepping_parameters(integrator_params::Dict{Any,Any})
     has_increase = haskey(integrator_params, "increase factor")
     has_any = has_minimum || has_decrease || has_maximum || has_increase
     has_all = has_minimum && has_decrease && has_maximum && has_increase
-    if (has_any == true && has_all == false)
+    if has_any == true && has_all == false
         error("Adaptive time stepping requires 4 parameters: minimum and maximum time steps and decrease and increase factors")
-    elseif (has_any == true && has_all == true)
+    elseif has_any == true && has_all == true
         minimum_time_step = integrator_params["minimum time step"]
         decrease_factor = integrator_params["decrease factor"]
         maximum_time_step = integrator_params["maximum time step"]
@@ -37,6 +37,10 @@ function QuasiStatic(params::Dict{Any,Any})
     velocity = zeros(num_dof)
     acceleration = zeros(num_dof)
     stored_energy = 0.0
+    initial_equilibrium = false
+    if haskey(integrator_params, "initial equilibrium") == true
+        initial_equilibrium = integrator_params["initial equilibrium"]
+    end
     QuasiStatic(
         initial_time,
         final_time,
@@ -52,6 +56,7 @@ function QuasiStatic(params::Dict{Any,Any})
         velocity,
         acceleration,
         stored_energy,
+        initial_equilibrium
     )
 end
 
@@ -67,10 +72,6 @@ function Newmark(params::Dict{Any,Any},model::Any)
     stop = 0
     β = integrator_params["β"]
     γ = integrator_params["γ"]
-    #input_mesh = params["input_mesh"]
-    #input_mesh = params["input_mesh"]
-    #num_nodes = Exodus.num_nodes(input_mesh.init)
-    #num_dof = 3 * num_nodes
     num_dof, = size(model.free_dofs)
     displacement = zeros(num_dof)
     velocity = zeros(num_dof)
@@ -213,7 +214,11 @@ end
 ###
 
 
-function initialize(_::QuasiStatic, _::Any, _::SolidMechanics)
+function initialize(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
+    if integrator.initial_equilibrium == true
+        println("Establishing initial equilibrium")
+        solve(integrator, solver, model)
+    end
 end
 
 function predict(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
@@ -399,7 +404,7 @@ function initialize_writing(
         stress_xz_index = ip_var_index + 5
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
-        ip_str = "_" * cfmt("%d", point)
+        ip_str = "_" * string(point)
         Exodus.write_name(
             output_mesh,
             ElementVariable,
@@ -503,7 +508,7 @@ function initialize_writing(
         stress_xz_index = ip_var_index + 5
         stress_xy_index = ip_var_index + 6
         ip_var_index += 6
-        ip_str = "_" * cfmt("%d", point)
+        ip_str = "_" * string(point)
         Exodus.write_name(
             output_mesh,
             ElementVariable,
@@ -588,8 +593,8 @@ end
 
 function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
-    index_string = "-" * string(stop, pad = 4)
-    sim_id_string = string(sim_id, pad = 2) * "-"
+    index_string = "-" * string(stop, pad=4)
+    sim_id_string = string(sim_id, pad=2) * "-"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
@@ -613,43 +618,28 @@ function write_sideset_step_csv(params::Dict{Any,Any},integrator::DynamicTimeInt
   bc_params = params["boundary conditions"]
 
   for bc ∈ model.boundary_conditions
-      node_set_name = bc.node_set_name 
-      curr_filename = sim_id_string * node_set_name * "curr" * index_string * ".csv"
-      disp_filename = sim_id_string * node_set_name * "disp" * index_string * ".csv"
-      velo_filename = sim_id_string * node_set_name * "velo" * index_string * ".csv"
-      acce_filename = sim_id_string * node_set_name * "acce" * index_string * ".csv"
       if (typeof(bc) == SMDirichletBC)
+        node_set_name = bc.node_set_name 
+        curr_filename = sim_id_string * node_set_name * "curr" * index_string * ".csv"
+        disp_filename = sim_id_string * node_set_name * "disp" * index_string * ".csv"
+        velo_filename = sim_id_string * node_set_name * "velo" * index_string * ".csv"
+        acce_filename = sim_id_string * node_set_name * "acce" * index_string * ".csv"
         writedlm(curr_filename, model.current[bc.offset,bc.node_set_node_indices])
         writedlm(velo_filename, model.velocity[bc.offset,bc.node_set_node_indices])
         writedlm(acce_filename, model.acceleration[bc.offset,bc.node_set_node_indices])
         writedlm(disp_filename, model.current[bc.offset,bc.node_set_node_indices] - model.reference[bc.offset,bc.node_set_node_indices])
-      elseif (typeof(bc) == SMSchwarzDBC)
-        writedlm_nodal_array(curr_filename, model.current[:,bc.node_set_node_indices])
-        writedlm_nodal_array(velo_filename, model.velocity[:,bc.node_set_node_indices])
-        writedlm_nodal_array(acce_filename, model.acceleration[:,bc.node_set_node_indices])
-        writedlm_nodal_array(disp_filename, model.current[:,bc.node_set_node_indices] - model.reference[:,bc.node_set_node_indices])
+      elseif (typeof(bc) == SMOverlapSchwarzBC)
+        side_set_name = bc.side_set_name 
+        curr_filename = sim_id_string * side_set_name * "curr" * index_string * ".csv"
+        disp_filename = sim_id_string * side_set_name * "disp" * index_string * ".csv"
+        velo_filename = sim_id_string * side_set_name * "velo" * index_string * ".csv"
+        acce_filename = sim_id_string * side_set_name * "acce" * index_string * ".csv"
+        writedlm_nodal_array(curr_filename, model.current[:,bc.side_set_node_indices])
+        writedlm_nodal_array(velo_filename, model.velocity[:,bc.side_set_node_indices])
+        writedlm_nodal_array(acce_filename, model.acceleration[:,bc.side_set_node_indices])
+        writedlm_nodal_array(disp_filename, model.current[:,bc.side_set_node_indices] - model.reference[:,bc.side_set_node_indices])
       end
   end
-
-
-
-  #=
-  for (bc_type, bc_type_params) ∈ bc_params
-    for bc_setting_params ∈ bc_type_params
-      node_set_name = bc_setting_params["node set"]
-      node_set_id = node_set_id_from_name(node_set_name, input_mesh)
-      side_set_node_indices = Exodus.read_node_set_nodes(input_mesh, node_set_id)
-      curr_filename = sim_id_string * node_set_name * "curr" * index_string * ".csv"
-      disp_filename = sim_id_string * node_set_name * "disp" * index_string * ".csv"
-      velo_filename = sim_id_string * node_set_name * "velo" * index_string * ".csv"
-      acce_filename = sim_id_string * node_set_name * "acce" * index_string * ".csv"
-      writedlm(curr_filename, model.current[bc.offset,bc.node_set_node_indices])
-      writedlm(velo_filename, model.velocity[bc.offset,side_set_node_indices])
-      writedlm(acce_filename, model.acceleration[bc.offset,side_set_node_indices])
-      writedlm(disp_filename, model.current[bc.offset,side_set_node_indices] - model.reference[bc.offset,side_set_node_indices])
-    end
-  end
-  =#
 end
 
 
@@ -657,6 +647,8 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
     stop = integrator.stop
     index_string = "-" * string(stop, pad = 4)
     sim_id_string = string(sim_id, pad = 2) * "-"
+    index_string = "-" * string(stop, pad=4)
+    sim_id_string = string(sim_id, pad=2) * "-"
     free_dofs_filename = sim_id_string * "free_dofs" * index_string * ".csv"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
     disp_filename = sim_id_string * "disp" * index_string * ".csv"
@@ -673,10 +665,10 @@ function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics
     writedlm(potential_filename, integrator.stored_energy, '\n')
     writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
     writedlm(time_filename, integrator.time, '\n')
-    if stop == 0 
+    if stop == 0
         refe_filename = sim_id_string * "refe" * ".csv"
         writedlm_nodal_array(refe_filename, model.reference)
-    end 
+    end
 end
 
 
@@ -785,7 +777,7 @@ function write_step_exodus(
             end
         end
         for point ∈ 1:num_points
-            ip_str = "_" * cfmt("%d", point)
+            ip_str = "_" * string(point)
             Exodus.write_values(
                 output_mesh,
                 ElementVariable,
@@ -909,7 +901,7 @@ function write_step_exodus(
             end
         end
         for point ∈ 1:num_points
-            ip_str = "_" * cfmt("%d", point)
+            ip_str = "_" * string(point)
             Exodus.write_values(
                 output_mesh,
                 ElementVariable,
