@@ -524,7 +524,9 @@ function evaluate(integrator::TimeIntegrator, model::SolidMechanics)
         model.global_transform = sparse(T_local)
     end
 
-    stiffness_matrix = sparse(rows, cols, stiffness)
+    if typeof(integrator) == QuasiStatic || typeof(integrator) == Newmark
+        stiffness_matrix = sparse(rows, cols, stiffness)
+    end
     if typeof(integrator) == Newmark
         mass_matrix = sparse(rows, cols, mass)
     end
