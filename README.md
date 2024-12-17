@@ -13,7 +13,8 @@
 3. [Running the Code](#running-the-code)
 4. [Testing](#testing)
 5. [Examples](#examples)
-6. [Troubleshooting](#troubleshooting)
+6. [Profiling](#profiling)
+7. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -55,7 +56,7 @@ julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
 
 To run `Norma` interactively from a Julia session:
 ```bash
-cd /some_path/Norma
+cd /some_path/Norma.jl
 julia
 using Pkg
 Pkg.activate(".")
@@ -86,6 +87,76 @@ julia --project=@. ./runtests.jl
 
 ---
 
+## **Examples**
+
+To run the `examples/ahead/overlap/cuboid/dynamic` example:
+```bash
+cd /some_path/Norma.jl/examples/ahead/overlap/cuboid/dynamic
+julia
+]
+activate .
+using Norma
+Norma.run("cuboid.yaml")
+```
+
+---
+
+## **Profiling**
+
+To identify performance bottlenecks in `Norma.jl`, you can use Julia's built-in `Profile` module and visualization tools. The following steps demonstrate how to profile the `Norma.run("input.yaml")` function:
+
+### Step 1: Enable Profiling
+Run the simulation with the `@profile` macro:
+```julia
+using Profile
+
+include("/some_path/Norma.jl/src/Norma.jl")
+cd("/some_path/Norma.jl/examples/ahead/overlap/cuboid/dynamic")
+@profile Norma.run("cuboid.yaml")
+```
+
+### Step 2: View the Profiling Results
+Print a summary of the profiling data:
+```julia
+Profile.print()
+```
+This will display the most frequently hit lines of code during execution.
+
+### Step 3: Visualize with `ProfileView`
+To generate a graphical flame graph of the profiling results, install and use `ProfileView`:
+
+```julia
+using Pkg
+Pkg.add("ProfileView")
+using ProfileView
+
+ProfileView.view()  # Open the visualization
+```
+
+This will display a flame graph where the horizontal axis represents function calls and their cumulative time, allowing you to pinpoint performance bottlenecks.
+
+### Step 4: Optional: Export Results as HTML
+For more interactive analysis, use `StatProfilerHTML`:
+
+1. Install the package:
+   ```julia
+   Pkg.add("StatProfilerHTML")
+   ```
+2. Generate and open an HTML report:
+   ```julia
+   using StatProfilerHTML
+   StatProfilerHTML.open()
+   ```
+
+### Example Command-Line Workflow
+From the command line, you can combine profiling with Julia's REPL:
+```bash
+julia --project=@. -e 'using Profile; using Norma; cd("examples/ahead/overlap/cuboid/dynamic"); @profile Norma.run("cuboid.yaml")' -E 'using ProfileView; ProfileView.view()'
+```
+This will profile the code and open the flame graph for analysis.
+
+---
+
 ## **Troubleshooting**
 
 ### SSL Certificate Issues
@@ -100,18 +171,3 @@ If you encounter SSL certificate errors during setup, follow these steps:
    export JULIA_SSL_CA_ROOTS_PATH=/etc/ssl/certs/ca-bundle.crt
    ```
 3. Retry the installation workflow.
-
----
-
-## **Examples**
-
-To run the `examples/ahead/overlap/cuboid/dynamic` example:
-```bash
-cd /some_path/Norma/examples/ahead/overlap/cuboid/dynamic
-julia
-]
-activate .
-using Norma
-Norma.run("cuboid.yaml")
-```
-
