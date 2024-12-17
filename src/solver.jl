@@ -243,6 +243,13 @@ function copy_solution_source_targets(
     velocity = integrator.velocity
     acceleration = integrator.acceleration
     solver.solution = displacement
+
+    if model.inclined_support == true
+        displacement = model.global_transform' * displacement
+        velocity = model.global_transform' * velocity
+        acceleration = model.global_transform' * integrator.acceleration
+    end
+
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
@@ -263,6 +270,13 @@ function copy_solution_source_targets(
     integrator.displacement = displacement
     velocity = integrator.velocity
     acceleration = integrator.acceleration
+
+    if model.inclined_support == true
+        displacement = model.global_transform' * displacement
+        velocity = model.global_transform' * velocity
+        acceleration = model.global_transform' * acceleration
+    end
+
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
@@ -284,6 +298,14 @@ function copy_solution_source_targets(
         nodal_displacement = model.current[:, node] - model.reference[:, node]
         nodal_velocity = model.velocity[:, node]
         nodal_acceleration = model.acceleration[:, node]
+        
+        if model.inclined_support == true
+            base = 3*(node-1) # Block index in global stiffness
+            local_transform = model.global_transform[base+1:base+3, base+1:base+3]
+            nodal_displacement = local_transform * nodal_displacement
+            nodal_velocity  = local_transform * nodal_velocity
+            nodal_acceleration = local_transform * nodal_acceleration
+        end
         integrator.displacement[3*node-2:3*node] = nodal_displacement
         integrator.velocity[3*node-2:3*node] = nodal_velocity
         integrator.acceleration[3*node-2:3*node] = nodal_acceleration
@@ -390,6 +412,11 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
     integrator.kinetic_energy = kinetic_energy
     external_force = body_force + model.boundary_force
+    if model.inclined_support == true
+        stiffness_matrix = model.global_transform * stiffness_matrix * model.global_transform'
+        external_force = model.global_transform * external_force
+        internal_force = model.global_transform * internal_force
+    end
     solver.hessian = stiffness_matrix + mass_matrix / β / Δt / Δt
     solver.value = stored_energy - external_force ⋅ integrator.displacement + kinetic_energy
     solver.gradient = internal_force - external_force + inertial_force
