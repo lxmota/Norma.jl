@@ -56,7 +56,7 @@ julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
 
 To run `Norma` interactively from a Julia session:
 ```bash
-cd /some_path/Norma
+cd /some_path/Norma.jl
 julia
 using Pkg
 Pkg.activate(".")
@@ -91,7 +91,7 @@ julia --project=@. ./runtests.jl
 
 To run the `examples/ahead/overlap/cuboid/dynamic` example:
 ```bash
-cd /some_path/Norma/examples/ahead/overlap/cuboid/dynamic
+cd /some_path/Norma.jl/examples/ahead/overlap/cuboid/dynamic
 julia
 ]
 activate .
@@ -108,9 +108,10 @@ To identify performance bottlenecks in `Norma.jl`, you can use Julia's built-in 
 ### Step 1: Enable Profiling
 Run the simulation with the `@profile` macro:
 ```julia
-using Profile, Norma
+using Profile
 
-cd("/some_path/Norma/examples/ahead/overlap/cuboid/dynamic")
+include("/some_path/Norma.jl/src/Norma.jl")
+cd("/some_path/Norma.jl/examples/ahead/overlap/cuboid/dynamic")
 @profile Norma.run("cuboid.yaml")
 ```
 
