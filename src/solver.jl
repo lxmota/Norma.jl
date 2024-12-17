@@ -185,7 +185,11 @@ function copy_solution_source_targets(
     displacement_local = integrator.displacement
     solver.solution = displacement_local
     # BRP: apply inclined support inverse transform
-    displacement = model.global_transform' * displacement_local
+    if model.inclined_support == true
+        displacement = model.global_transform' * displacement_local
+    else
+        displacement = displacement_local
+    end
 
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
@@ -201,7 +205,11 @@ function copy_solution_source_targets(
 )
     displacement_local = solver.solution
     integrator.displacement = displacement_local
-    displacement = model.global_transform' * displacement_local
+    if model.inclined_support == true
+        displacement = model.global_transform' * displacement_local
+    else
+        displacement = displacement_local
+    end
     _, num_nodes = size(model.reference)
     for node ∈ 1:num_nodes
         nodal_displacement = displacement[3*node-2:3*node]
@@ -220,7 +228,9 @@ function copy_solution_source_targets(
         integrator.displacement[3*node-2:3*node] = nodal_displacement
     end
     # Convert integrator displacement from global to local
-    integrator.displacement = model.global_transform * integrator.displacement
+    if model.inclined_support == true
+        integrator.displacement = model.global_transform * integrator.displacement
+    end
     solver.solution = integrator.displacement
 end
 
@@ -347,8 +357,13 @@ function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::Soli
     integrator.stored_energy = stored_energy
     solver.value = stored_energy
     external_force = body_force + model.boundary_force
-    solver.gradient = model.global_transform * (internal_force - external_force)
-    solver.hessian = model.global_transform * stiffness_matrix * model.global_transform'
+    if model.inclined_support == true
+        solver.gradient = model.global_transform * (internal_force - external_force)
+        solver.hessian = model.global_transform * stiffness_matrix * model.global_transform'
+    else
+        solver.gradient = internal_force - external_force
+        solver.hessian = stiffness_matrix
+    end 
 end
 
 function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::SolidMechanics)
@@ -583,5 +598,7 @@ function solve(integrator::TimeIntegrator, solver::Solver, model::Model)
             break
         end
     end
-    solver.gradient = model.global_transform' * solver.gradient
+    if model.inclined_support == true
+        solver.gradient = model.global_transform' * solver.gradient
+    end
 end

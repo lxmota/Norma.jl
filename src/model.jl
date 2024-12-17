@@ -78,8 +78,8 @@ function SolidMechanics(params::Dict{Any,Any})
     end
 
     # BRP: define a global transform for inclined support
-    global_transform_t = Diagonal(ones(3 * num_nodes))
-    global_transform = sparse(global_transform_t)
+    inclined_support = false
+    global_transform = sparse(Diagonal(ones(3 * num_nodes)))
 
     SolidMechanics(
         input_mesh,
@@ -98,6 +98,7 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
+        inclined_support,
         global_transform
     )
 end
@@ -399,7 +400,7 @@ function evaluate(integrator::TimeIntegrator, model::SolidMechanics)
         lumped_mass = zeros(num_dof)
     end
 
-    if typeof(integrator) == QuasiStatic
+    if model.inclined_support == true
         # Data for inclined DBCs
         inclined_support_node_indices = Vector{Int64}()
         inclined_support_bc_indices = Vector{Int64}()
@@ -513,7 +514,7 @@ function evaluate(integrator::TimeIntegrator, model::SolidMechanics)
         end
     end
 
-    if typeof(integrator) == QuasiStatic
+    if model.inclined_support == true
         # For inclined DBCs
         T_local = Matrix(Diagonal(ones(num_dof)))
         for (corresponding_bc_idx, inc_support_node_idx) in zip(inclined_support_bc_indices, inclined_support_node_indices)

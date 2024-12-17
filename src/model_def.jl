@@ -18,6 +18,7 @@ mutable struct SolidMechanics <: Model
     failed::Bool
     mesh_smoothing::Bool
     smooth_reference::String
+    inclined_support::Bool
     global_transform::SparseArrays.Matrix{Float64}
 end
 
