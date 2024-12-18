@@ -479,7 +479,6 @@ function get_side_set_nodal_forces(
     return nodal_force_component
 end
 
-
 # Given 3 points p1, p2, p3 that define a plane
 # determine if point p is in the same side of the normal
 # to the plane as defined by the right hand rule.

@@ -373,6 +373,21 @@ function check_compression(
     return compression
 end
 
+function compute_transfer_operators(sim::MultiDomainSimulation)
+    is_contact = sim.schwarz_controller.schwarz_contact
+    for subsim ∈ sim.subsims
+        bcs = subsim.model.boundary_conditions
+        for bc ∈ bcs
+            if typeof(bc) ≠ SMContactSchwarzBC && typeof(bc) ≠ SMCouplingSchwarzBC
+                continue
+            end
+            if is_contact == true || subsim.model.kinematics == Infinitesimal
+                compute_transfer_operator(subsim.model, bc)
+            end
+        end
+    end
+end
+
 function detect_contact(sim::MultiDomainSimulation)
     if sim.schwarz_controller.schwarz_contact == false
         return
@@ -386,7 +401,6 @@ function detect_contact(sim::MultiDomainSimulation)
         bcs = subsim.model.boundary_conditions
         for bc ∈ bcs
             if typeof(bc) == SMContactSchwarzBC
-                compute_transfer_operator(subsim.model, bc)
                 if persistence == true
                     compression = check_compression(mesh, subsim.model, bc)
                     contact_domain[domain] = compression == true
