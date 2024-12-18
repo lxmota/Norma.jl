@@ -14,7 +14,8 @@
 4. [Testing](#testing)
 5. [Examples](#examples)
 6. [Profiling](#profiling)
-7. [Troubleshooting](#troubleshooting)
+7. [Debugging](#debugging)
+8. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -154,6 +155,44 @@ From the command line, you can combine profiling with Julia's REPL:
 julia --project=@. -e 'using Profile; using Norma; cd("examples/ahead/overlap/cuboid/dynamic"); @profile Norma.run("cuboid.yaml")' -E 'using ProfileView; ProfileView.view()'
 ```
 This will profile the code and open the flame graph for analysis.
+
+---
+
+## **Debugging**
+
+To enable debug-level logging and printing statements in `Norma.jl`, you can use the `JULIA_DEBUG` environment variable. This allows fine-grained control over debug messages using Julia's built-in logging framework.
+
+### Step 1: Enable Debug Printing
+To enable debug messages for the `Norma` module, prepend `JULIA_DEBUG=Norma` to the Julia command:
+```bash
+JULIA_DEBUG=Norma julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
+```
+This will display all debug-level messages from the `Norma` module.
+
+### Step 2: Adding Debug Statements
+To add debug-level messages in the code, use the `@debug` macro:
+```julia
+@debug "Starting simulation with input file: input.yaml"
+```
+The `@debug` macro allows you to print messages only when debug-level logging is enabled, keeping the output clean in production runs.
+
+### Step 3: Verifying Debug Outputs
+After enabling debug printing, you will see detailed debug messages like this:
+```
+┌ Debug: Starting simulation with input file: input.yaml
+└ @ Norma src/Norma.jl:42
+```
+These messages include the file, module, and line number where the debug statement was triggered.
+
+### Step 4: Disabling Debug Printing
+To disable debug messages, simply remove or unset the `JULIA_DEBUG` variable:
+```bash
+unset JULIA_DEBUG
+```
+Alternatively, set it to a higher logging level (e.g., `INFO`):
+```bash
+JULIA_DEBUG= julia --project=@. /some_path/Norma.jl/src/Norma.jl input.yaml
+```
 
 ---
 
