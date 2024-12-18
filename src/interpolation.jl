@@ -685,7 +685,11 @@ function get_square_projection_matrix(
     local_from_global_map, num_nodes_sides, side_set_node_indices =
         get_side_set_local_from_global_map(mesh, side_set_id)
     num_nodes = length(local_from_global_map)
-    coords = model.current
+    if model.kinematics == Finite
+        coords = model.reference
+    else
+        coords = model.current
+    end
     square_projection_matrix = zeros(num_nodes, num_nodes)
     side_set_node_index = 1
     for num_nodes_side ∈ num_nodes_sides
@@ -723,7 +727,11 @@ function get_rectangular_projection_matrix(
     dst_local_from_global_map, dst_num_nodes_sides, dst_side_set_node_indices =
         get_side_set_local_from_global_map(dst_mesh, dst_side_set_id)
     dst_num_nodes = length(dst_local_from_global_map)
-    dst_coords = dst_model.current
+    if dst_model.kinematics == Finite
+        dst_coords = dst_model.reference
+    else
+        dst_coords = dst_model.current
+    end
     dst_side_set_node_index = 1
     rectangular_projection_matrix = zeros(dst_num_nodes, src_num_nodes)
     for dst_num_nodes_side ∈ dst_num_nodes_sides
@@ -757,7 +765,11 @@ end
 function compute_normal(mesh::ExodusDatabase, side_set_id::Int64, model::SolidMechanics)
     local_from_global_map, num_nodes_sides, side_set_node_indices =
         get_side_set_local_from_global_map(mesh, side_set_id)
-    coords = model.current
+    if model.kinematics == Finite
+        coords = model.reference
+    else
+        coords = model.current
+    end
     num_nodes = length(local_from_global_map)
     space_dim, _ = size(coords)
     normals = zeros(space_dim, num_nodes)
