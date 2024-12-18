@@ -83,9 +83,8 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subparams["CSV output interval"] = csv_interval
         subsim = SingleDomainSimulation(subparams)
         params[domain_name] = subsim.params
-        integrator_name = subsim.params["time integrator"]["type"]
         subsim_type =
-            is_static_or_dynamic(integrator_name) * " " * subparams["model"]["type"]
+            is_static_or_dynamic(subsim.integrator) * " " * subparams["model"]["type"]
         if sim_type == "none"
             sim_type = subsim_type
         elseif subsim_type ≠ sim_type

@@ -617,6 +617,21 @@ function create_material(params::Dict{Any,Any})
     end
 end
 
+function get_kinematics(material::Solid)
+    if typeof(material) == Linear_Elastic
+        return Infinitesimal
+    elseif typeof(material) == SaintVenant_Kirchhoff
+        return Finite
+    elseif typeof(material) == Neohookean
+        return Finite
+    elseif typeof(material) == NeohookeanAD
+        return Finite
+    elseif typeof(material) == SethHill
+        return Finite
+    end
+    error("Unknown material model : ", typeof(material))
+end
+
 function get_p_wave_modulus(material::Solid)
     return material.λ + 2.0 * material.μ
 end

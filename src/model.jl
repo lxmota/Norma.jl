@@ -37,10 +37,19 @@ function SolidMechanics(params::Dict{Any,Any})
     end
     elem_blk_names = Exodus.read_names(input_mesh, Block)
     materials = Vector{Solid}(undef, 0)
+    kinematics = Undefined
     for elem_blk_name ∈ elem_blk_names
         material_name = material_blocks[elem_blk_name]
         material_props = material_params[material_name]
         material_model = create_material(material_props)
+        if kinematics == Undefined
+            kinematics = get_kinematics(material_model)
+        else
+            if kinematics ≠ get_kinematics(material_model)
+                error("Material ", typeof(material_model), " has inconsistent kinematics ",
+                get_kinematics(material_model), " than previous materials of type ", kinematics)
+            end
+        end
         push!(materials, material_model)
     end
     time = 0.0
@@ -77,7 +86,7 @@ function SolidMechanics(params::Dict{Any,Any})
         smooth_reference = ""
     end
 
-    # BRP: define a global transform for inclined support
+    # Define a global transform for inclined support
     global_transform_t = Diagonal(ones(3 * num_nodes))
     global_transform = sparse(global_transform_t)
 
@@ -98,7 +107,8 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
-        global_transform
+        global_transform,
+        kinematics
     )
 end
 

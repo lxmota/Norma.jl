@@ -174,6 +174,19 @@ function is_static_or_dynamic(integrator_name::String)
     end
 end
 
+function is_static_or_dynamic(integrator::TimeIntegrator)
+    integrator_type = typeof(integrator)
+    if integrator_type == QuasiStatic
+        return "static"
+    elseif integrator_type == Newmark
+        return "dynamic"
+    elseif integrator_type == CentralDifference
+        return "dynamic"
+    else
+        error("Unknown type of time integrator : ", integrator_type)
+    end
+end
+
 function initialize(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
     if integrator.initial_equilibrium == true
         println("Establishing initial equilibrium")
