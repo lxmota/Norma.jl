@@ -84,8 +84,7 @@ function SMContactSchwarzBC(
     coupled_local_from_global_map =
         get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     is_dirichlet = true
-    transfer_operator =
-        zeros(length(local_from_global_map), length(coupled_local_from_global_map))
+    transfer_operator = Matrix{Float64}(undef, 0, 0)
     SMContactSchwarzBC(
         side_set_name,
         side_set_id,
