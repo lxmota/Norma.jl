@@ -32,8 +32,7 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
     velo_num = expand_derivatives(D(disp_num))
     acce_num = expand_derivatives(D(velo_num))
     # For inclined support, the function is applied along the x direction
-    offset = component_offset_from_string("x")
-    rotation_matrix = Diagonal(ones(3))
+    rotation_matrix = I(3)
     reference_normal = bc_params["normal vector"]
     SMDirichletInclined(
         node_set_name,
