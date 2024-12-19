@@ -71,7 +71,6 @@ function Newmark(params::Dict{Any,Any})
     β = integrator_params["β"]
     γ = integrator_params["γ"]
     input_mesh = params["input_mesh"]
-    input_mesh = params["input_mesh"]
     num_nodes = Exodus.num_nodes(input_mesh.init)
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
@@ -116,7 +115,6 @@ function CentralDifference(params::Dict{Any,Any})
     stop = 0
     CFL = integrator_params["CFL"]
     γ = integrator_params["γ"]
-    input_mesh = params["input_mesh"]
     input_mesh = params["input_mesh"]
     num_nodes = Exodus.num_nodes(input_mesh.init)
     num_dof = 3 * num_nodes
