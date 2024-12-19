@@ -108,11 +108,7 @@ function SMNonOverlapSchwarzBC(side_set_id::Int64,
     subsim::Simulation,
     coupled_side_set_id::Int64,
     is_dirichlet::Bool)
-    square_projection_matrix =
-        get_square_projection_matrix(coupled_subsim.model, coupled_side_set_id)
-    rectangular_projection_matrix =
-        get_rectangular_projection_matrix(coupled_subsim.model, coupled_side_set_id, subsim.model, side_set_id)
-    transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
+    transfer_operator = Matrix{Float64}(undef, 0, 0)
     return SMNonOverlapSchwarzBC(side_set_id,
         side_set_node_indices,
         coupled_nodes_indices,
@@ -511,7 +507,8 @@ function local_traction_from_global_force(
     return local_traction
 end
 
-function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
+function update_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
+    @debug "**** Computing transfer operator, kinematics : $(dst_model.kinematics)"
     src_side_set_id = bc.coupled_side_set_id
     src_model = bc.coupled_subsim.model
     dst_side_set_id = bc.side_set_id

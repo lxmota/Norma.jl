@@ -373,16 +373,29 @@ function check_compression(
     return compression
 end
 
-function compute_transfer_operators(sim::MultiDomainSimulation)
+function initialize_transfer_operators(sim::MultiDomainSimulation)
     is_contact = sim.schwarz_controller.schwarz_contact
     for subsim ∈ sim.subsims
         bcs = subsim.model.boundary_conditions
         for bc ∈ bcs
-            if typeof(bc) ≠ SMContactSchwarzBC && typeof(bc) ≠ SMCouplingSchwarzBC
+            if typeof(bc) ≠ SMContactSchwarzBC && typeof(bc) ≠ SMNonOverlapSchwarzBC
+                continue
+            end
+            update_transfer_operator(subsim.model, bc)
+        end
+    end
+end
+
+function update_transfer_operators(sim::MultiDomainSimulation)
+    is_contact = sim.schwarz_controller.schwarz_contact
+    for subsim ∈ sim.subsims
+        bcs = subsim.model.boundary_conditions
+        for bc ∈ bcs
+            if typeof(bc) ≠ SMContactSchwarzBC && typeof(bc) ≠ SMNonOverlapSchwarzBC
                 continue
             end
             if is_contact == true || subsim.model.kinematics == Infinitesimal
-                compute_transfer_operator(subsim.model, bc)
+                update_transfer_operator(subsim.model, bc)
             end
         end
     end

@@ -57,7 +57,7 @@ function solve_contact(sim::MultiDomainSimulation)
 end
 
 function advance(sim::MultiDomainSimulation)
-    compute_transfer_operators(sim)
+    update_transfer_operators(sim)
     if sim.schwarz_controller.schwarz_contact == false
         schwarz(sim)
         return
@@ -105,11 +105,11 @@ function initialize(sim::SingleDomainSimulation)
 end
 
 function initialize(sim::MultiDomainSimulation)
+    initialize_transfer_operators(sim)
     for subsim ∈ sim.subsims
         apply_bcs(subsim)
         initialize(subsim)
     end
-    compute_transfer_operators(sim)
     detect_contact(sim)
 end
 
