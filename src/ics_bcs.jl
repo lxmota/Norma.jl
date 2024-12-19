@@ -220,12 +220,12 @@ end
 function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
     # The local basis is determined from a normal vector
     axis = bc.reference_normal
-    axis = axis/norm(axis)
+    axis = axis / norm(axis)
     e1 = [1.0, 0.0, 0.0]
-    w = cross(axis,e1)
+    w = cross(axis, e1)
     s = norm(w)
     θ = asin(s)
-    m = w/s
+    m = w / s
     rv = θ * m
     # Rotation is converted via the psuedo vector to rotation matrix
     bc.rotation_matrix = MiniTensor.rt_from_rv(rv)
@@ -247,9 +247,9 @@ function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
 
         # Rotate the local displacements to the global frame
 
-        disp_vector_local = [ disp_val_loc, 0, 0 ] 
-        velo_vector_local= [ velo_val_loc, 0, 0 ]
-        accel_vector_local= [ acce_val_loc, 0, 0 ]
+        disp_vector_local = [disp_val_loc, 0, 0]
+        velo_vector_local = [velo_val_loc, 0, 0]
+        accel_vector_local = [acce_val_loc, 0, 0]
         disp_vector_glob = bc.rotation_matrix' * disp_vector_local
         velo_vector_glob = bc.rotation_matrix' * velo_vector_local
         accel_vector_glob = bc.rotation_matrix' * accel_vector_local

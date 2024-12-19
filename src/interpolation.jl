@@ -625,8 +625,8 @@ function closest_face_to_point(point::Vector{Float64}, model::SolidMechanics, si
             closest_face_node_indices = face_node_indices
         end
         ss_node_index += num_nodes_side
-   end
-   return closest_face_nodes, closest_face_node_indices, minimum_nodal_distance
+    end
+    return closest_face_nodes, closest_face_node_indices, minimum_nodal_distance
 end
 
 # Find the minimum distance of a point to the nodes of each face on the side set
@@ -643,7 +643,7 @@ end
 
 function get_distance_to_centroid(nodes::Matrix{Float64}, point::Vector{Float64})
     num_nodes = size(nodes, 2)
-    centroid = sum(nodes, dims = 2) / num_nodes
+    centroid = sum(nodes, dims=2) / num_nodes
     distance = norm(centroid - point)
     return distance
 end
