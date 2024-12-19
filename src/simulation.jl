@@ -30,7 +30,14 @@ end
 
 function create_bcs(sim::SingleDomainSimulation)
     boundary_conditions = create_bcs(sim.params)
+    for bc in boundary_conditions
+        if isa(bc, SMDirichletInclined)
+            sim.model.inclined_support = true
+            break
+        end
+    end
     sim.model.boundary_conditions = boundary_conditions
+    
 end
 
 function create_bcs(sim::MultiDomainSimulation)
