@@ -107,13 +107,9 @@ function SolidMechanics(params::Dict{Any,Any})
         failed,
         mesh_smoothing,
         smooth_reference,
-<<<<<<< HEAD
         inclined_support,
-        global_transform
-=======
         global_transform,
         kinematics
->>>>>>> main
     )
 end
 
