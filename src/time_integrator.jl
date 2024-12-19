@@ -71,7 +71,6 @@ function Newmark(params::Dict{Any,Any})
     β = integrator_params["β"]
     γ = integrator_params["γ"]
     input_mesh = params["input_mesh"]
-    input_mesh = params["input_mesh"]
     num_nodes = Exodus.num_nodes(input_mesh.init)
     num_dof = 3 * num_nodes
     displacement = zeros(num_dof)
@@ -116,7 +115,6 @@ function CentralDifference(params::Dict{Any,Any})
     stop = 0
     CFL = integrator_params["CFL"]
     γ = integrator_params["γ"]
-    input_mesh = params["input_mesh"]
     input_mesh = params["input_mesh"]
     num_nodes = Exodus.num_nodes(input_mesh.init)
     num_dof = 3 * num_nodes
@@ -171,6 +169,19 @@ function is_static_or_dynamic(integrator_name::String)
         return "dynamic"
     else
         error("Unknown type of time integrator : ", integrator_name)
+    end
+end
+
+function is_static_or_dynamic(integrator::TimeIntegrator)
+    integrator_type = typeof(integrator)
+    if integrator_type == QuasiStatic
+        return "static"
+    elseif integrator_type == Newmark
+        return "dynamic"
+    elseif integrator_type == CentralDifference
+        return "dynamic"
+    else
+        error("Unknown type of time integrator : ", integrator_type)
     end
 end
 

@@ -47,7 +47,6 @@ mutable struct SMContactSchwarzBC <: ContactSchwarzBoundaryCondition
     side_set_node_indices::Vector{Int64}
     coupled_subsim::Simulation
     coupled_bc_index::Int64
-    coupled_mesh::ExodusDatabase
     coupled_block_id::Int64
     coupled_side_set_id::Int64
     is_dirichlet::Bool
@@ -71,7 +70,7 @@ mutable struct SMNonOverlapSchwarzBC <: NonOverlapSchwarzBoundaryCondition
     coupled_subsim::Simulation
     subsim::Simulation
     coupled_side_set_id::Int64
-    transfer_operator::Matrix{Float64}
     is_dirichlet::Bool
+    transfer_operator::Matrix{Float64}
 end
 

@@ -1,6 +1,12 @@
 abstract type Model end
 using SparseArrays
 
+@enum Kinematics begin
+    Undefined
+    Infinitesimal
+    Finite
+end
+
 mutable struct SolidMechanics <: Model
     mesh::ExodusDatabase
     materials::Vector{Solid}
@@ -20,6 +26,7 @@ mutable struct SolidMechanics <: Model
     smooth_reference::String
     inclined_support::Bool
     global_transform::SparseArrays.Matrix{Float64}
+    kinematics::Kinematics
 end
 
 # TODO: Add potential energy as in the above

@@ -32,8 +32,7 @@ function SMDirichletInclined(input_mesh::ExodusDatabase, bc_params::Dict{Any,Any
     velo_num = expand_derivatives(D(disp_num))
     acce_num = expand_derivatives(D(velo_num))
     # For inclined support, the function is applied along the x direction
-    offset = component_offset_from_string("x")
-    rotation_matrix = Diagonal(ones(3))
+    rotation_matrix = I(3)
     reference_normal = bc_params["normal vector"]
     SMDirichletInclined(
         node_set_name,
@@ -73,19 +72,15 @@ function SMContactSchwarzBC(
 )
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    local_from_global_map, num_nodes_per_side, side_set_node_indices =
-        get_side_set_local_from_global_map(input_mesh, side_set_id)
+    _, num_nodes_per_side, side_set_node_indices = get_side_set_local_from_global_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
     coupled_bc_index = 0
-    coupled_mesh = coupled_subsim.params["input_mesh"]
+    coupled_mesh = coupled_subsim.model.mesh
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_local_from_global_map =
-        get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     is_dirichlet = true
-    transfer_operator =
-        zeros(length(local_from_global_map), length(coupled_local_from_global_map))
+    transfer_operator = Matrix{Float64}(undef, 0, 0)
     SMContactSchwarzBC(
         side_set_name,
         side_set_id,
@@ -93,7 +88,6 @@ function SMContactSchwarzBC(
         side_set_node_indices,
         coupled_subsim,
         coupled_bc_index,
-        coupled_mesh,
         coupled_block_id,
         coupled_side_set_id,
         is_dirichlet,
@@ -109,11 +103,7 @@ function SMNonOverlapSchwarzBC(side_set_id::Int64,
     subsim::Simulation,
     coupled_side_set_id::Int64,
     is_dirichlet::Bool)
-    square_projection_matrix =
-        get_square_projection_matrix(coupled_subsim.model, coupled_side_set_id)
-    rectangular_projection_matrix =
-        get_rectangular_projection_matrix(coupled_subsim.model, coupled_side_set_id, subsim.model, side_set_id)
-    transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
+    transfer_operator = Matrix{Float64}(undef, 0, 0)
     return SMNonOverlapSchwarzBC(side_set_id,
         side_set_node_indices,
         coupled_nodes_indices,
@@ -121,8 +111,8 @@ function SMNonOverlapSchwarzBC(side_set_id::Int64,
         coupled_subsim,
         subsim,
         coupled_side_set_id,
-        transfer_operator,
-        is_dirichlet)
+        is_dirichlet,
+        transfer_operator)
 end
 
 function SMCouplingSchwarzBC(
@@ -134,16 +124,13 @@ function SMCouplingSchwarzBC(
 )
     side_set_name = bc_params["side set"]
     side_set_id = side_set_id_from_name(side_set_name, input_mesh)
-    local_from_global_map, _, side_set_node_indices =
-        get_side_set_local_from_global_map(input_mesh, side_set_id)
+    _, _, side_set_node_indices = get_side_set_local_from_global_map(input_mesh, side_set_id)
     coupled_block_name = bc_params["source block"]
-    coupled_mesh = coupled_subsim.params["input_mesh"]
+    coupled_mesh = coupled_subsim.model.mesh
     coupled_block_id = block_id_from_name(coupled_block_name, coupled_mesh)
     element_type = Exodus.read_block_parameters(coupled_mesh, coupled_block_id)[1]
     coupled_side_set_name = bc_params["source side set"]
     coupled_side_set_id = side_set_id_from_name(coupled_side_set_name, coupled_mesh)
-    coupled_local_from_global_map =
-        get_side_set_local_from_global_map(coupled_mesh, coupled_side_set_id)[1]
     coupled_nodes_indices = Vector{Vector{Int64}}(undef, 0)
     interpolation_function_values = Vector{Vector{Float64}}(undef, 0)
     tol = 1.0e-06
@@ -232,12 +219,12 @@ end
 function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
     # The local basis is determined from a normal vector
     axis = bc.reference_normal
-    axis = axis/norm(axis)
+    axis = axis / norm(axis)
     e1 = [1.0, 0.0, 0.0]
-    w = cross(axis,e1)
+    w = cross(axis, e1)
     s = norm(w)
     θ = asin(s)
-    m = w/s
+    m = w / s
     rv = θ * m
     # Rotation is converted via the psuedo vector to rotation matrix
     bc.rotation_matrix = MiniTensor.rt_from_rv(rv)
@@ -259,9 +246,9 @@ function apply_bc(model::SolidMechanics, bc::SMDirichletInclined)
 
         # Rotate the local displacements to the global frame
 
-        disp_vector_local = [ disp_val_loc, 0, 0 ] 
-        velo_vector_local= [ velo_val_loc, 0, 0 ]
-        accel_vector_local= [ acce_val_loc, 0, 0 ]
+        disp_vector_local = [disp_val_loc, 0, 0]
+        velo_vector_local = [velo_val_loc, 0, 0]
+        accel_vector_local = [acce_val_loc, 0, 0]
         disp_vector_glob = bc.rotation_matrix' * disp_vector_local
         velo_vector_glob = bc.rotation_matrix' * velo_vector_local
         accel_vector_glob = bc.rotation_matrix' * accel_vector_local
@@ -512,27 +499,27 @@ function local_traction_from_global_force(
     return local_traction
 end
 
-function compute_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
-    src_side_set_id = bc.coupled_side_set_id
-    src_model = bc.coupled_subsim.model
-    dst_side_set_id = bc.side_set_id
+function update_transfer_operator(dst_model::SolidMechanics, dst_bc::SchwarzBoundaryCondition)
+    src_side_set_id = dst_bc.coupled_side_set_id
+    src_model = dst_bc.coupled_subsim.model
+    dst_side_set_id = dst_bc.side_set_id
     square_projection_matrix =
         get_square_projection_matrix(src_model, src_side_set_id)
     rectangular_projection_matrix =
         get_rectangular_projection_matrix(src_model, src_side_set_id, dst_model, dst_side_set_id)
-    bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
+    dst_bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
 end
 
-function get_dst_traction(bc::SchwarzBoundaryCondition)
-    src_mesh = bc.coupled_subsim.model.mesh
-    src_side_set_id = bc.coupled_side_set_id
-    src_global_force = -bc.coupled_subsim.model.internal_force
+function get_dst_traction(dst_bc::SchwarzBoundaryCondition)
+    src_mesh = dst_bc.coupled_subsim.model.mesh
+    src_side_set_id = dst_bc.coupled_side_set_id
+    src_global_force = -dst_bc.coupled_subsim.model.internal_force
     src_local_traction = local_traction_from_global_force(src_mesh, src_side_set_id, src_global_force)
-    num_dst_nodes = size(bc.transfer_operator, 1)
+    num_dst_nodes = size(dst_bc.transfer_operator, 1)
     dst_traction = zeros(3, num_dst_nodes)
-    dst_traction[1, :] = bc.transfer_operator * src_local_traction[1, :]
-    dst_traction[2, :] = bc.transfer_operator * src_local_traction[2, :]
-    dst_traction[3, :] = bc.transfer_operator * src_local_traction[3, :]
+    dst_traction[1, :] = dst_bc.transfer_operator * src_local_traction[1, :]
+    dst_traction[2, :] = dst_bc.transfer_operator * src_local_traction[2, :]
+    dst_traction[3, :] = dst_bc.transfer_operator * src_local_traction[3, :]
     return dst_traction
 end
 
