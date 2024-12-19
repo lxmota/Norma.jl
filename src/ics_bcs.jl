@@ -500,28 +500,27 @@ function local_traction_from_global_force(
     return local_traction
 end
 
-function update_transfer_operator(dst_model::SolidMechanics, bc::SchwarzBoundaryCondition)
-    @debug "**** Computing transfer operator, kinematics : $(dst_model.kinematics)"
-    src_side_set_id = bc.coupled_side_set_id
-    src_model = bc.coupled_subsim.model
-    dst_side_set_id = bc.side_set_id
+function update_transfer_operator(dst_model::SolidMechanics, dst_bc::SchwarzBoundaryCondition)
+    src_side_set_id = dst_bc.coupled_side_set_id
+    src_model = dst_bc.coupled_subsim.model
+    dst_side_set_id = dst_bc.side_set_id
     square_projection_matrix =
         get_square_projection_matrix(src_model, src_side_set_id)
     rectangular_projection_matrix =
         get_rectangular_projection_matrix(src_model, src_side_set_id, dst_model, dst_side_set_id)
-    bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
+    dst_bc.transfer_operator = rectangular_projection_matrix * (square_projection_matrix \ I)
 end
 
-function get_dst_traction(bc::SchwarzBoundaryCondition)
-    src_mesh = bc.coupled_subsim.model.mesh
-    src_side_set_id = bc.coupled_side_set_id
-    src_global_force = -bc.coupled_subsim.model.internal_force
+function get_dst_traction(dst_bc::SchwarzBoundaryCondition)
+    src_mesh = dst_bc.coupled_subsim.model.mesh
+    src_side_set_id = dst_bc.coupled_side_set_id
+    src_global_force = -dst_bc.coupled_subsim.model.internal_force
     src_local_traction = local_traction_from_global_force(src_mesh, src_side_set_id, src_global_force)
-    num_dst_nodes = size(bc.transfer_operator, 1)
+    num_dst_nodes = size(dst_bc.transfer_operator, 1)
     dst_traction = zeros(3, num_dst_nodes)
-    dst_traction[1, :] = bc.transfer_operator * src_local_traction[1, :]
-    dst_traction[2, :] = bc.transfer_operator * src_local_traction[2, :]
-    dst_traction[3, :] = bc.transfer_operator * src_local_traction[3, :]
+    dst_traction[1, :] = dst_bc.transfer_operator * src_local_traction[1, :]
+    dst_traction[2, :] = dst_bc.transfer_operator * src_local_traction[2, :]
+    dst_traction[3, :] = dst_bc.transfer_operator * src_local_traction[3, :]
     return dst_traction
 end
 
