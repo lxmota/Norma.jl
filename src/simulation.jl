@@ -91,7 +91,7 @@ function MultiDomainSimulation(params::Dict{Any,Any})
         subsim = SingleDomainSimulation(subparams)
         params[domain_name] = subsim.params
         subsim_type =
-            is_static_or_dynamic(subsim.integrator) * " " * subparams["model"]["type"]
+            get_analysis_type(subsim.integrator) * " " * subparams["model"]["type"]
         if sim_type == "none"
             sim_type = subsim_type
         elseif subsim_type ≠ sim_type

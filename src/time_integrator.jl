@@ -160,19 +160,7 @@ function create_time_integrator(params::Dict{Any,Any})
     end
 end
 
-function is_static_or_dynamic(integrator_name::String)
-    if integrator_name == "quasi static"
-        return "static"
-    elseif integrator_name == "Newmark"
-        return "dynamic"
-    elseif integrator_name == "central difference"
-        return "dynamic"
-    else
-        error("Unknown type of time integrator : ", integrator_name)
-    end
-end
-
-function is_static_or_dynamic(integrator::TimeIntegrator)
+function get_analysis_type(integrator::TimeIntegrator)
     integrator_type = typeof(integrator)
     if integrator_type == QuasiStatic
         return "static"
@@ -189,6 +177,9 @@ function initialize(integrator::QuasiStatic, solver::Any, model::SolidMechanics)
     if integrator.initial_equilibrium == true
         println("Establishing initial equilibrium")
         solve(integrator, solver, model)
+        if model.failed == true
+            error("Finite element model failed to establish initial equlibrium")
+        end
     end
 end
 
@@ -204,8 +195,10 @@ function initialize(integrator::Newmark, solver::HessianMinimizer, model::SolidM
     println("Computing initial acceleration")
     copy_solution_source_targets(model, integrator, solver)
     free = model.free_dofs
-    stored_energy, internal_force, external_force, _, mass_matrix =
-        evaluate(integrator, model)
+    stored_energy, internal_force, external_force, _, mass_matrix = evaluate(integrator, model)
+    if model.failed == true
+        error("The finite element model has failed to initialize")
+    end
     inertial_force = external_force - internal_force
     kinetic_energy = 0.5 * dot(integrator.velocity, mass_matrix, integrator.velocity)
     integrator.kinetic_energy = kinetic_energy
@@ -256,6 +249,9 @@ function initialize(
     free = model.free_dofs
     set_time_step(integrator, model)
     stored_energy, internal_force, external_force, lumped_mass = evaluate(integrator, model)
+    if model.failed == true
+        error("The finite element model has failed to initialize")
+    end
     kinetic_energy = 0.5 * lumped_mass ⋅ (integrator.velocity .* integrator.velocity)
     integrator.kinetic_energy = kinetic_energy
     integrator.stored_energy = stored_energy

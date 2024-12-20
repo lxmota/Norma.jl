@@ -206,23 +206,18 @@ end
 
 function synchronize(sim::MultiDomainSimulation)
     time = sim.schwarz_controller.prev_time
-    stop = 0
+    subsim_stop = 0
     for subsim ∈ sim.subsims
         subsim.integrator.time = subsim.model.time = time
-        subsim.integrator.stop = stop
+        subsim.integrator.stop = subsim_stop
     end
 end
 
 function advance_time(sim::SingleDomainSimulation)
+    sim.integrator.prev_time = sim.integrator.time
     next_time = round(sim.integrator.time + sim.integrator.time_step; digits=12)
     sim.integrator.time = sim.model.time = next_time
     sim.integrator.stop += 1
-end
-
-function regress_time(sim::SingleDomainSimulation)
-    prev_time = sim.integrator.prev_time
-    sim.integrator.time = sim.model.time = prev_time
-    sim.integrator.stop -= 1
 end
 
 function advance_time(sim::MultiDomainSimulation)
@@ -231,4 +226,10 @@ function advance_time(sim::MultiDomainSimulation)
         round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=12)
     sim.schwarz_controller.time = next_time
     sim.schwarz_controller.stop += 1
+end
+
+function regress_time(sim::SingleDomainSimulation)
+    prev_time = sim.integrator.prev_time
+    sim.integrator.time = sim.model.time = prev_time
+    sim.integrator.stop -= 1
 end
