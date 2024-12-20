@@ -526,13 +526,13 @@ function evaluate(integrator::TimeIntegrator, model::SolidMechanics)
 
     if model.inclined_support == true
         # For inclined DBCs
-        T_local = Matrix(Diagonal(ones(num_dof)))
+        local_rotation = Matrix{Float64}(I, num_dof, num_dof)
         for (corresponding_bc_idx, inc_support_node_idx) in zip(inclined_support_bc_indices, inclined_support_node_indices)
-            T_nodal = model.boundary_conditions[corresponding_bc_idx].rotation_matrix
+            nodal_rotation = model.boundary_conditions[corresponding_bc_idx].rotation_matrix
             base = 3 * (inc_support_node_idx - 1) # Block index in global stiffness
-            T_local[base+1:base+3, base+1:base+3] *= T_nodal
+            local_rotation[base+1:base+3, base+1:base+3] *= nodal_rotation
         end
-        model.global_transform = sparse(T_local)
+        model.global_transform = sparse(local_rotation)
     end
 
     if typeof(integrator) == QuasiStatic || typeof(integrator) == Newmark
