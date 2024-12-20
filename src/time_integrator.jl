@@ -160,7 +160,7 @@ function create_time_integrator(params::Dict{Any,Any})
     end
 end
 
-function is_static_or_dynamic(integrator::TimeIntegrator)
+function get_analysis_type(integrator::TimeIntegrator)
     integrator_type = typeof(integrator)
     if integrator_type == QuasiStatic
         return "static"
