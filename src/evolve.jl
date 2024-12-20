@@ -206,10 +206,10 @@ end
 
 function synchronize(sim::MultiDomainSimulation)
     time = sim.schwarz_controller.prev_time
-    stop = 0
+    subsim_stop = 0
     for subsim ∈ sim.subsims
         subsim.integrator.time = subsim.model.time = time
-        subsim.integrator.stop = stop
+        subsim.integrator.stop = subsim_stop
     end
 end
 
