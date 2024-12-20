@@ -248,7 +248,7 @@ block 10 volume 2 3 5 6 1 4 7
 #{ratioSizeCoarseFine = 2}
 #{sizeElementFine = (sizeElementCoarse) / (ratioSizeCoarseFine)}
 ##{ratioSizeCoarseMedium = 3} #IKT 11/5/2024: this was orig resolution
-#{ratioSizeCoarseMedium = 1 
+#{ratioSizeCoarseMedium = 1} 
 #{sizeElementMedium = (sizeElementCoarse) / (ratioSizeCoarseMedium)}
 
 
