@@ -371,8 +371,7 @@ function copy_solution_source_targets(
 end
 
 function evaluate(integrator::QuasiStatic, solver::HessianMinimizer, model::SolidMechanics)
-    stored_energy, internal_force, body_force, stiffness_matrix =
-        evaluate(integrator, model)
+    stored_energy, internal_force, body_force, stiffness_matrix = evaluate(integrator, model)
     if model.failed == true
         return
     end
@@ -400,8 +399,7 @@ function evaluate(integrator::QuasiStatic, solver::SteepestDescent, model::Solid
 end
 
 function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMechanics)
-    stored_energy, internal_force, body_force, stiffness_matrix, mass_matrix =
-        evaluate(integrator, model)
+    stored_energy, internal_force, body_force, stiffness_matrix, mass_matrix = evaluate(integrator, model)
     if model.failed == true
         return
     end
@@ -422,11 +420,7 @@ function evaluate(integrator::Newmark, solver::HessianMinimizer, model::SolidMec
     solver.gradient = internal_force - external_force + inertial_force
 end
 
-function evaluate(
-    integrator::CentralDifference,
-    solver::ExplicitSolver,
-    model::SolidMechanics,
-)
+function evaluate(integrator::CentralDifference, solver::ExplicitSolver, model::SolidMechanics)
     stored_energy, internal_force, body_force, lumped_mass = evaluate(integrator, model)
     if model.failed == true
         return
