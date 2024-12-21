@@ -291,7 +291,7 @@ function correct(
     copy_solution_source_targets(integrator, solver, model)
 end
 
-function initialize_writing(params::Dict{Any,Any}, integrator::TimeIntegrator, model::SolidMechanics)
+function initialize_writing(params::Dict{Any,Any}, integrator::TimeIntegrator, _::SolidMechanics)
     is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
     output_mesh = params["output_mesh"]
     num_node_vars = Exodus.read_number_of_variables(output_mesh, NodalVariable)
