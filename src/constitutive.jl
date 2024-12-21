@@ -125,20 +125,6 @@ mutable struct Neohookean <: Solid
     end
 end
 
-mutable struct NeohookeanAD <: Solid
-    E::Float64
-    ν::Float64
-    κ::Float64
-    λ::Float64
-    μ::Float64
-    ρ::Float64
-    function NeohookeanAD(params::Dict{Any,Any})
-        E, ν, κ, λ, μ = elastic_constants(params)
-        ρ = params["density"]
-        new(E, ν, κ, λ, μ, ρ)
-    end
-end
-
 mutable struct SethHill <: Solid
     E::Float64
     ν::Float64
@@ -546,33 +532,6 @@ function constitutive(material::Neohookean, F::Matrix{Float64})
     return W, P, AA
 end
 
-function energy_neohookean(F::Matrix{Float64}, material::NeohookeanAD)
-    C = F' * F
-    J2 = det(C)
-    Jm23 = 1.0 / cbrt(J2)
-    trC = tr(C)
-    κ = material.κ
-    μ = material.μ
-    Wvol = 0.25 * κ * (J2 - log(J2) - 1)
-    Wdev = 0.5 * μ * (Jm23 * trC - 3)
-    W = Wvol + Wdev
-    return W
-end
-
-function constitutive(material::NeohookeanAD, F::Matrix{Float64})
-    C = F' * F
-    J2 = det(C)
-    Jm23 = 1.0 / cbrt(J2)
-    trC = tr(C)
-    κ = material.κ
-    μ = material.μ
-    Wvol = 0.25 * κ * (J2 - log(J2) - 1)
-    Wdev = 0.5 * μ * (Jm23 * trC - 3)
-    energy(F) = Wvol + Wdev
-    W, P, AA = constitutive(material, energy, F)
-    return W, P, AA
-end
-
 function constitutive(material::SethHill, F::Matrix{Float64})
     C = F' * F
     F⁻ᵀ = inv(F)'
@@ -608,8 +567,6 @@ function create_material(params::Dict{Any,Any})
         return SaintVenant_Kirchhoff(params)
     elseif model_name == "neohookean"
         return Neohookean(params)
-    elseif model_name == "neohookeanAD"
-        return NeohookeanAD(params)
     elseif model_name == "seth-hill"
         return SethHill(params)
     else
@@ -623,8 +580,6 @@ function get_kinematics(material::Solid)
     elseif typeof(material) == SaintVenant_Kirchhoff
         return Finite
     elseif typeof(material) == Neohookean
-        return Finite
-    elseif typeof(material) == NeohookeanAD
         return Finite
     elseif typeof(material) == SethHill
         return Finite
