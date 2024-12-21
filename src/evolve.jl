@@ -185,7 +185,7 @@ end
 function watch_keep_time(sim::MultiDomainSimulation)
     synchronize(sim)
     stop = sim.schwarz_controller.stop
-    initial_time = sim.schwarz_controller.time - sim.schwarz_controller.time_step
+    initial_time = sim.schwarz_controller.prev_time
     final_time = sim.schwarz_controller.time
     if stop == 0
         @printf("Initializing run at stop 0 with time = %6.2e\n", final_time)
@@ -229,7 +229,6 @@ function advance_time(sim::MultiDomainSimulation)
 end
 
 function regress_time(sim::SingleDomainSimulation)
-    prev_time = sim.integrator.prev_time
-    sim.integrator.time = sim.model.time = prev_time
+    sim.integrator.time = sim.model.time = sim.integrator.prev_time
     sim.integrator.stop -= 1
 end
