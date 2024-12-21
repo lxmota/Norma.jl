@@ -160,6 +160,14 @@ function create_time_integrator(params::Dict{String,Any})
     end
 end
 
+function is_static(integrator::TimeIntegrator)
+    return integrator == QuasiStatic
+end
+
+function is_dynamic(integrator::TimeIntegrator)
+    return is_static(integrator) == false
+end
+
 function get_analysis_type(integrator::TimeIntegrator)
     integrator_type = typeof(integrator)
     if integrator_type == QuasiStatic
@@ -302,8 +310,7 @@ function initialize_writing(params::Dict{String,Any}, integrator::TimeIntegrator
     refe_y_index = num_node_vars + 2
     refe_z_index = num_node_vars + 3
     num_node_vars += 3
-    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
-    if is_dynamic == true
+    if is_dynamic(integrator) == true
         velo_x_index = num_node_vars + 1
         velo_y_index = num_node_vars + 2
         velo_z_index = num_node_vars + 3
@@ -320,7 +327,7 @@ function initialize_writing(params::Dict{String,Any}, integrator::TimeIntegrator
     Exodus.write_name(output_mesh, NodalVariable, Int32(disp_x_index), "disp_x")
     Exodus.write_name(output_mesh, NodalVariable, Int32(disp_y_index), "disp_y")
     Exodus.write_name(output_mesh, NodalVariable, Int32(disp_z_index), "disp_z")
-    if is_dynamic == true
+    if is_dynamic(integrator) == true
         Exodus.write_name(output_mesh, NodalVariable, Int32(velo_x_index), "velo_x")
         Exodus.write_name(output_mesh, NodalVariable, Int32(velo_y_index), "velo_y")
         Exodus.write_name(output_mesh, NodalVariable, Int32(velo_z_index), "velo_z")
@@ -444,8 +451,7 @@ function write_step_csv(integrator::TimeIntegrator, model::SolidMechanics, sim_i
     writedlm(time_filename, integrator.time, '\n')
     potential_filename = sim_id_string * "potential" * index_string * ".csv"
     writedlm(potential_filename, integrator.stored_energy, '\n')
-    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
-    if is_dynamic == true
+    if is_dynamic(integrator) == true
         velo_filename = sim_id_string * "velo" * index_string * ".csv"
         writedlm_nodal_array(velo_filename, model.velocity)
         acce_filename = sim_id_string * "acce" * index_string * ".csv"
@@ -474,8 +480,7 @@ function write_step_exodus(params::Dict{String,Any}, integrator::TimeIntegrator,
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_x", disp_x)
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_y", disp_y)
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_z", disp_z)
-    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
-    if is_dynamic == true
+    if is_dynamic(integrator) == true
         velocity = model.velocity
         velo_x = velocity[1, :]
         velo_y = velocity[2, :]
