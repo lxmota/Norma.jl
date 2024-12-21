@@ -167,7 +167,7 @@ using Printf
 function watch_keep_time(sim::SingleDomainSimulation)
     synchronize(sim)
     stop = sim.integrator.stop
-    initial_time = sim.integrator.time - sim.integrator.time_step
+    initial_time = sim.integrator.prev_time
     final_time = sim.integrator.time
     if stop == 0
         @printf("Initializing run at stop 0 with time = %6.2e\n", final_time)
@@ -222,8 +222,7 @@ end
 
 function advance_time(sim::MultiDomainSimulation)
     sim.schwarz_controller.prev_time = sim.schwarz_controller.time
-    next_time =
-        round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=12)
+    next_time = round(sim.schwarz_controller.time + sim.schwarz_controller.time_step, digits=12)
     sim.schwarz_controller.time = next_time
     sim.schwarz_controller.stop += 1
 end
