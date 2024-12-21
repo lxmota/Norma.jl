@@ -292,7 +292,6 @@ function correct(
 end
 
 function initialize_writing(params::Dict{String,Any}, integrator::TimeIntegrator, _::SolidMechanics)
-    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
     output_mesh = params["output_mesh"]
     num_node_vars = Exodus.read_number_of_variables(output_mesh, NodalVariable)
     disp_x_index = num_node_vars + 1
@@ -303,6 +302,7 @@ function initialize_writing(params::Dict{String,Any}, integrator::TimeIntegrator
     refe_y_index = num_node_vars + 2
     refe_z_index = num_node_vars + 3
     num_node_vars += 3
+    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
     if is_dynamic == true
         velo_x_index = num_node_vars + 1
         velo_y_index = num_node_vars + 2
@@ -428,45 +428,30 @@ function write_step(params::Dict{String,Any}, integrator::Any, model::Any)
     end
 end
 
-function write_step_csv(integrator::StaticTimeIntegrator, model::SolidMechanics, sim_id::Integer)
+function write_step_csv(integrator::TimeIntegrator, model::SolidMechanics, sim_id::Integer)
     stop = integrator.stop
-    index_string = "-" * string(stop, pad=4)
-    sim_id_string = string(sim_id, pad=2) * "-"
-    curr_filename = sim_id_string * "curr" * index_string * ".csv"
-    disp_filename = sim_id_string * "disp" * index_string * ".csv"
-    potential_filename = sim_id_string * "potential" * index_string * ".csv"
-    time_filename = sim_id_string * "time" * index_string * ".csv"
-    writedlm_nodal_array(curr_filename, model.current)
-    writedlm_nodal_array(disp_filename, model.current - model.reference)
-    writedlm(potential_filename, integrator.stored_energy, '\n')
-    writedlm(time_filename, integrator.time, '\n')
     if stop == 0
         refe_filename = sim_id_string * "refe" * ".csv"
         writedlm_nodal_array(refe_filename, model.reference)
     end
-end
-
-function write_step_csv(integrator::DynamicTimeIntegrator, model::SolidMechanics, sim_id::Integer)
-    stop = integrator.stop
     index_string = "-" * string(stop, pad=4)
     sim_id_string = string(sim_id, pad=2) * "-"
     curr_filename = sim_id_string * "curr" * index_string * ".csv"
-    disp_filename = sim_id_string * "disp" * index_string * ".csv"
-    velo_filename = sim_id_string * "velo" * index_string * ".csv"
-    acce_filename = sim_id_string * "acce" * index_string * ".csv"
-    time_filename = sim_id_string * "time" * index_string * ".csv"
-    potential_filename = sim_id_string * "potential" * index_string * ".csv"
-    kinetic_filename = sim_id_string * "kinetic" * index_string * ".csv"
     writedlm_nodal_array(curr_filename, model.current)
-    writedlm_nodal_array(velo_filename, model.velocity)
-    writedlm_nodal_array(acce_filename, model.acceleration)
+    disp_filename = sim_id_string * "disp" * index_string * ".csv"
     writedlm_nodal_array(disp_filename, model.current - model.reference)
-    writedlm(potential_filename, integrator.stored_energy, '\n')
-    writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
+    time_filename = sim_id_string * "time" * index_string * ".csv"
     writedlm(time_filename, integrator.time, '\n')
-    if stop == 0
-        refe_filename = sim_id_string * "refe" * ".csv"
-        writedlm_nodal_array(refe_filename, model.reference)
+    potential_filename = sim_id_string * "potential" * index_string * ".csv"
+    writedlm(potential_filename, integrator.stored_energy, '\n')
+    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
+    if is_dynamic == true
+        velo_filename = sim_id_string * "velo" * index_string * ".csv"
+        writedlm_nodal_array(velo_filename, model.velocity)
+        acce_filename = sim_id_string * "acce" * index_string * ".csv"
+        writedlm_nodal_array(acce_filename, model.acceleration)
+        kinetic_filename = sim_id_string * "kinetic" * index_string * ".csv"
+        writedlm(kinetic_filename, integrator.kinetic_energy, '\n')
     end
 end
 
