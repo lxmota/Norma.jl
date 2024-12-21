@@ -2,7 +2,7 @@ include("constitutive.jl")
 include("interpolation.jl")
 include("ics_bcs.jl")
 
-function SolidMechanics(params::Dict{Any,Any})
+function SolidMechanics(params::Dict{String,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     coords = read_coordinates(input_mesh)
@@ -113,7 +113,7 @@ function SolidMechanics(params::Dict{Any,Any})
     )
 end
 
-function HeatConduction(params::Dict{Any,Any})
+function HeatConduction(params::Dict{String,Any})
     input_mesh = params["input_mesh"]
     model_params = params["model"]
     coords = read_coordinates(input_mesh)
@@ -196,7 +196,7 @@ function HeatConduction(params::Dict{Any,Any})
     )
 end
 
-function create_model(params::Dict{Any,Any})
+function create_model(params::Dict{String,Any})
     model_params = params["model"]
     model_name = model_params["type"]
     if model_name == "solid mechanics"

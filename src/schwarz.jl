@@ -1,4 +1,4 @@
-function SolidSchwarzController(params::Dict{Any,Any})
+function SolidSchwarzController(params::Dict{String,Any})
     num_domains = length(params["domains"])
     minimum_iterations = params["minimum iterations"]
     maximum_iterations = params["maximum iterations"]
@@ -81,7 +81,7 @@ function SolidSchwarzController(params::Dict{Any,Any})
     )
 end
 
-function create_schwarz_controller(params::Dict{Any,Any})
+function create_schwarz_controller(params::Dict{String,Any})
     type = params["subdomains type"]
     if type == "static solid mechanics" || type == "dynamic solid mechanics"
         return SolidSchwarzController(params)
