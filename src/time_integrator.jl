@@ -455,11 +455,7 @@ function write_step_csv(integrator::TimeIntegrator, model::SolidMechanics, sim_i
     end
 end
 
-function write_step_exodus(
-    params::Dict{String,Any},
-    integrator::StaticTimeIntegrator,
-    model::SolidMechanics,
-)
+function write_step_exodus(params::Dict{String,Any}, integrator::TimeIntegrator, model::SolidMechanics)
     time = integrator.time
     stop = integrator.stop
     time_index = stop + 1
@@ -478,6 +474,23 @@ function write_step_exodus(
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_x", disp_x)
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_y", disp_y)
     Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_z", disp_z)
+    is_dynamic = typeof(integrator) == Newmark || typeof(integrator) == CentralDifference
+    if is_dynamic == true
+        velocity = model.velocity
+        velo_x = velocity[1, :]
+        velo_y = velocity[2, :]
+        velo_z = velocity[3, :]
+        Exodus.write_values(output_mesh, NodalVariable, time_index, "velo_x", velo_x)
+        Exodus.write_values(output_mesh, NodalVariable, time_index, "velo_y", velo_y)
+        Exodus.write_values(output_mesh, NodalVariable, time_index, "velo_z", velo_z)
+        acceleration = model.acceleration
+        acce_x = acceleration[1, :]
+        acce_y = acceleration[2, :]
+        acce_z = acceleration[3, :]
+        Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_x", acce_x)
+        Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_y", acce_y)
+        Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_z", acce_z)    
+    end
     stress = model.stress
     stored_energy = model.stored_energy
     blocks = Exodus.read_sets(output_mesh, Block)
@@ -563,121 +576,5 @@ function write_step_exodus(
             "stored_energy",
             block_stored_energy,
         )
-    end
-end
-
-function write_step_exodus(
-    params::Dict{String,Any},
-    integrator::DynamicTimeIntegrator,
-    model::SolidMechanics,
-)
-    time = integrator.time
-    stop = integrator.stop
-    time_index = stop + 1
-    output_mesh = params["output_mesh"]
-    Exodus.write_time(output_mesh, time_index, time)
-    displacement = model.current - model.reference
-    refe_x = model.current[1, :]
-    refe_y = model.current[2, :]
-    refe_z = model.current[3, :]
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "refe_x", refe_x)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "refe_y", refe_y)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "refe_z", refe_z)
-    disp_x = displacement[1, :]
-    disp_y = displacement[2, :]
-    disp_z = displacement[3, :]
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_x", disp_x)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_y", disp_y)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "disp_z", disp_z)
-    velocity = model.velocity
-    velo_x = velocity[1, :]
-    velo_y = velocity[2, :]
-    velo_z = velocity[3, :]
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "velo_x", velo_x)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "velo_y", velo_y)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "velo_z", velo_z)
-    acceleration = model.acceleration
-    acce_x = acceleration[1, :]
-    acce_y = acceleration[2, :]
-    acce_z = acceleration[3, :]
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_x", acce_x)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_y", acce_y)
-    Exodus.write_values(output_mesh, NodalVariable, time_index, "acce_z", acce_z)
-    stress = model.stress
-    blocks = Exodus.read_sets(output_mesh, Block)
-    for (block, block_stress) ∈ zip(blocks, stress)
-        blk_id = block.id
-        element_type, num_blk_elems, _, _, _, _ =
-            Exodus.read_block_parameters(output_mesh, blk_id)
-        num_points = default_num_int_pts(element_type)
-        stress_xx = zeros(num_blk_elems, num_points)
-        stress_yy = zeros(num_blk_elems, num_points)
-        stress_zz = zeros(num_blk_elems, num_points)
-        stress_yz = zeros(num_blk_elems, num_points)
-        stress_xz = zeros(num_blk_elems, num_points)
-        stress_xy = zeros(num_blk_elems, num_points)
-        for blk_elem_index ∈ 1:num_blk_elems
-            element_stress = block_stress[blk_elem_index]
-            for point ∈ 1:num_points
-                point_stress = element_stress[point]
-                stress_xx[blk_elem_index, point] = point_stress[1]
-                stress_yy[blk_elem_index, point] = point_stress[2]
-                stress_zz[blk_elem_index, point] = point_stress[3]
-                stress_yz[blk_elem_index, point] = point_stress[4]
-                stress_xz[blk_elem_index, point] = point_stress[5]
-                stress_xy[blk_elem_index, point] = point_stress[6]
-            end
-        end
-        for point ∈ 1:num_points
-            ip_str = "_" * string(point)
-            Exodus.write_values(
-                output_mesh,
-                ElementVariable,
-                time_index,
-                Int64(blk_id),
-                "stress_xx" * ip_str,
-                stress_xx[:, point],
-            )
-            Exodus.write_values(
-                output_mesh,
-                ElementVariable,
-                time_index,
-                Int64(blk_id),
-                "stress_yy" * ip_str,
-                stress_yy[:, point],
-            )
-            Exodus.write_values(
-                output_mesh,
-                ElementVariable,
-                time_index,
-                Int64(blk_id),
-                "stress_zz" * ip_str,
-                stress_zz[:, point],
-            )
-            Exodus.write_values(
-                output_mesh,
-                ElementVariable,
-                time_index,
-                Int64(blk_id),
-                "stress_yz" * ip_str,
-                stress_yz[:, point],
-            )
-            Exodus.write_values(
-                output_mesh,
-                ElementVariable,
-                time_index,
-                Int64(blk_id),
-                "stress_xz" * ip_str,
-                stress_xz[:, point],
-            )
-            Exodus.write_values(
-                output_mesh,
-                ElementVariable,
-                time_index,
-                Int64(blk_id),
-                "stress_xy" * ip_str,
-                stress_xy[:, point],
-            )
-        end
     end
 end
